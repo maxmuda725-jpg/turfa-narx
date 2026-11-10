@@ -16,7 +16,23 @@ class ScanLine(
 )
 
 object ListParser {
-    private val ODD_DASH = Regex("[–—−‐‑]")
+    private val ODD_DASH = Regex("[–—−‐‑_~]")
+    private val DASH_SPACE_L = Regex("(\\d) +-(\\d)")
+    private val DASH_SPACE_R = Regex("(\\d)- +(\\d)")
+    private val CODEISH = Regex("[0-9OoОоIlІ|ЗзSsBbZ]+(?:-[0-9OoОоIlІ|ЗзSsBbZ]+)+")
+    private val LOOKALIKE = mapOf('O' to '0', 'o' to '0', 'О' to '0', 'о' to '0', 'I' to '1', 'l' to '1', 'І' to '1', '|' to '1',
+        'З' to '3', 'з' to '3', 'S' to '5', 's' to '5', 'B' to '8', 'b' to '6', 'Z' to '2')
+
+    /** Kamera xatolarini tuzatish: "43 -25" -> "43-25", "4З-2O" -> "43-20". */
+    fun normalize(row: String): String {
+        var l = ODD_DASH.replace(row, "-")
+        l = DASH_SPACE_L.replace(l, "$1-$2")
+        l = DASH_SPACE_R.replace(l, "$1-$2")
+        return CODEISH.replace(l) { m ->
+            val v = m.value
+            if (v.count { it.isDigit() } * 2 >= v.count { it != '-' }) v.map { LOOKALIKE[it] ?: it }.joinToString("") else v
+        }
+    }
     private val QTY_X = Regex("(?:^|\\s)(?:x|х|×|\\*)\\s*(\\d{1,5})(?!\\d)", RegexOption.IGNORE_CASE)
     private val QTY_UNIT = Regex("(?<![\\d-])(\\d{1,5})\\s*(?:ta|tа|dona|шт|sht|pcs|та|дона)\\b", RegexOption.IGNORE_CASE)
     private val QTY_ANY = Regex("(?<![\\d.,-])(\\d{1,4})(?![\\d.,-])")
@@ -68,7 +84,7 @@ object ListParser {
     fun parse(rows: List<String>, index: Map<String, List<Product>>, all: List<Product> = emptyList()): MutableList<ScanLine> {
         val out = ArrayList<ScanLine>()
         for (row in rows) {
-            val line = ODD_DASH.replace(row, "-")
+            val line = normalize(row)
             val toks = Search.tokens(line)
             var code = toks.firstOrNull { t ->
                 t.any { it.isDigit() } && (t.contains('-') || t.length >= 8) && index.containsKey(t)
@@ -84,8 +100,10 @@ object ListParser {
             }
             if (code == null) {
                 // Kodga o'xshash, lekin bazada yo'q — ko'rsatamiz, do'konchi o'zi hal qiladi
+                // Topilmadi — baribir ko'rsatamiz (raqami bor qator), do'konchi nima o'qilganini ko'radi
                 val guess = LOOKS_LIKE_CODE.find(line)?.value
-                if (guess != null) out += ScanLine(row.trim(), guess, emptyList(), null, qty(line, guess), false)
+                if (guess != null || (line.count { it.isDigit() } >= 2 && line.trim().length >= 3))
+                    out += ScanLine(row.trim(), guess ?: "kod?", emptyList(), null, if (guess != null) qty(line, guess) else 1, false)
                 continue
             }
             var cands: List<Product> = (suffixCands ?: index[code].orEmpty()).filter { it.donaList.isNotEmpty() }

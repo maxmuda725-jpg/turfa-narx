@@ -932,6 +932,26 @@ class MainActivity : Activity() {
                     }.show()
             }
         }
+        if (l.chosen == null && l.candidates.size <= 1) {
+            labels += "🔍 Qo'lda qidirish"
+            actions += {
+                val input = EditText(this).apply {
+                    hint = "Kod yoki nom"; isSingleLine = true; textSize = 20f
+                    setText(l.code.takeIf { it != "kod?" }.orEmpty())
+                }
+                val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+                AlertDialog.Builder(this).setTitle("Rasmda: ${l.raw.take(60)}").setView(wrap)
+                    .setPositiveButton("Qidirish") { _, _ ->
+                        val found = Search.run(all, input.text.toString()).filter { it.donaList.isNotEmpty() }.take(40)
+                        if (found.isEmpty()) toast("Topilmadi")
+                        else AlertDialog.Builder(this).setTitle("Tanlang")
+                            .setItems(found.map { "${it.name}\nOptom: ${it.optomText} · Dona: ${it.donaText}" }.toTypedArray()) { _, i ->
+                                l.chosen = found[i]; l.include = true; changed()
+                            }.show()
+                    }
+                    .setNegativeButton("Bekor", null).show()
+            }
+        }
         labels += "Sonini o'zgartirish (${group(l.count)} ta)"
         actions += {
             val input = EditText(this).apply {
