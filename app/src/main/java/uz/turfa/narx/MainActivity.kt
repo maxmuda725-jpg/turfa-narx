@@ -152,7 +152,7 @@ object Db {
             .filter { it > 0 }
         if (nums.isEmpty()) return "—"
         val lo = nums.min(); val hi = nums.max()
-        return if (lo == hi) fmt(lo) else "${group(lo)} – ${fmt(hi)}"
+        return if (lo == hi) fmt(lo) else "${group(lo)} / ${fmt(hi)}"
     }
 
     private fun split(line: String, d: Char): List<String> {
@@ -311,14 +311,21 @@ class MainActivity : Activity() {
         prices.addView(price("DONA", p.dona, GREEN), LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
         prices.addView(price("OPTOM", p.optom, BLUE), LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(6) })
         card.addView(prices, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+        if (p.dona.contains(" / ") || p.optom.contains(" / ")) card.addView(TextView(this).apply {
+            text = "Do'konga qarab farq qiladi, kassadan aniqlang"
+            textSize = 12f; setTextColor(Color.parseColor("#B26A00"))
+            setPadding(0, dp(6), 0, 0)
+        })
 
         val wrap = LinearLayout(this).apply { setPadding(dp(4), dp(5), dp(4), dp(5)) }
         wrap.addView(card, LinearLayout.LayoutParams(-1, -2))
         return wrap
     }
 
-    private fun price(label: String, v: String, color: Int): View =
-        LinearLayout(this).apply {
+    private fun price(label0: String, v: String, color: Int): View {
+        val two = v.contains(" / ")
+        val label = if (two) "$label0 · ⚠️ 2 xil narx" else label0
+        return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = box(Color.argb(28, Color.red(color), Color.green(color), Color.blue(color)), 10)
             setPadding(dp(10), dp(8), dp(10), dp(8))
@@ -326,9 +333,10 @@ class MainActivity : Activity() {
                 text = label; textSize = 11f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
             })
             addView(TextView(context).apply {
-                text = v; textSize = if (v.contains('–')) 15f else 19f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
+                text = v; textSize = if (two) 16f else 19f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
             })
         }
+    }
 
     private fun refresh() {
         val q = search.text.toString()
