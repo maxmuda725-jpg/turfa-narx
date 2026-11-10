@@ -50,7 +50,7 @@ const val SELLER_PIN = "1234"
 // Baza shu manzildan yuklanadi (GitHub). Tannarx bu faylda YO'Q.
 const val BASE_URL = "https://raw.githubusercontent.com/maxmuda725-jpg/turfa-narx/main/baza/products.csv"
 // Billz'ga qoralama yuboradigan server (Do'kon Yordamchisi, Lovable). Kalit telefonga bir marta kiritiladi.
-const val KASSA_API = "__KASSA_API__"
+const val KASSA_API = "https://do-kon-savdo-yordamchisi.lovable.app"
 // ==========================================================
 
 /** "17600" -> [17600];  "11200-17600" -> [11200, 17600] */
