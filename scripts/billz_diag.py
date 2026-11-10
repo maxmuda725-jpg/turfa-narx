@@ -33,15 +33,18 @@ def main():
     s, shops = req("GET", "/v1/shop?limit=50&page=1", token)
     turfa = next((x for x in (shops.get("shops") or []) if "turfa" in str(x.get("name", "")).lower()), {}) if isinstance(shops, dict) else {}
     print("Turfa shop:", turfa.get("name"), "| bor:", bool(turfa))
-    for label, q in [("notes (hammasi)", "limit=20&page=1"),
-                     ("notes (turfa)", f"limit=20&page=1&shop_id={turfa.get('id','')}")]:
-        s, d = req("GET", "/v2/order/notes?" + q, token)
-        print(f"\n=== {label}: HTTP {s}")
-        if isinstance(d, dict):
-            print("kalitlar:", list(d.keys()))
-            body = d.get("data", d)
-            print(json.dumps(slim(body), ensure_ascii=False, indent=1)[:4000])
-        else:
-            print(d)
+    sid = turfa.get("id", "")
+    cands = ["/v2/order-notes", "/v2/orders/notes", "/v2/notes", "/v2/order-note",
+             "/v2/order/postpones", "/v2/orders/postpone", "/v2/orders", "/v1/orders", "/v2/order/drafts",
+             "/v1/order/notes", "/v1/order-notes"]
+    for path in cands:
+        for q in ("limit=10&page=1", f"limit=10&page=1&shop_id={sid}"):
+            s, d = req("GET", f"{path}?{q}", token)
+            short = (json.dumps(slim(d.get("data", d)), ensure_ascii=False)[:1500] if isinstance(d, dict) else str(d)[:200])
+            keys = list(d.keys())[:8] if isinstance(d, dict) else "-"
+            print(f"\n=== GET {path}?{q.split('&shop')[0]}{' +shop' if 'shop' in q else ''}: HTTP {s} keys={keys}")
+            if s == 200: print(short)
+            else: print(short[:160])
+            if s != 200: break
 
 main()
