@@ -1,5 +1,10 @@
 name: APK yig'ish
-on: [push, workflow_dispatch]
+on:
+  push:
+    paths-ignore: ['baza/**', '*.md']
+  workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -10,7 +15,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.14.3' }
       - run: gradle assembleRelease
-      - uses: actions/upload-artifact@v4
-        with:
-          name: TurfaNarx-apk
-          path: app/build/outputs/apk/release/*.apk
+      - run: cp app/build/outputs/apk/release/*.apk TURFA-Narxlar.apk
+      - name: Release
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          gh release create "v1.${{ github.run_number }}" TURFA-Narxlar.apk \
+            --title "TUR-FA Narxlar v1.${{ github.run_number }}" \
+            --notes "Yangi versiya. Yuklab olib o'rnating." --latest
