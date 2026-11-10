@@ -33,9 +33,13 @@ def show(step, s, d, n=900):
 tok = req("POST", "/v1/auth/login", body={"secret_token": os.environ["BILLZ_SECRET_TOKEN"].strip()})[1]["data"]["access_token"]
 action = os.environ.get("ACTION", "create")
 
+def remove(oid):
+    show("cancel_postpone " + oid[:8], *req("PUT", "/v2/order/cancel_postpone", tok, {"order_id": oid}))
+    show("DELETE " + oid[:8], *req("DELETE", f"/v2/order/{oid}", tok))
+
+for old in filter(None, os.environ.get("ORDER_ID", "").split(",")):
+    remove(old.strip())
 if action == "delete":
-    oid = os.environ["ORDER_ID"].strip()
-    show("DELETE order", *req("DELETE", f"/v2/order/{oid}", tok))
     raise SystemExit
 
 s, shops = req("GET", "/v1/shop?limit=50&page=1", tok)
@@ -61,7 +65,8 @@ print("ORDER_ID:", oid)
 if not oid: raise SystemExit
 
 s, d = req("POST", f"/v2/order-product/{oid}", tok,
-           {"product_id": prod["id"], "sold_measurement_value": 1, "used_wholesale_price": False, "is_manual": False})
+           {"product_id": prod["id"], "sold_measurement_value": 1, "used_wholesale_price": False, "is_manual": False,
+            "response_type": "HTTP"})
 show("2) POST /v2/order-product", s, d)
 time.sleep(2)
 show("2b) GET /v2/order/{id} (tovar qo'shilgandan keyin)", *req("GET", f"/v2/order/{oid}", tok), n=1500)
@@ -74,3 +79,10 @@ show("4) GET /v2/order/{id} (kechiktirilgandan keyin)", *req("GET", f"/v2/order/
 s, d = req("GET", f"/v2/order-notes?limit=20&page=1&shop_id={shop['id']}", tok)
 mine = [o for o in (d.get("orders") or []) if o.get("id") == oid] if isinstance(d, dict) else []
 print("\n### 5) order-notes ichida bormi:", bool(mine), "| park:", mine[0].get("park_status") if mine else None, "| future:", mine[0].get("future_time") if mine else None)
+s, d = req("GET", f"/v1/postponed-orders?limit=20&page=1&shop_ids={shop['id']}", tok, channel=False)
+lst = (d.get("orders") or d.get("postponed_orders") or d.get("data") or []) if isinstance(d, dict) else []
+print("### 6) /v1/postponed-orders: HTTP", s, "| kalitlar:", list(d.keys())[:8] if isinstance(d, dict) else d[:200], "| soni:", len(lst) if isinstance(lst, list) else lst)
+if isinstance(lst, list):
+    for o in lst[:10]:
+        o2 = clean(o)
+        print("  -", json.dumps({k: o2.get(k) for k in ("id", "order_id", "order_number", "comment", "time", "user_name", "user", "cashbox_name", "total_price") if k in o2}, ensure_ascii=False)[:300])
