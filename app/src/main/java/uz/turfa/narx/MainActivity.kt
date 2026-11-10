@@ -39,7 +39,7 @@ const val SELLER_PIN = "1234"
 const val BASE_URL = "https://raw.githubusercontent.com/maxmuda725-jpg/turfa-narx/main/baza/products.csv"
 // ==========================================================
 
-data class Product(val name: String, val code: String, val barcode: String, val dona: String, val optom: String) {
+data class Product(val name: String, val code: String, val barcode: String, val dona: String, val optom: String, val qty: String) {
     val nameLower = name.lowercase()
     val tokens: Set<String> = Search.tokens(name) + Search.tokens(code) + Search.tokens(barcode)
 }
@@ -121,6 +121,7 @@ object Db {
         var iDona = idx("dona", "chakana", "retail", "розн")
         var iOptom = idx("optom", "ulgurji", "wholesale", "опт")
         val iBar = idx("shtrix", "barkod", "barcode", "баркод")
+        val iQty = idx("qoldiq", "soni", "количество", "qty")
 
         val hasHeader = iName >= 0 && iDona >= 0
         if (!hasHeader) { iName = 0; iCode = 1; iDona = 2; iOptom = 3 }
@@ -136,6 +137,7 @@ object Db {
                 barcode = if (iBar >= 0) c.getOrNull(iBar)?.trim().orEmpty() else "",
                 dona = money(c.getOrNull(iDona)),
                 optom = if (iOptom >= 0) money(c.getOrNull(iOptom)) else "—",
+                qty = if (iQty >= 0) c.getOrNull(iQty)?.trim().orEmpty() else "",
             )
         }
         return out
@@ -290,9 +292,21 @@ class MainActivity : Activity() {
             setTextColor(Color.parseColor("#1A1A1A"))
             typeface = Typeface.DEFAULT_BOLD
         })
-        if (p.code.isNotBlank()) card.addView(TextView(this).apply {
+        val sub = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        sub.addView(TextView(this).apply {
             text = p.code; textSize = 12f; setTextColor(Color.GRAY)
-        })
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        if (p.qty.isNotBlank()) {
+            val n = p.qty.toDoubleOrNull()?.toLong() ?: 0
+            val c = if (n > 0) Color.parseColor("#B26A00") else Color.parseColor("#C62828")
+            sub.addView(TextView(this).apply {
+                text = if (n > 0) "Qoldiq: ${group(n)} ta" else "Tugagan"
+                textSize = 13f; setTextColor(c); typeface = Typeface.DEFAULT_BOLD
+                background = box(Color.argb(30, Color.red(c), Color.green(c), Color.blue(c)), 8)
+                setPadding(dp(8), dp(3), dp(8), dp(3))
+            })
+        }
+        card.addView(sub, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
         val prices = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         prices.addView(price("DONA", p.dona, GREEN), LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
         prices.addView(price("OPTOM", p.optom, BLUE), LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(6) })
