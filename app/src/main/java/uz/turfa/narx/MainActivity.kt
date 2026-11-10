@@ -4,6 +4,8 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -20,6 +22,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
 import android.widget.TextView
@@ -31,6 +34,8 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.Executors
+import android.util.LruCache
 
 // ======================= SOZLAMALAR =======================
 // Do'konchilar kiradigan PIN
@@ -39,7 +44,7 @@ const val SELLER_PIN = "1234"
 const val BASE_URL = "https://raw.githubusercontent.com/maxmuda725-jpg/turfa-narx/main/baza/products.csv"
 // ==========================================================
 
-data class Product(val name: String, val code: String, val barcode: String, val dona: String, val optom: String, val qty: String) {
+data class Product(val name: String, val code: String, val barcode: String, val dona: String, val optom: String, val qty: String, val photo: String = "") {
     val nameLower = name.lowercase()
     val tokens: Set<String> = Search.tokens(name) + Search.tokens(code) + Search.tokens(barcode)
 }
@@ -122,6 +127,7 @@ object Db {
         var iOptom = idx("optom", "ulgurji", "wholesale", "опт")
         val iBar = idx("shtrix", "barkod", "barcode", "баркод")
         val iQty = idx("qoldiq", "soni", "количество", "qty")
+        val iPhoto = idx("rasm", "photo", "image", "фото")
 
         val hasHeader = iName >= 0 && iDona >= 0
         if (!hasHeader) { iName = 0; iCode = 1; iDona = 2; iOptom = 3 }
@@ -138,6 +144,7 @@ object Db {
                 dona = money(c.getOrNull(iDona)),
                 optom = if (iOptom >= 0) money(c.getOrNull(iOptom)) else "—",
                 qty = if (iQty >= 0) c.getOrNull(iQty)?.trim().orEmpty() else "",
+                photo = if (iPhoto >= 0) c.getOrNull(iPhoto)?.trim().orEmpty() else "",
             )
         }
         return out
@@ -172,6 +179,46 @@ object Db {
         }
         res += sb.toString()
         return res
+    }
+}
+
+/** Rasmni yuklaydi va telefonda saqlaydi: keyingi safar internetsiz chiqadi. */
+object Img {
+    private val pool = Executors.newFixedThreadPool(4)
+    private val mem = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
+        override fun sizeOf(k: String, b: Bitmap) = b.byteCount
+    }
+    private val ui = Handler(Looper.getMainLooper())
+
+    private fun file(ctx: Context, url: String, big: Boolean) =
+        File(File(ctx.cacheDir, "img").apply { mkdirs() }, (if (big) "b" else "s") + url.hashCode().toUInt())
+
+    fun load(ctx: Context, url: String, view: ImageView, big: Boolean = false) {
+        val key = (if (big) "b:" else "s:") + url
+        view.tag = key
+        mem.get(key)?.let { view.setImageBitmap(it); return }
+        view.setImageDrawable(null)
+        pool.execute {
+            val bmp = try {
+                val f = file(ctx, url, big)
+                if (!f.exists()) {
+                    val c = URL(url).openConnection() as HttpURLConnection
+                    c.connectTimeout = 10000; c.readTimeout = 20000
+                    val bytes = c.inputStream.use { it.readBytes() }; c.disconnect()
+                    val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
+                    val target = if (big) 1200 else 240
+                    var smp = 1
+                    while (o.outWidth / (smp * 2) >= target && o.outHeight / (smp * 2) >= target) smp *= 2
+                    val b = BitmapFactory.decodeByteArray(bytes, 0, bytes.size,
+                        BitmapFactory.Options().apply { inSampleSize = smp }) ?: return@execute
+                    f.outputStream().use { b.compress(Bitmap.CompressFormat.JPEG, if (big) 85 else 75, it) }
+                    b
+                } else BitmapFactory.decodeFile(f.path)
+            } catch (e: Exception) { null } ?: return@execute
+            mem.put(key, bmp)
+            ui.post { if (view.tag == key) view.setImageBitmap(bmp) }
+        }
     }
 }
 
@@ -287,7 +334,21 @@ class MainActivity : Activity() {
             background = box(Color.WHITE, 14)
             setPadding(dp(14), dp(12), dp(14), dp(12))
         }
-        card.addView(TextView(this).apply {
+        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        if (p.photo.isNotBlank()) {
+            val iv = ImageView(this).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = box(Color.parseColor("#EEEEEE"), 10)
+                clipToOutline = true
+                setOnClickListener { showPhoto(p) }
+            }
+            Img.load(this, p.photo, iv)
+            head.addView(iv, LinearLayout.LayoutParams(dp(72), dp(72)).apply { rightMargin = dp(12) })
+        }
+        val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        head.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
+        card.addView(head)
+        titleBox.addView(TextView(this).apply {
             text = p.name; textSize = 17f
             setTextColor(Color.parseColor("#1A1A1A"))
             typeface = Typeface.DEFAULT_BOLD
@@ -306,7 +367,7 @@ class MainActivity : Activity() {
                 setPadding(dp(8), dp(3), dp(8), dp(3))
             })
         }
-        card.addView(sub, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        titleBox.addView(sub, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
         val prices = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         prices.addView(price("DONA", p.dona, GREEN), LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
         prices.addView(price("OPTOM", p.optom, BLUE), LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(6) })
@@ -336,6 +397,15 @@ class MainActivity : Activity() {
                 text = v; textSize = if (two) 16f else 19f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
             })
         }
+    }
+
+    private fun showPhoto(p: Product) {
+        val iv = ImageView(this).apply { adjustViewBounds = true; setBackgroundColor(Color.WHITE) }
+        Img.load(this, p.photo, iv, big = true)
+        val d = AlertDialog.Builder(this).setTitle(p.name).setView(iv)
+            .setPositiveButton("Yopish", null).create()
+        iv.setOnClickListener { d.dismiss() }
+        d.show()
     }
 
     private fun refresh() {
