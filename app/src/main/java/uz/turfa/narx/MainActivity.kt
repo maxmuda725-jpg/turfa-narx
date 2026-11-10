@@ -911,7 +911,7 @@ class MainActivity : Activity() {
             labels += "Tovarni tanlash"
             actions += {
                 AlertDialog.Builder(this).setTitle(l.code)
-                    .setItems(l.candidates.map { "${it.name} — ${it.donaText}" }.toTypedArray()) { _, i ->
+                    .setItems(l.candidates.map { "${it.name}\nOptom: ${it.optomText} · Dona: ${it.donaText}" }.toTypedArray()) { _, i ->
                         l.chosen = l.candidates[i]; l.include = true; changed()
                     }.show()
             }

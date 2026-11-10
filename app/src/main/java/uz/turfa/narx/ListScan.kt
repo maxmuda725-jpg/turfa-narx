@@ -21,6 +21,17 @@ object ListParser {
     private val QTY_UNIT = Regex("(?<![\\d-])(\\d{1,5})\\s*(?:ta|tа|dona|шт|sht|pcs|та|дона)\\b", RegexOption.IGNORE_CASE)
     private val QTY_ANY = Regex("(?<![\\d.,-])(\\d{1,4})(?![\\d.,-])")
     private val LOOKS_LIKE_CODE = Regex("\\d+-\\d+")
+    // Narxga o'xshash son: "34 000", "34.000", "34,000", "34000"
+    private val PRICE = Regex("(?<![\\d-])(\\d{1,3}(?:[ .,\u00A0]\\d{3})+|\\d{4,9})(?![\\d-])")
+
+    /** Qatordagi narxga o'xshash sonlar (matni va qiymati). */
+    fun prices(line: String, code: String): List<Pair<String, Long>> {
+        val rest = line.lowercase().replace(code.lowercase(), " ")
+        return PRICE.findAll(rest).mapNotNull { m ->
+            val v = m.value.filter { it.isDigit() }.toLongOrNull()
+            if (v == null || v < 100) null else m.value to v
+        }.toList()
+    }
 
     /** Raqamli tokenlar bo'yicha indeks: "43-25" -> [tovarlar]. */
     fun index(all: List<Product>): Map<String, List<Product>> {
@@ -74,8 +85,25 @@ object ListParser {
                 val narrowed = cands.filter { p -> words.any { p.nameLower.contains(it) } }
                 if (narrowed.isNotEmpty()) cands = narrowed
             }
+            // Bir nechta tovar qolsa — ro'yxatdagi narx bo'yicha: avval OPTOM, keyin DONA
+            val ps = prices(line, code)
+            if (cands.size > 1 && ps.isNotEmpty()) {
+                val byOptom = cands.filter { p -> ps.any { it.second in p.optomList } }
+                val byDona = cands.filter { p -> ps.any { it.second in p.donaList } }
+                cands = when {
+                    byOptom.size == 1 -> byOptom
+                    byDona.size == 1 -> byDona
+                    byOptom.isNotEmpty() -> byOptom
+                    byDona.isNotEmpty() -> byDona
+                    else -> cands
+                }
+            }
             val chosen = cands.singleOrNull()
-            out += ScanLine(row.trim(), code, cands, chosen, qty(line, code), chosen != null)
+            // Narxni son (miqdor) deb o'qib qolmaslik uchun qatordan olib tashlaymiz
+            val known = cands.flatMap { it.optomList + it.donaList }.toHashSet()
+            var qline = line.lowercase()
+            for ((t, v) in ps) if (v in known || t.length >= 5) qline = qline.replace(t, " ")
+            out += ScanLine(row.trim(), code, cands, chosen, qty(qline, code), chosen != null)
         }
         return out
     }
