@@ -65,13 +65,22 @@ object ListParser {
         return out
     }
 
-    fun parse(rows: List<String>, index: Map<String, List<Product>>): MutableList<ScanLine> {
+    fun parse(rows: List<String>, index: Map<String, List<Product>>, all: List<Product> = emptyList()): MutableList<ScanLine> {
         val out = ArrayList<ScanLine>()
         for (row in rows) {
             val line = ODD_DASH.replace(row, "-")
             val toks = Search.tokens(line)
-            val code = toks.firstOrNull { t ->
+            var code = toks.firstOrNull { t ->
                 t.any { it.isDigit() } && (t.contains('-') || t.length >= 8) && index.containsKey(t)
+            }
+            var suffixCands: List<Product>? = null
+            if (code == null) {
+                // Qisqa kod: "8-8" -> "25-11-8-8" (faqat chiziqcha chegarasida)
+                val short = toks.firstOrNull { t -> t.contains('-') && t.any { it.isDigit() } }
+                if (short != null) {
+                    val hits = all.filter { p -> p.tokens.any { it.endsWith("-$short") } }
+                    if (hits.isNotEmpty()) { code = short; suffixCands = hits }
+                }
             }
             if (code == null) {
                 // Kodga o'xshash, lekin bazada yo'q — ko'rsatamiz, do'konchi o'zi hal qiladi
@@ -79,7 +88,7 @@ object ListParser {
                 if (guess != null) out += ScanLine(row.trim(), guess, emptyList(), null, qty(line, guess), false)
                 continue
             }
-            var cands: List<Product> = index[code].orEmpty().filter { it.donaList.isNotEmpty() }
+            var cands: List<Product> = (suffixCands ?: index[code].orEmpty()).filter { it.donaList.isNotEmpty() }
             if (cands.size > 1) {
                 val words = toks.filter { w -> w.length >= 3 && w.none { it.isDigit() } }
                 val narrowed = cands.filter { p -> words.any { p.nameLower.contains(it) } }

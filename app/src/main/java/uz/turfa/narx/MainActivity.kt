@@ -110,9 +110,19 @@ object Search {
      */
     fun matches(p: Product, words: List<String>): Boolean =
         words.all { w ->
-            if (w.any { it.isDigit() }) w in p.tokens
+            if (w.any { it.isDigit() }) codeHit(p, w) > 0
             else p.nameLower.contains(w)
         }
+
+    /**
+     * 2 = aniq kod (43-25), 1 = kodning oxiri chiziqcha chegarasida (8-8 -> 25-11-8-8), 0 = yo'q.
+     * 43-25 hech qachon 43-250 ni topmaydi.
+     */
+    fun codeHit(p: Product, w: String): Int = when {
+        w in p.tokens -> 2
+        w.contains('-') && p.tokens.any { it.endsWith("-$w") } -> 1
+        else -> 0
+    }
 
     /** "43-25" -> "43";  "25-7-44-7" -> "25-7-44";  defissiz kod -> null */
     fun series(w: String): String? {
@@ -154,7 +164,10 @@ object Search {
     fun run(all: List<Product>, query: String): List<Product> {
         val words = tokens(query).toList()
         if (words.isEmpty()) return emptyList()
-        return all.filter { matches(it, words) }.take(300)
+        val digitWords = words.filter { w -> w.any { it.isDigit() } }
+        return all.filter { matches(it, words) }
+            .sortedByDescending { p -> digitWords.sumOf { codeHit(p, it) } }   // aniq kodlar tepada
+            .take(300)
     }
 }
 
@@ -822,7 +835,7 @@ class MainActivity : Activity() {
                 wait.dismiss()
                 val idx = codeIndex ?: ListParser.index(all).also { codeIndex = it }
                 val ocr = vt.textBlocks.flatMap { b -> b.lines.map { OcrLine(it.text, it.boundingBox) } }
-                val lines = ListParser.parse(ListParser.rows(ocr), idx)
+                val lines = ListParser.parse(ListParser.rows(ocr), idx, all)
                 if (lines.isEmpty()) AlertDialog.Builder(this).setTitle("Kod topilmadi")
                     .setMessage("Rasmda tovar kodi (masalan 43-25) topilmadi. Ro'yxat aniq va yorug' joyda rasmga olinganini tekshiring.")
                     .setPositiveButton("OK", null).show()
