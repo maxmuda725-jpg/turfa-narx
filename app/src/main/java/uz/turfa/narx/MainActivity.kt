@@ -39,9 +39,9 @@ const val SELLER_PIN = "1234"
 const val BASE_URL = "https://raw.githubusercontent.com/maxmuda725-jpg/turfa-narx/main/baza/products.csv"
 // ==========================================================
 
-data class Product(val name: String, val code: String, val dona: Long, val optom: Long) {
+data class Product(val name: String, val code: String, val barcode: String, val dona: String, val optom: String) {
     val nameLower = name.lowercase()
-    val tokens: Set<String> = Search.tokens(name) + Search.tokens(code)
+    val tokens: Set<String> = Search.tokens(name) + Search.tokens(code) + Search.tokens(barcode)
 }
 
 object Search {
@@ -120,6 +120,7 @@ object Db {
         var iCode = idx("kod", "sku", "artikul", "артикул", "код")
         var iDona = idx("dona", "chakana", "retail", "розн")
         var iOptom = idx("optom", "ulgurji", "wholesale", "опт")
+        val iBar = idx("shtrix", "barkod", "barcode", "баркод")
 
         val hasHeader = iName >= 0 && iDona >= 0
         if (!hasHeader) { iName = 0; iCode = 1; iDona = 2; iOptom = 3 }
@@ -132,18 +133,24 @@ object Db {
             out += Product(
                 name = name,
                 code = if (iCode >= 0) c.getOrNull(iCode)?.trim().orEmpty() else "",
+                barcode = if (iBar >= 0) c.getOrNull(iBar)?.trim().orEmpty() else "",
                 dona = money(c.getOrNull(iDona)),
-                optom = if (iOptom >= 0) money(c.getOrNull(iOptom)) else 0L,
+                optom = if (iOptom >= 0) money(c.getOrNull(iOptom)) else "—",
             )
         }
         return out
     }
 
-    private fun money(s: String?): Long {
-        if (s == null) return 0
-        val clean = s.replace(" ", "").replace(" ", "").replace(",", ".")
-            .filter { it.isDigit() || it == '.' }
-        return clean.toDoubleOrNull()?.toLong() ?: 0
+    /** "17600" -> "17 600 so'm";  "11200-17600" -> "11 200 – 17 600 so'm" */
+    private fun money(s: String?): String {
+        if (s.isNullOrBlank()) return "—"
+        val nums = s.replace("\u00A0", "").replace(" ", "").replace(",", ".")
+            .split('-', '–')
+            .mapNotNull { it.filter { ch -> ch.isDigit() || ch == '.' }.toDoubleOrNull()?.toLong() }
+            .filter { it > 0 }
+        if (nums.isEmpty()) return "—"
+        val lo = nums.min(); val hi = nums.max()
+        return if (lo == hi) fmt(lo) else "${group(lo)} – ${fmt(hi)}"
     }
 
     private fun split(line: String, d: Char): List<String> {
@@ -166,11 +173,9 @@ object Db {
     }
 }
 
-fun fmt(n: Long): String {
-    if (n <= 0) return "—"
-    val s = n.toString().reversed().chunked(3).joinToString(" ").reversed()
-    return "$s so'm"
-}
+fun group(n: Long): String = n.toString().reversed().chunked(3).joinToString(" ").reversed()
+
+fun fmt(n: Long): String = if (n <= 0) "—" else group(n) + " so'm"
 
 class MainActivity : Activity() {
     private val GREEN = Color.parseColor("#0F7B5F")
@@ -298,7 +303,7 @@ class MainActivity : Activity() {
         return wrap
     }
 
-    private fun price(label: String, v: Long, color: Int): View =
+    private fun price(label: String, v: String, color: Int): View =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = box(Color.argb(28, Color.red(color), Color.green(color), Color.blue(color)), 10)
@@ -307,7 +312,7 @@ class MainActivity : Activity() {
                 text = label; textSize = 11f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
             })
             addView(TextView(context).apply {
-                text = fmt(v); textSize = 19f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
+                text = v; textSize = if (v.contains('–')) 15f else 19f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
             })
         }
 
@@ -316,7 +321,7 @@ class MainActivity : Activity() {
         shown = Search.run(all, q)
         info.text = when {
             all.isEmpty() -> "Baza bo'sh. Internetni yoqib 🔄 Yangilash ni bosing."
-            q.isBlank() -> "Baza: ${baseDate()} · ${all.size} ta mahsulot"
+            q.isBlank() -> "Baza yangilangan: ${baseDate()}"
             shown.isEmpty() -> "Topilmadi: \"${q.trim()}\""
             else -> "Topildi: ${shown.size} ta"
         }
@@ -340,7 +345,7 @@ class MainActivity : Activity() {
                 refreshBtn.text = "🔄 Yangilash"; refreshBtn.isEnabled = true
                 res.onSuccess { n ->
                     all = Db.load(this); refresh()
-                    if (!silent) toast("✅ Baza yangilandi: $n ta mahsulot")
+                    if (!silent) toast("✅ Baza yangilandi")
                 }.onFailure {
                     if (!silent) toast("Internet yo'q yoki baza topilmadi. Eski baza bilan ishlayapsiz.")
                 }
