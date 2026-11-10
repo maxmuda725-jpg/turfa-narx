@@ -34,23 +34,31 @@ def main():
     turfa = next((x for x in (shops.get("shops") or []) if "turfa" in str(x.get("name", "")).lower()), {}) if isinstance(shops, dict) else {}
     print("Turfa shop:", turfa.get("name"), "| bor:", bool(turfa))
     sid = turfa.get("id", "")
-    for q in ("limit=50&page=1", f"limit=50&page=1&shop_id={sid}"):
-        s, d = req("GET", f"/v2/order-notes?{q}", token)
-        print(f"\n=== /v2/order-notes {'+shop' if 'shop' in q else ''}: HTTP {s} count={d.get('count') if isinstance(d, dict) else '-'}")
-        orders = d.get("orders") if isinstance(d, dict) else None
-        if not orders: continue
-        print("order kalitlari:", sorted(orders[0].keys())[:60])
-        for o in orders[:30]:
-            prods = o.get("order_products") or o.get("products") or []
-            names = [str(p.get("product_name") or p.get("name") or (p.get("product") or {}).get("name") or "?")[:30] for p in prods][:4]
-            def g(*ks):
-                for k in ks:
-                    v = o.get(k)
-                    if isinstance(v, dict): v = v.get("name")
-                    if v not in (None, ""): return str(v)[:40]
-                return "-"
-            print(" |", g("created_at"), "| shop:", g("shop", "shop_name"), "| kassa:", g("cashbox", "cashbox_name"),
-                  "| xodim:", g("user", "user_name", "seller", "created_by"), "| turi:", g("order_type", "type", "status"),
-                  "| izoh:", g("comment"), "| tovar:", names)
+    from collections import Counter
+    allo = []
+    for page in range(1, 9):
+        s, d = req("GET", f"/v2/order-notes?limit=100&page={page}&shop_id={sid}", token)
+        o = (d.get("orders") or []) if isinstance(d, dict) else []
+        allo += o
+        if len(o) < 100: break
+    print("jami:", len(allo))
+    print("holatlar:", Counter((str(o.get("order_status")), str(o.get("park_status")), bool(o.get("deleted"))) for o in allo).most_common(15))
+    od = next((o.get("order_detail") for o in allo if isinstance(o.get("order_detail"), dict)), {})
+    print("order_detail kalitlari:", sorted(od.keys())[:70] if od else od)
+    def brief(o):
+        det = o.get("order_detail") or {}
+        prods = det.get("products") or det.get("order_products") or []
+        names = []
+        for p in prods[:3]:
+            if isinstance(p, dict): names.append(str(p.get("name") or p.get("product_name") or (p.get("product") or {}).get("name") or "?")[:25])
+        keep = {k: det.get(k) for k in ("created_at", "user_name", "seller_name", "cashbox_name", "shop_name", "comment", "future_time") if det.get(k)}
+        return {"id": str(o.get("id"))[:8], "num": o.get("order_number"), "status": o.get("order_status"), "park": o.get("park_status"),
+                "future": o.get("future_time"), "created": o.get("created_at") or o.get("created_at_utc"), "upd": o.get("updated_at"),
+                "del": o.get("deleted"), "det": keep, "tovar": names}
+    parked = [o for o in allo if o.get("park_status") not in (None, "", 0, "0", False) or o.get("future_time")]
+    print("\nkechiktirilgan/belgili:", len(parked))
+    for o in parked[:25]: print(json.dumps(brief(o), ensure_ascii=False)[:600])
+    print("\neng yangi 8 ta (updated_at bo'yicha):")
+    for o in sorted(allo, key=lambda o: str(o.get("updated_at") or ""), reverse=True)[:8]: print(json.dumps(brief(o), ensure_ascii=False)[:600])
 
 main()
