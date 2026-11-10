@@ -33,32 +33,26 @@ def main():
     s, shops = req("GET", "/v1/shop?limit=50&page=1", token)
     turfa = next((x for x in (shops.get("shops") or []) if "turfa" in str(x.get("name", "")).lower()), {}) if isinstance(shops, dict) else {}
     print("Turfa shop:", turfa.get("name"), "| bor:", bool(turfa))
-    sid = turfa.get("id", "")
-    from collections import Counter
     allo = []
     for page in range(1, 9):
-        s, d = req("GET", f"/v2/order-notes?limit=100&page={page}&shop_id={sid}", token)
+        s, d = req("GET", f"/v2/order-notes?limit=100&page={page}", token)
         o = (d.get("orders") or []) if isinstance(d, dict) else []
         allo += o
         if len(o) < 100: break
-    print("jami:", len(allo))
-    print("holatlar:", Counter((str(o.get("order_status")), str(o.get("park_status")), bool(o.get("deleted"))) for o in allo).most_common(15))
-    od = next((o.get("order_detail") for o in allo if isinstance(o.get("order_detail"), dict)), {})
-    print("order_detail kalitlari:", sorted(od.keys())[:70] if od else od)
-    def brief(o):
+    print("hamma do'konlar, jami:", len(allo))
+    hits = []
+    for o in allo:
         det = o.get("order_detail") or {}
-        prods = det.get("products") or det.get("order_products") or []
-        names = []
-        for p in prods[:3]:
-            if isinstance(p, dict): names.append(str(p.get("name") or p.get("product_name") or (p.get("product") or {}).get("name") or "?")[:25])
-        keep = {k: det.get(k) for k in ("created_at", "user_name", "seller_name", "cashbox_name", "shop_name", "comment", "future_time") if det.get(k)}
-        return {"id": str(o.get("id"))[:8], "num": o.get("order_number"), "status": o.get("order_status"), "park": o.get("park_status"),
-                "future": o.get("future_time"), "created": o.get("created_at") or o.get("created_at_utc"), "upd": o.get("updated_at"),
-                "del": o.get("deleted"), "det": keep, "tovar": names}
-    parked = [o for o in allo if o.get("park_status") not in (None, "", 0, "0", False) or o.get("future_time")]
-    print("\nkechiktirilgan/belgili:", len(parked))
-    for o in parked[:25]: print(json.dumps(brief(o), ensure_ascii=False)[:600])
-    print("\neng yangi 8 ta (updated_at bo'yicha):")
-    for o in sorted(allo, key=lambda o: str(o.get("updated_at") or ""), reverse=True)[:8]: print(json.dumps(brief(o), ensure_ascii=False)[:600])
+        c = str(det.get("created_at") or "")
+        if c.startswith("2026-11-10 15:") or c.startswith("2026-11-10 14:5") or "SINOV" in str(det.get("comment") or ""):
+            hits.append(o)
+    print("bugun 14:50–15:59 yoki SINOV izohli:", len(hits))
+    for o in hits:
+        det = o.get("order_detail") or {}
+        print(json.dumps({"id": str(o.get("id"))[:8], "num": o.get("order_number"), "type": o.get("order_type"),
+              "park": o.get("park_status"), "future": o.get("future_time"), "del": o.get("deleted"),
+              "created": det.get("created_at"), "shop": (det.get("shop") or {}).get("name") if isinstance(det.get("shop"), dict) else det.get("shop"),
+              "kassa": det.get("cashbox_name"), "izoh": str(det.get("comment") or "")[:60],
+              "jami_dona": det.get("total_products_measurement_value")}, ensure_ascii=False))
 
 main()
