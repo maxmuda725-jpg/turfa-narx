@@ -42,10 +42,12 @@ def main():
         if not opt:
             opt = [num(x.get("wholesale_price")) for x in p.get("product_supplier_stock") or []
                    if num(x.get("wholesale_price")) > 0]
-        photo = p.get("main_image_url") or p.get("main_image_url_full") or ""
-        if not photo:
-            ph = sorted(p.get("photos") or [], key=lambda x: (not x.get("is_main"), x.get("sequence") or 0))
-            photo = ph[0]["photo_url"] if ph else ""
+        ph = sorted(p.get("photos") or [], key=lambda x: (not x.get("is_main"), x.get("sequence") or 0))
+        cands = [p.get("main_image_url_full"), *[x.get("photo_url") for x in ph], p.get("main_image_url")]
+        photo = next((c for c in cands if c and str(c).startswith("http")), "")
+        if not photo and any(cands) and not globals().get("_shown"):
+            globals()["_shown"] = True
+            print("Rasm namunasi (to'liq havola emas):", [c for c in cands if c][:3])
         name = re.sub(r"\s+", " ", p.get("name") or "").strip()
         if not name: continue
         rows.append([name, (p.get("sku") or "").strip(), (p.get("barcode") or "").strip(),
