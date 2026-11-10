@@ -44,8 +44,14 @@ s, cb = req("GET", f"/v1/cash-box?shop_id={shop['id']}&limit=100", tok)
 boxes = cb.get("cash_boxes") or []
 print("Kassalar:", [(b.get("name"), b.get("is_active")) for b in boxes])
 box = next((b for b in boxes if b.get("is_active") is not False), boxes[0])
-s, pr = req("GET", "/v2/products?search=WKX-54801&fields=sku&limit=5&page=1", tok)
-prod = next(p for p in pr["products"] if p.get("sku") == "WKX-54801")
+prod = None
+for q in ("search=WKX-54801&limit=20&page=1", "search=2000000009742&limit=20&page=1", "search=SHAR%20CHOP&limit=20&page=1"):
+    s, pr = req("GET", "/v2/products?" + q, tok, channel=False)
+    lst = (pr.get("products") or []) if isinstance(pr, dict) else []
+    print("qidiruv", q.split("&")[0], "HTTP", s, "topildi", len(lst))
+    prod = next((p for p in lst if p.get("sku") == "WKX-54801" or p.get("barcode") == "2000000009742"), None)
+    if prod: break
+if not prod: raise SystemExit("SHAR CHOP topilmadi")
 print("Tovar:", prod["name"], prod["id"][:8])
 
 s, d = req("POST", "/v2/order", tok, {"shop_id": shop["id"], "cashbox_id": box["id"]})
