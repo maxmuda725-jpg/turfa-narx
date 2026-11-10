@@ -1,9 +1,16 @@
-name: Billz diagnostika (faqat o'qish)
-on: workflow_dispatch
+name: Billz sinov qoralamasi
+on:
+  workflow_dispatch:
+    inputs:
+      action: { description: "create yoki delete", default: "create" }
+      order_id: { description: "delete uchun chek id", default: "" }
 jobs:
-  diag:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - env: { BILLZ_SECRET_TOKEN: '${{ secrets.BILLZ_SECRET_TOKEN }}' }
-        run: python3 scripts/billz_diag.py
+      - env:
+          BILLZ_SECRET_TOKEN: ${{ secrets.BILLZ_SECRET_TOKEN }}
+          ACTION: ${{ inputs.action }}
+          ORDER_ID: ${{ inputs.order_id }}
+        run: python3 scripts/billz_test_draft.py
