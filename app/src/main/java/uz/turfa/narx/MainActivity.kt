@@ -598,6 +598,8 @@ class MainActivity : Activity() {
             textSize = 11f; setTextColor(Color.parseColor("#999999")); setPadding(0, dp(4), 0, 0)
         })
         screen.addView(totalBox, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(4), dp(12), dp(6)) })
+        screen.addView(pill("🖨 Chop etish / PDF", INK, Color.WHITE, 17f) { printCart() },
+            LinearLayout.LayoutParams(-1, dp(52)).apply { setMargins(dp(12), 0, dp(12), dp(8)) })
         screen.addView(pill("📤 Billz'ga qoralama (Turfa)", Color.WHITE, Color.parseColor("#6A1B9A"), 17f) { sendToBillz() }
             .apply { setOnLongClickListener { askKey {}; true } },
             LinearLayout.LayoutParams(-1, dp(52)).apply { setMargins(dp(12), 0, dp(12), dp(12)) })
@@ -765,6 +767,50 @@ class MainActivity : Activity() {
 
     private fun alert(t: String, m: String) =
         AlertDialog.Builder(this).setTitle(t).setMessage(m).setPositiveButton("OK", null).show()
+
+    // ---------------------------------------------------------------- chop etish
+    private var printView: android.webkit.WebView? = null
+
+    private fun esc(t: String) = t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    private fun cartHtml(): String {
+        val items = cart.values.toList()
+        val mode = if (optomMode) "OPTOM" else "DONA"
+        val total = items.sumOf { it.p.unitPrice(optomMode) * it.count }
+        val date = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.US).format(Date())
+        val rows = items.mapIndexed { i, ci ->
+            val unit = ci.p.unitPrice(optomMode)
+            "<tr><td>${i + 1}</td><td>${esc(ci.p.name)}<div class=k>${esc(ci.p.code)}</div></td>" +
+                "<td class=n>${group(ci.count)}</td><td class=n>${group(unit)}</td><td class=n><b>${group(unit * ci.count)}</b></td></tr>"
+        }.joinToString("")
+        return """<!doctype html><html><head><meta charset="utf-8"><style>
+            body{font-family:sans-serif;font-size:12pt;margin:16px;color:#111}
+            h1{font-size:18pt;margin:0}.s{color:#555;margin:2px 0 12px}
+            table{width:100%;border-collapse:collapse}th,td{border:1px solid #999;padding:5px 6px;vertical-align:top}
+            th{background:#eee;text-align:left}.n{text-align:right;white-space:nowrap}.k{color:#666;font-size:9pt}
+            .t{font-size:15pt;text-align:right;margin-top:12px}
+            </style></head><body>
+            <h1>TUR-FA sovg'alar</h1>
+            <div class=s>Buyurtma ro'yxati · $date · $mode narxda</div>
+            <table><tr><th>№</th><th>Tovar</th><th class=n>Soni</th><th class=n>Narxi</th><th class=n>Summa</th></tr>$rows</table>
+            <div class=t>${items.size} xil, ${group(items.sumOf { it.count })} ta · <b>JAMI: ${group(total)} so'm</b></div>
+            </body></html>"""
+    }
+
+    private fun printCart() {
+        if (cart.isEmpty()) { toast("Kassa bo'sh"); return }
+        val wv = android.webkit.WebView(this)
+        printView = wv   // chop etish tugaguncha xotirada tursin
+        wv.webViewClient = object : android.webkit.WebViewClient() {
+            override fun onPageFinished(view: android.webkit.WebView, url: String?) {
+                val pm = getSystemService(PRINT_SERVICE) as android.print.PrintManager
+                val name = "TURFA-royxat-" + SimpleDateFormat("ddMM-HHmm", Locale.US).format(Date())
+                pm.print(name, view.createPrintDocumentAdapter(name),
+                    android.print.PrintAttributes.Builder().setMediaSize(android.print.PrintAttributes.MediaSize.ISO_A4).build())
+            }
+        }
+        wv.loadDataWithBaseURL(null, cartHtml(), "text/html", "UTF-8", null)
+    }
 
     private fun clearCart() {
         if (cart.isEmpty()) return
