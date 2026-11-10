@@ -32,11 +32,11 @@ def main():
 
     rows = []
     for p in products:
-        sp = next((s for s in p.get("shop_prices") or [] if SHOP in (s.get("shop_name") or "").lower()), None)
-        if not sp or num(sp.get("retail_price")) <= 0: continue
+        prices = p.get("shop_prices") or []
+        # Asosiy narx — Turfa. Turfada narx bo'lmasa, boshqa do'kondagi narx (tovar tushib qolmasin).
+        sp = next((s for s in prices if SHOP in (s.get("shop_name") or "").lower() and num(s.get("retail_price")) > 0), None) \
+            or next((s for s in prices if num(s.get("retail_price")) > 0), None) or {}
         sid = sp.get("shop_id")
-        qty = next((num(m.get("active_measurement_value")) for m in p.get("shop_measurement_values") or []
-                    if m.get("shop_id") == sid), 0)
         opt = [num(x.get("wholesale_price")) for x in p.get("product_supplier_stock") or []
                if x.get("shop_id") == sid and num(x.get("wholesale_price")) > 0]
         if not opt:
@@ -52,7 +52,7 @@ def main():
         if not name: continue
         rows.append([name, (p.get("sku") or "").strip(), (p.get("barcode") or "").strip(),
                      str(num(sp.get("retail_price"))),
-                     "-".join(map(str, sorted(set(opt)))), str(qty), photo])
+                     "-".join(map(str, sorted(set(opt)))), photo])
 
     if len(rows) < 100:
         sys.exit(f"Juda kam mahsulot ({len(rows)}), baza o'zgartirilmadi")
@@ -60,10 +60,10 @@ def main():
     rows.sort(key=lambda r: nat(r[0]))
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";", lineterminator="\n")
-    w.writerow(["nomi", "kod", "shtrix", "dona narx", "optom narx", "qoldiq", "rasm"])
+    w.writerow(["nomi", "kod", "shtrix", "dona narx", "optom narx", "rasm"])
     w.writerows(rows)
     open("baza/products.csv", "w", encoding="utf-8").write("﻿" + buf.getvalue())
-    print(f"Yozildi: {len(rows)} ta, rasmli: {sum(1 for r in rows if r[6])}")
+    print(f"Yozildi: {len(rows)} ta (Billz'da {len(products)} ta), rasmli: {sum(1 for r in rows if r[5])}, narxsiz: {sum(1 for r in rows if r[3] == '0')}")
 
 if __name__ == "__main__":
     main()
