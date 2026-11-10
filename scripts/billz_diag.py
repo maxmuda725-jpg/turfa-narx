@@ -34,17 +34,23 @@ def main():
     turfa = next((x for x in (shops.get("shops") or []) if "turfa" in str(x.get("name", "")).lower()), {}) if isinstance(shops, dict) else {}
     print("Turfa shop:", turfa.get("name"), "| bor:", bool(turfa))
     sid = turfa.get("id", "")
-    cands = ["/v2/order-notes", "/v2/orders/notes", "/v2/notes", "/v2/order-note",
-             "/v2/order/postpones", "/v2/orders/postpone", "/v2/orders", "/v1/orders", "/v2/order/drafts",
-             "/v1/order/notes", "/v1/order-notes"]
-    for path in cands:
-        for q in ("limit=10&page=1", f"limit=10&page=1&shop_id={sid}"):
-            s, d = req("GET", f"{path}?{q}", token)
-            short = (json.dumps(slim(d.get("data", d)), ensure_ascii=False)[:1500] if isinstance(d, dict) else str(d)[:200])
-            keys = list(d.keys())[:8] if isinstance(d, dict) else "-"
-            print(f"\n=== GET {path}?{q.split('&shop')[0]}{' +shop' if 'shop' in q else ''}: HTTP {s} keys={keys}")
-            if s == 200: print(short)
-            else: print(short[:160])
-            if s != 200: break
+    for q in ("limit=50&page=1", f"limit=50&page=1&shop_id={sid}"):
+        s, d = req("GET", f"/v2/order-notes?{q}", token)
+        print(f"\n=== /v2/order-notes {'+shop' if 'shop' in q else ''}: HTTP {s} count={d.get('count') if isinstance(d, dict) else '-'}")
+        orders = d.get("orders") if isinstance(d, dict) else None
+        if not orders: continue
+        print("order kalitlari:", sorted(orders[0].keys())[:60])
+        for o in orders[:30]:
+            prods = o.get("order_products") or o.get("products") or []
+            names = [str(p.get("product_name") or p.get("name") or (p.get("product") or {}).get("name") or "?")[:30] for p in prods][:4]
+            def g(*ks):
+                for k in ks:
+                    v = o.get(k)
+                    if isinstance(v, dict): v = v.get("name")
+                    if v not in (None, ""): return str(v)[:40]
+                return "-"
+            print(" |", g("created_at"), "| shop:", g("shop", "shop_name"), "| kassa:", g("cashbox", "cashbox_name"),
+                  "| xodim:", g("user", "user_name", "seller", "created_by"), "| turi:", g("order_type", "type", "status"),
+                  "| izoh:", g("comment"), "| tovar:", names)
 
 main()
