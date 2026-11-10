@@ -3,18 +3,18 @@ package uz.turfa.narx
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.Bundle
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
+import android.util.LruCache
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -22,6 +22,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.BaseAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ListView
@@ -35,7 +36,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
-import android.util.LruCache
 
 // ======================= SOZLAMALAR =======================
 // Do'konchilar kiradigan PIN
@@ -44,10 +44,46 @@ const val SELLER_PIN = "1234"
 const val BASE_URL = "https://raw.githubusercontent.com/maxmuda725-jpg/turfa-narx/main/baza/products.csv"
 // ==========================================================
 
-data class Product(val name: String, val code: String, val barcode: String, val dona: String, val optom: String, val qty: String, val photo: String = "") {
+/** "17600" -> [17600];  "11200-17600" -> [11200, 17600] */
+fun nums(s: String): List<Long> =
+    s.replace(" ", "").replace(" ", "").replace(",", ".")
+        .split('-', '–', '/')
+        .mapNotNull { it.filter { ch -> ch.isDigit() || ch == '.' }.toDoubleOrNull()?.toLong() }
+        .filter { it > 0 }
+        .distinct().sorted()
+
+fun group(n: Long): String = n.toString().reversed().chunked(3).joinToString(" ").reversed()
+
+fun fmt(n: Long): String = if (n <= 0) "—" else group(n) + " so'm"
+
+fun priceText(v: List<Long>): String = when (v.size) {
+    0 -> "—"
+    1 -> fmt(v[0])
+    else -> "${group(v.first())} / ${fmt(v.last())}"
+}
+
+data class Product(
+    val name: String, val code: String, val barcode: String,
+    val dona: String, val optom: String, val qty: String, val photo: String = "",
+) {
     val nameLower = name.lowercase()
     val tokens: Set<String> = Search.tokens(name) + Search.tokens(code) + Search.tokens(barcode)
+    val donaList = nums(dona)
+    val optomList = nums(optom)
+    val donaText = priceText(donaList)
+    val optomText = priceText(optomList)
+    val key = "$code|$name"
+
+    /** Kassa uchun bitta narx. Ikki xil bo'lsa — kattasi. Optom yo'q bo'lsa — dona. */
+    fun unitPrice(optomMode: Boolean): Long {
+        val o = optomList.lastOrNull() ?: 0
+        val d = donaList.lastOrNull() ?: 0
+        return if (optomMode && o > 0) o else d
+    }
+    fun noOptom() = optomList.isEmpty()
 }
+
+class CartItem(val p: Product, var count: Long)
 
 object Search {
     private val SEP = Regex("[\\s,;/|()\\[\\]{}\"'«»]+")
@@ -141,25 +177,13 @@ object Db {
                 name = name,
                 code = if (iCode >= 0) c.getOrNull(iCode)?.trim().orEmpty() else "",
                 barcode = if (iBar >= 0) c.getOrNull(iBar)?.trim().orEmpty() else "",
-                dona = money(c.getOrNull(iDona)),
-                optom = if (iOptom >= 0) money(c.getOrNull(iOptom)) else "—",
+                dona = c.getOrNull(iDona).orEmpty(),
+                optom = if (iOptom >= 0) c.getOrNull(iOptom).orEmpty() else "",
                 qty = if (iQty >= 0) c.getOrNull(iQty)?.trim().orEmpty() else "",
                 photo = if (iPhoto >= 0) c.getOrNull(iPhoto)?.trim().orEmpty() else "",
             )
         }
         return out
-    }
-
-    /** "17600" -> "17 600 so'm";  "11200-17600" -> "11 200 – 17 600 so'm" */
-    private fun money(s: String?): String {
-        if (s.isNullOrBlank()) return "—"
-        val nums = s.replace("\u00A0", "").replace(" ", "").replace(",", ".")
-            .split('-', '–')
-            .mapNotNull { it.filter { ch -> ch.isDigit() || ch == '.' }.toDoubleOrNull()?.toLong() }
-            .filter { it > 0 }
-        if (nums.isEmpty()) return "—"
-        val lo = nums.min(); val hi = nums.max()
-        return if (lo == hi) fmt(lo) else "${group(lo)} / ${fmt(hi)}"
     }
 
     private fun split(line: String, d: Char): List<String> {
@@ -222,113 +246,138 @@ object Img {
     }
 }
 
-fun group(n: Long): String = n.toString().reversed().chunked(3).joinToString(" ").reversed()
-
-fun fmt(n: Long): String = if (n <= 0) "—" else group(n) + " so'm"
-
 class MainActivity : Activity() {
     private val GREEN = Color.parseColor("#0F7B5F")
     private val BLUE = Color.parseColor("#1F4E9E")
+    private val ORANGE = Color.parseColor("#B26A00")
+    private val RED = Color.parseColor("#C62828")
+    private val INK = Color.parseColor("#1A1A1A")
     private val BG = Color.parseColor("#F4F5F7")
+
     private val main = Handler(Looper.getMainLooper())
     private var busy = false
-    private lateinit var refreshBtn: Button
 
     private var all: List<Product> = emptyList()
     private var shown: List<Product> = emptyList()
+
+    // Kassa (faqat hisob-kitob, Billz'ga hech narsa yuborilmaydi)
+    private val cart = LinkedHashMap<String, CartItem>()
+    private var optomMode = false
+
+    private lateinit var searchScreen: View
+    private lateinit var kassaScreen: View
     private lateinit var adapter: BaseAdapter
+    private lateinit var cartAdapter: BaseAdapter
     private lateinit var info: TextView
     private lateinit var search: EditText
+    private lateinit var refreshBtn: Button
+    private lateinit var kassaBar: TextView
+    private lateinit var totalText: TextView
+    private lateinit var totalSub: TextView
+    private lateinit var donaBtn: Button
+    private lateinit var optomBtn: Button
+    private lateinit var emptyCart: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         all = Db.load(this)
-        buildUi()
-        askPin(SELLER_PIN, "Do'konchi PIN-kodi", cancelable = false) { update(silent = true) }
+        val root = FrameLayout(this).apply { setBackgroundColor(BG); fitsSystemWindows = true }
+        searchScreen = buildSearch()
+        kassaScreen = buildKassa().apply { visibility = View.GONE }
+        root.addView(searchScreen, -1, -1)
+        root.addView(kassaScreen, -1, -1)
+        setContentView(root)
+        refresh(); updateCart()
+        askPin(SELLER_PIN, "Do'konchi PIN-kodi") { update(silent = true) }
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (kassaScreen.visibility == View.VISIBLE) showKassa(false) else super.onBackPressed()
+    }
+
+    // ---------------------------------------------------------------- yordamchilar
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-
-    private fun box(color: Int, radius: Int = 12): GradientDrawable =
+    private fun box(color: Int, radius: Int = 12) =
         GradientDrawable().apply { setColor(color); cornerRadius = dp(radius).toFloat() }
+    private fun tint(c: Int, a: Int = 28) = Color.argb(a, Color.red(c), Color.green(c), Color.blue(c))
+    private fun toast(m: String) = Toast.makeText(this, m, Toast.LENGTH_SHORT).show()
+    private fun hideKb(v: View) =
+        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(v.windowToken, 0)
 
-    private fun buildUi() {
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(BG)
-            fitsSystemWindows = true
-        }
-
-        // Yuqori panel
-        val top = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(14), dp(8), dp(14))
-            setBackgroundColor(GREEN)
-        }
-        top.addView(TextView(this).apply {
-            text = "TUR-FA narxlar"
-            setTextColor(Color.WHITE); textSize = 20f
-            typeface = Typeface.DEFAULT_BOLD
-        }, LinearLayout.LayoutParams(0, -2, 1f))
-        refreshBtn = Button(this).apply {
-            text = "🔄 Yangilash"; textSize = 15f; isAllCaps = false
-            setTextColor(GREEN); typeface = Typeface.DEFAULT_BOLD
-            background = box(Color.WHITE, 22)
+    private fun pill(text: String, fg: Int, bg: Int, size: Float = 15f, onClick: () -> Unit) =
+        Button(this).apply {
+            this.text = text; textSize = size; isAllCaps = false
+            setTextColor(fg); typeface = Typeface.DEFAULT_BOLD
+            background = box(bg, 22); minWidth = 0; minimumWidth = 0
             setPadding(dp(14), 0, dp(14), 0)
-            setOnClickListener { update(silent = false) }
+            setOnClickListener { onClick() }
         }
+
+    private fun topBar(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(16), dp(10), dp(10), dp(10))
+        setBackgroundColor(GREEN)
+    }
+
+    private fun title(t: String) = TextView(this).apply {
+        text = t; setTextColor(Color.WHITE); textSize = 20f; typeface = Typeface.DEFAULT_BOLD
+    }
+
+    // ---------------------------------------------------------------- qidiruv ekrani
+    private fun buildSearch(): View {
+        val screen = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        val top = topBar()
+        top.addView(title("TUR-FA narxlar"), LinearLayout.LayoutParams(0, -2, 1f))
+        refreshBtn = pill("🔄 Yangilash", GREEN, Color.WHITE) { update(silent = false) }
         top.addView(refreshBtn, LinearLayout.LayoutParams(-2, dp(44)))
-        root.addView(top)
+        screen.addView(top)
 
         search = EditText(this).apply {
-            hint = "Kod yoki nom: 43-25"
-            textSize = 20f
-            isSingleLine = true
+            hint = "Kod yoki nom: 43-25"; textSize = 20f; isSingleLine = true
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             background = box(Color.WHITE, 14)
             setPadding(dp(16), dp(14), dp(16), dp(14))
         }
-        root.addView(search, LinearLayout.LayoutParams(-1, -2).apply {
-            setMargins(dp(12), dp(12), dp(12), dp(4))
-        })
+        screen.addView(search, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(12), dp(12), dp(4)) })
 
-        info = TextView(this).apply {
-            textSize = 13f; setTextColor(Color.GRAY)
-            setPadding(dp(16), dp(4), dp(16), dp(4))
-        }
-        root.addView(info)
+        info = TextView(this).apply { textSize = 13f; setTextColor(Color.GRAY); setPadding(dp(16), dp(4), dp(16), dp(4)) }
+        screen.addView(info)
 
         adapter = object : BaseAdapter() {
             override fun getCount() = shown.size
             override fun getItem(p: Int) = shown[p]
             override fun getItemId(p: Int) = p.toLong()
-            override fun getView(p: Int, convert: View?, parent: ViewGroup?): View =
-                row(shown[p])
+            override fun getView(p: Int, convert: View?, parent: ViewGroup?): View = productRow(shown[p])
         }
         val list = ListView(this).apply {
             this.adapter = this@MainActivity.adapter
-            divider = null
-            setPadding(dp(8), 0, dp(8), dp(16))
-            clipToPadding = false
-            setOnTouchListener { v, _ ->
-                (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-                    .hideSoftInputFromWindow(v.windowToken, 0); false
-            }
+            divider = null; clipToPadding = false
+            setPadding(dp(8), 0, dp(8), dp(12))
+            setOnTouchListener { v, _ -> hideKb(v); false }
         }
-        root.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+        screen.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        kassaBar = TextView(this).apply {
+            textSize = 17f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            background = box(INK, 16)
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            setOnClickListener { showKassa(true) }
+        }
+        screen.addView(kassaBar, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(4), dp(12), dp(12)) })
 
         search.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun afterTextChanged(s: Editable?) = refresh()
         })
-
-        setContentView(root)
-        refresh()
+        return screen
     }
 
-    private fun row(p: Product): View {
+    private fun productRow(p: Product): View {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = box(Color.WHITE, 14)
@@ -348,62 +397,228 @@ class MainActivity : Activity() {
         val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         head.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
         card.addView(head)
+
         titleBox.addView(TextView(this).apply {
-            text = p.name; textSize = 17f
-            setTextColor(Color.parseColor("#1A1A1A"))
-            typeface = Typeface.DEFAULT_BOLD
+            text = p.name; textSize = 17f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
         })
         val sub = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        sub.addView(TextView(this).apply {
-            text = p.code; textSize = 12f; setTextColor(Color.GRAY)
-        }, LinearLayout.LayoutParams(0, -2, 1f))
+        sub.addView(TextView(this).apply { text = p.code; textSize = 12f; setTextColor(Color.GRAY) },
+            LinearLayout.LayoutParams(0, -2, 1f))
         if (p.qty.isNotBlank()) {
             val n = p.qty.toDoubleOrNull()?.toLong() ?: 0
-            val c = if (n > 0) Color.parseColor("#B26A00") else Color.parseColor("#C62828")
+            val c = if (n > 0) ORANGE else RED
             sub.addView(TextView(this).apply {
                 text = if (n > 0) "Qoldiq: ${group(n)} ta" else "Tugagan"
                 textSize = 13f; setTextColor(c); typeface = Typeface.DEFAULT_BOLD
-                background = box(Color.argb(30, Color.red(c), Color.green(c), Color.blue(c)), 8)
-                setPadding(dp(8), dp(3), dp(8), dp(3))
+                background = box(tint(c, 30), 8); setPadding(dp(8), dp(3), dp(8), dp(3))
             })
         }
         titleBox.addView(sub, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+
         val prices = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        prices.addView(price("DONA", p.dona, GREEN), LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
-        prices.addView(price("OPTOM", p.optom, BLUE), LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(6) })
+        prices.addView(priceBox("DONA", p.donaText, p.donaList.size > 1, GREEN),
+            LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
+        prices.addView(priceBox("OPTOM", p.optomText, p.optomList.size > 1, BLUE),
+            LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(6) })
         card.addView(prices, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
-        if (p.dona.contains(" / ") || p.optom.contains(" / ")) card.addView(TextView(this).apply {
+        if (p.donaList.size > 1 || p.optomList.size > 1) card.addView(TextView(this).apply {
             text = "Do'konga qarab farq qiladi, kassadan aniqlang"
-            textSize = 12f; setTextColor(Color.parseColor("#B26A00"))
-            setPadding(0, dp(6), 0, 0)
+            textSize = 12f; setTextColor(ORANGE); setPadding(0, dp(6), 0, 0)
         })
+
+        // Kassaga qo'shish
+        val inCart = cart[p.key]?.count ?: 0
+        val addRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        addRow.addView(TextView(this).apply {
+            text = if (inCart > 0) "🧾 Kassada: ${group(inCart)} ta" else ""
+            textSize = 14f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        if (p.donaList.isNotEmpty()) addRow.addView(
+            pill("＋ Kassaga", Color.WHITE, INK, 15f) {
+                val ci = cart.getOrPut(p.key) { CartItem(p, 0) }
+                ci.count += 1
+                updateCart(); adapter.notifyDataSetChanged()
+            }, LinearLayout.LayoutParams(-2, dp(44)))
+        card.addView(addRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
 
         val wrap = LinearLayout(this).apply { setPadding(dp(4), dp(5), dp(4), dp(5)) }
         wrap.addView(card, LinearLayout.LayoutParams(-1, -2))
         return wrap
     }
 
-    private fun price(label0: String, v: String, color: Int): View {
-        val two = v.contains(" / ")
-        val label = if (two) "$label0 · ⚠️ 2 xil narx" else label0
-        return LinearLayout(this).apply {
+    private fun priceBox(label0: String, v: String, two: Boolean, color: Int): View =
+        LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = box(Color.argb(28, Color.red(color), Color.green(color), Color.blue(color)), 10)
+            background = box(tint(color), 10)
             setPadding(dp(10), dp(8), dp(10), dp(8))
             addView(TextView(context).apply {
-                text = label; textSize = 11f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
+                text = if (two) "$label0 · ⚠️ 2 xil narx" else label0
+                textSize = 11f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
             })
             addView(TextView(context).apply {
                 text = v; textSize = if (two) 16f else 19f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
             })
         }
+
+    // ---------------------------------------------------------------- kassa ekrani
+    private fun buildKassa(): View {
+        val screen = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(BG) }
+
+        val top = topBar()
+        top.addView(pill("← Orqaga", GREEN, Color.WHITE) { showKassa(false) }, LinearLayout.LayoutParams(-2, dp(44)))
+        top.addView(title("  Kassa").apply { gravity = Gravity.START }, LinearLayout.LayoutParams(0, -2, 1f))
+        top.addView(pill("Tozalash", RED, Color.WHITE) { clearCart() }, LinearLayout.LayoutParams(-2, dp(44)))
+        screen.addView(top)
+
+        // DONA / OPTOM almashtirgich
+        val modeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = box(Color.WHITE, 26)
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+        }
+        donaBtn = pill("DONA narx", Color.WHITE, GREEN, 17f) { setMode(false) }
+        optomBtn = pill("OPTOM narx", BLUE, Color.WHITE, 17f) { setMode(true) }
+        modeRow.addView(donaBtn, LinearLayout.LayoutParams(0, dp(48), 1f))
+        modeRow.addView(optomBtn, LinearLayout.LayoutParams(0, dp(48), 1f))
+        screen.addView(modeRow, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(12), dp(12), dp(6)) })
+
+        emptyCart = TextView(this).apply {
+            text = "Kassa bo'sh.\nMahsulotni qidirib, \"＋ Kassaga\" tugmasini bosing."
+            textSize = 16f; setTextColor(Color.GRAY); gravity = Gravity.CENTER
+            setPadding(dp(24), dp(40), dp(24), dp(40))
+        }
+        screen.addView(emptyCart)
+
+        cartAdapter = object : BaseAdapter() {
+            val items get() = cart.values.toList()
+            override fun getCount() = cart.size
+            override fun getItem(p: Int) = items[p]
+            override fun getItemId(p: Int) = p.toLong()
+            override fun getView(p: Int, convert: View?, parent: ViewGroup?): View = cartRow(items[p])
+        }
+        screen.addView(ListView(this).apply {
+            adapter = cartAdapter; divider = null; clipToPadding = false
+            setPadding(dp(8), 0, dp(8), dp(8))
+        }, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        // JAMI
+        val totalBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = box(INK, 18)
+            setPadding(dp(18), dp(14), dp(18), dp(16))
+        }
+        totalSub = TextView(this).apply { textSize = 13f; setTextColor(Color.parseColor("#BBBBBB")) }
+        totalText = TextView(this).apply { textSize = 30f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD }
+        totalBox.addView(totalSub); totalBox.addView(totalText)
+        totalBox.addView(TextView(this).apply {
+            text = "Faqat hisob-kitob. Billz kassasiga yuborilmaydi."
+            textSize = 11f; setTextColor(Color.parseColor("#999999")); setPadding(0, dp(4), 0, 0)
+        })
+        screen.addView(totalBox, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(4), dp(12), dp(12)) })
+        return screen
     }
 
+    private fun cartRow(ci: CartItem): View {
+        val p = ci.p
+        val unit = p.unitPrice(optomMode)
+        val color = if (optomMode) BLUE else GREEN
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = box(Color.WHITE, 14)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+        }
+        card.addView(TextView(this).apply {
+            text = p.name; textSize = 16f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
+        })
+        val note = when {
+            optomMode && p.noOptom() -> "  · optom narx yo'q, dona olindi"
+            (if (optomMode) p.optomList else p.donaList).size > 1 -> "  · 2 xil narx, kattasi olindi"
+            else -> ""
+        }
+        card.addView(TextView(this).apply {
+            text = "${fmt(unit)} × ${group(ci.count)}$note"
+            textSize = 13f; setTextColor(if (note.isEmpty()) Color.GRAY else ORANGE)
+        })
+
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val minus = pill("−", INK, Color.parseColor("#EEEEEE"), 22f) {
+            ci.count -= 1
+            if (ci.count <= 0) cart.remove(p.key)
+            updateCart()
+        }
+        val count = pill(group(ci.count), INK, Color.WHITE, 18f) { askCount(ci) }
+        val plus = pill("+", Color.WHITE, INK, 22f) { ci.count += 1; updateCart() }
+        row.addView(minus, LinearLayout.LayoutParams(dp(48), dp(44)))
+        row.addView(count, LinearLayout.LayoutParams(dp(72), dp(44)))
+        row.addView(plus, LinearLayout.LayoutParams(dp(48), dp(44)))
+        row.addView(TextView(this).apply {
+            text = fmt(unit * ci.count); textSize = 19f; setTextColor(color)
+            typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.END
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        card.addView(row, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+
+        val wrap = LinearLayout(this).apply { setPadding(dp(4), dp(5), dp(4), dp(5)) }
+        wrap.addView(card, LinearLayout.LayoutParams(-1, -2))
+        return wrap
+    }
+
+    private fun setMode(optom: Boolean) {
+        optomMode = optom
+        donaBtn.setTextColor(if (optom) GREEN else Color.WHITE)
+        donaBtn.background = box(if (optom) Color.WHITE else GREEN, 22)
+        optomBtn.setTextColor(if (optom) Color.WHITE else BLUE)
+        optomBtn.background = box(if (optom) BLUE else Color.WHITE, 22)
+        updateCart()
+        toast(if (optom) "Hamma mahsulot OPTOM narxda" else "Hamma mahsulot DONA narxda")
+    }
+
+    private fun updateCart() {
+        val pieces = cart.values.sumOf { it.count }
+        val total = cart.values.sumOf { it.p.unitPrice(optomMode) * it.count }
+        val mode = if (optomMode) "OPTOM" else "DONA"
+        kassaBar.text = if (cart.isEmpty()) "🧾 Kassa bo'sh"
+            else "🧾 Kassa: ${group(pieces)} ta · ${fmt(total)}  ›"
+        totalSub.text = "JAMI ($mode narxda) · ${cart.size} xil, ${group(pieces)} ta"
+        totalText.text = if (total > 0) fmt(total) else "0 so'm"
+        emptyCart.visibility = if (cart.isEmpty()) View.VISIBLE else View.GONE
+        cartAdapter.notifyDataSetChanged()
+    }
+
+    private fun showKassa(show: Boolean) {
+        hideKb(search)
+        kassaScreen.visibility = if (show) View.VISIBLE else View.GONE
+        searchScreen.visibility = if (show) View.GONE else View.VISIBLE
+        if (!show) adapter.notifyDataSetChanged()
+    }
+
+    private fun clearCart() {
+        if (cart.isEmpty()) return
+        AlertDialog.Builder(this).setMessage("Kassani tozalaysizmi?")
+            .setPositiveButton("Ha, tozalash") { _, _ -> cart.clear(); updateCart() }
+            .setNegativeButton("Yo'q", null).show()
+    }
+
+    private fun askCount(ci: CartItem) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER; textSize = 24f; gravity = Gravity.CENTER
+            setText(ci.count.toString()); selectAll()
+        }
+        val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+        AlertDialog.Builder(this).setTitle("Soni: ${ci.p.name}").setView(wrap)
+            .setPositiveButton("OK") { _, _ ->
+                val n = input.text.toString().toLongOrNull() ?: ci.count
+                if (n <= 0) cart.remove(ci.p.key) else ci.count = n
+                updateCart()
+            }
+            .setNegativeButton("Bekor", null).show()
+        input.requestFocus()
+    }
+
+    // ---------------------------------------------------------------- umumiy
     private fun showPhoto(p: Product) {
         val iv = ImageView(this).apply { adjustViewBounds = true; setBackgroundColor(Color.WHITE) }
         Img.load(this, p.photo, iv, big = true)
-        val d = AlertDialog.Builder(this).setTitle(p.name).setView(iv)
-            .setPositiveButton("Yopish", null).create()
+        val d = AlertDialog.Builder(this).setTitle(p.name).setView(iv).setPositiveButton("Yopish", null).create()
         iv.setOnClickListener { d.dismiss() }
         d.show()
     }
@@ -422,8 +637,7 @@ class MainActivity : Activity() {
 
     private fun baseDate(): String {
         val t = Db.updatedAt(this)
-        return if (t == 0L) "ilova ichidagi"
-        else SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.US).format(Date(t))
+        return if (t == 0L) "ilova ichidagi" else SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.US).format(Date(t))
     }
 
     private fun update(silent: Boolean) {
@@ -435,8 +649,13 @@ class MainActivity : Activity() {
             main.post {
                 busy = false
                 refreshBtn.text = "🔄 Yangilash"; refreshBtn.isEnabled = true
-                res.onSuccess { n ->
-                    all = Db.load(this); refresh()
+                res.onSuccess {
+                    all = Db.load(this)
+                    // Kassadagi mahsulotlar yangi narxga o'tadi
+                    val byKey = all.associateBy { it.key }
+                    val old = cart.values.toList(); cart.clear()
+                    old.forEach { ci -> val np = byKey[ci.p.key] ?: ci.p; cart[np.key] = CartItem(np, ci.count) }
+                    refresh(); updateCart()
                     if (!silent) toast("✅ Baza yangilandi")
                 }.onFailure {
                     if (!silent) toast("Internet yo'q yoki baza topilmadi. Eski baza bilan ishlayapsiz.")
@@ -445,20 +664,16 @@ class MainActivity : Activity() {
         }.start()
     }
 
-    private fun toast(m: String) = Toast.makeText(this, m, Toast.LENGTH_LONG).show()
-
-    private fun askPin(pin: String, title: String, cancelable: Boolean, ok: () -> Unit) {
+    private fun askPin(pin: String, title: String, ok: () -> Unit) {
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
             textSize = 24f; gravity = Gravity.CENTER
         }
         val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
-        val b = AlertDialog.Builder(this).setTitle(title).setView(wrap)
-            .setCancelable(cancelable)
+        val d = AlertDialog.Builder(this).setTitle(title).setView(wrap).setCancelable(false)
             .setPositiveButton("Kirish", null)
-        if (cancelable) b.setNegativeButton("Bekor", null)
-        else b.setNegativeButton("Chiqish") { _, _ -> finish() }
-        val d = b.create()
+            .setNegativeButton("Chiqish") { _, _ -> finish() }
+            .create()
         d.setOnShowListener {
             d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 if (input.text.toString() == pin) { d.dismiss(); ok() }
