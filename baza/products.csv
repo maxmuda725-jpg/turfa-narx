@@ -548,6 +548,7 @@ ballon 60inch 60dyum;RQY-10932;2000000061115;20700;18000;
 Ballon folga kichik size 18inch 600-700;RIP-59235;2000000034379;4000;4000;
 Ballon kit happy tx-353;NAY-27590;2000000034386;30800;28000;
 ballons;ZAD-78312;2000000050461;32200;28000;
+ballons;ZAD-78312;2000000050461;32200;28000;
 Ballons folga;TOT-85976;2020112090070;7000;7000;
 Ballons kichik folga;BBP-87637;697198980082;9900;9000;
 ballons retro 9 feng ye;JGA-60023;2000000006666;30000;27000;
@@ -737,7 +738,7 @@ Budilnik ayiqcha As767;HPH-39157;2000000030142;36300;33000;
 budilnik kubok 34-6;USO-25551;2000000043869;49500;45000;
 budilnik soat 3-34;NZV-26239;2000000050430;32200;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/b98c7b28-d43b-43cb-a20d-4fde2620f656.jpg
 budilnik soat 3-35;CQJ-89197;2000000050447;32200;28000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/793119b7-5e51-44b8-82bc-b4691258dc1e.jpg
-budilnik soat 8-7;TDO-37417;2000000050454;32200;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/39c5dc94-d77f-4d0b-abe2-4b6d5a7150e1.jpg
+budilnik soat 3-35;CQJ-89197;2000000050447;32200;28000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/793119b7-5e51-44b8-82bc-b4691258dc1e.jpg
 Budilnik soat 0166;VME-75512;2000000030128;36300;33000;
 Budilnik soat 7053;XDB-99453;2000000050362;31100;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/6ddb6ade-bcce-49c2-8817-8e43075e3026.jpg
 Budilnik soat jigarang;OMD-27738;2000000063331;40000;;
@@ -925,10 +926,10 @@ Dekorative led sham 25-7 33333;GUG-78992;2000000032962;35000;32000;
 Dekorative led sham 25-11;RBO-79582;2000000032955;51700;47000;
 dekorativni barg 26-3-8-2;BDU-77427;2000000047980;22000;20000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/c5fb3db0-2759-4c91-9d3b-717f7237bb12.jpg
 delete;PRE-49790;2000000019031;330000;;
-delete;OHQ-65346;2000000014043;1260000;;
-delete;LKF-34344;2000000014050;444000;;
-delete;LPN-74560;2000000014067;420000;;
 delete;FOL-32718;2000000014036;444000;;
+delete;OHQ-65346;2000000014043;1260000;;
+delete;LPN-74560;2000000014067;420000;;
+delete;LKF-34344;2000000014050;444000;;
 Delfin svitelnik bf-2;NGN-67548;2000000030579;138000;115000;
 delfinun gul 47-3;DKL-81671;2000000047478;19800;18000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/6ac1ffcf-7a4c-4f9b-853b-58376e06229c.jpg
 dengiz o'ti 9-23;OGS-17855;2000000049540;15000;13000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/3ff706a0-9d36-45a3-b3c3-46f87f14070b.jpg
@@ -952,6 +953,7 @@ detski svt 25-4-54-27;RSH-34042;2000000028712;115200;96000;
 Detskie svt 54-21;FUB-89571;2000000064147;70000;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/35fc3f12-cb44-42b0-bac1-a412b91824ca.jpg
 Detskiy kapilka 25-9-10-7;LUN-96066;2000000030616;16500;15000;
 Detskiy oyna 36-1;PRR-76689;2000000035550;37400;34000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/79c29892-29aa-4200-bf35-88ff4704d298.jpg
+Detskiy oyna 36-2;OUK-89082;2000000050393;32200;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d22f13ac-7905-49ad-ad89-664b124ac7e2.jpg
 Detskiy oyna 36-2;OUK-89082;2000000050393;32200;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d22f13ac-7905-49ad-ad89-664b124ac7e2.jpg
 Detskiy oyna 36-4;GUB-45767;2000000050409;32200;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/30830a84-a3b9-4f70-b962-d8b0c12cbb4c.jpg
 Detskiy oyna 36-5;HSZ-89573;2000000050591;36800;32000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/fc053391-9a00-4b1b-81a2-29c1ca5caf70.jpg
@@ -1406,6 +1408,7 @@ Folga 25-4-25-9;AGQ-92337;2000000060866;36800;32000;https://fra1.digitaloceanspa
 FOLGA 25-4-27-29;LGY-42550;2000000054131;15000;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/3e0e1786-9033-4a60-a623-47dfb7e6bcf0.jpg
 FOLGA 26-3-28-1;OBU-98905;2000000050140;26500;23000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/f940666b-d7d5-46e7-9ec8-bb38c9600202.jpg
 FOLGA 26-3-28-8;AAX-88666;2000000050492;32200;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/aa45c840-3b3f-42f5-9126-a2c7a290dd93.jpg
+FOLGA 26-3-28-8;AAX-88666;2000000050492;32200;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/aa45c840-3b3f-42f5-9126-a2c7a290dd93.jpg
 FOLGA 35-11;XOL-78407;2000000050065;23000;20000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/5979f421-e816-4431-a4de-a1a2d6e85226.jpg
 FOLGA 35-13;IGD-60124;2000000050119;25300;22000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/8aa99878-99f7-44dd-bde4-bae3f3c369fa.jpg
 folga 042;QAR-21404;2000000049083;9200;8000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/773896e2-ac86-4e5a-9ea7-e746907261cd.jpg
@@ -1461,7 +1464,6 @@ FOLGA HC-01 YULDUZ YALTIROQ 18;WOS-39951;2000000034201;13200;12000;
 Folga Kanfet D-15;LWU-34890;2000000025919;8800;8000;
 Folga Kanfet D-43;SNK-83522;2000000025926;8800;8000;
 Folga Kapalak D-14;WOZ-25630;2000000025858;8800;8000;
-Folga Kotta Perlamotr N-60-1;HBE-72424;2000000025223;55000;50000;
 Folga Kotta Perlamotr N-60-1;HBE-72424;2000000025223;55000;50000;
 Folga Kotta Perlamotr N-60-2;BTU-79936;2000000025346;41800;38000;
 Folga Kotta Perlamotr N-60-10;KKQ-12930;2000000034225;8800;8000;
@@ -1548,7 +1550,6 @@ FOLGA Tugulgan kun ST-1902;FCM-66262;2000000034430;14300;13000;
 FOLGA TX344;HTL-76517;2000000008769;14300;13000;
 Folga tx-129;QUT-11222;2000000057859;13800;12000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/ee5cc7dc-f3d0-4eb0-9d00-c68dbd166e75.jpg
 FOLGA TX-223 TX-222;TSR-11182;2000000010328;19800;18000;
-Folga TX-285;ESR-27331;2000000005171;14300;13000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/19cc0b35-6a82-4c6a-9c2a-3df0257f7729.jpg
 Folga TX-288;MJE-13239;2000000025490;9000;9000;
 folga TX-340 s dnyom;UGH-35448;2000000005270;11000;10000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/3868ccfc-7255-41d1-a4c8-bb59b36e2c97.jpg
 FOLGA TX-356;OXU-41919;2000000008790;9000;9000;
@@ -1558,7 +1559,6 @@ folga TX-443;KQL-96394;2000000005256;16500;15000;https://fra1.digitaloceanspaces
 Folga TX-488;TSD-33432;2000000000091;15400;14000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/bde7cb24-589e-4835-ba73-b3069098e2ea.jpg
 Folga TX-506 TX-504;EHA-15106;2000000000084;14300;13000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/582802d3-5584-4035-9816-cfb8563dd04d.jpg
 folga umra ST-017;FFI-77764;2000000009360;11000;10000;
-Folga Uzuk 10-20;JRR-95391;2000000025025;15000;15000;
 Folga Uzuk 10-20;JRR-95391;2000000025025;15000;15000;
 folga V-019-B;DUG-40267;2000000006024;10000;8000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/40577c6c-79dd-4dbb-b546-f6662edd7189.jpg
 FOLGA V-043;UOQ-10508;2000000010373;11000;10000;
@@ -1697,7 +1697,6 @@ globus 43-10;QJF-82062;2000000009568;300000;250000;
 globus 44-9;LEJ-96208;2000000037080;396000;330000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/494ca44a-48c7-4de0-86f4-f7eb28709a42.jpg
 Globus 45-6;JFB-79345;2000000037677;300000;250000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d6f93959-576d-4f38-b536-bb576e9aecbe.jpg
 Globus 47-5;QXF-37589;2000000011400;63800;58000;
-Globus 47-16;VTA-47297;2000000050232;28800;25000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/fa4f9c80-006c-43a7-94ed-9cd0d76b0b8b.jpg
 Globus 48-1-2-3;FZA-84271;2000000011417;105600;88000;
 globus 48-3;GOK-88031;2000000051635;74800;65000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/64df2624-2616-4676-8c37-b76b5de3a102.jpg
 globus 48-5;VRA-21785;2000000053639;264500;230000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/c7440eaf-6ca0-4992-83d5-25eaf66e3f1e.jpg
@@ -1753,6 +1752,7 @@ grlyand Happy 46-7;AAY-83878;2000000008608;11000;10000;
 Grlyand led 3x2 8-17;SOI-68093;2000000048024;77000;70000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/312602f4-0ba7-40bb-8fcd-27f1637cfdc0.jpg
 grlyand led 3x3 8-18;GEA-19260;2000000048017;100000;95000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/1ed5149f-ace4-4ef0-83f2-7ecc0a3c073c.jpg
 grlyand ramz 25-9-20-2;UQA-86373;2000000019710;84700;77000;
+Grlyand Shar 2-5;CRI-90811;2000000025155;27500;25000;
 Gu postavka 54-2;QGO-10948;2000000022895;120000;100000;
 Gul011;GBD-75758;2000000057552;115000;100000;
 Gul 1-7;HXO-67905;2000000023649;16500;15000;
@@ -1763,7 +1763,6 @@ gul 2-1;LSG-48172;2000000009261;38500;;
 gul 2-8;TQJ-13240;2000000020532;19000;17500;
 Gul 2-12 80sm;SYD-74132;2000000047393;44000;40000;
 Gul 2-13 72sm;FJZ-89299;2000000047430;27500;25000;
-gul 2-15;UQO-45694;2000000050508;34500;30000;
 gul 2-15;ODL-47794;2000000007793;27500;25000;
 gul 2-16;ZPW-30221;2000000014456;27500;25000;
 gul 2-20;UTH-12003;2000000008592;36300;33000;
@@ -1937,6 +1936,7 @@ gul 43-58 aksiya;QMS-43704;2000000014203;6650;6650;
 gul 43-60;ZDG-98063;2000000014227;25000;23000;
 Gul 43-61;QGH-94186;2000000050720;41400;36000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/f6e8b188-3b03-4371-8d18-99ffe1caa2a6.jpg
 Gul 43-62;BXH-72560;2000000050553;35700;31000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/5c270a4f-7cab-4b3d-a2f1-b6784794fd4e.jpg
+Gul 43-62;BXH-72560;2000000050553;35700;31000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/5c270a4f-7cab-4b3d-a2f1-b6784794fd4e.jpg
 gul 43-65;XPW-52912;2000000008103;41800;38000;
 gul 43-67;TBT-26136;2000000008097;15400;14000;
 gul 43-69;ESZ-33689;2000000014135;18700;17000;
@@ -1979,7 +1979,6 @@ gul 101-1;CCS-43992;2000000062921;20700;18000;https://fra1.digitaloceanspaces.co
 Gul 101-1;LVC-99109;2000000049915;20700;18000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/b2c9d60a-eb8e-4b18-94d5-8396d2628ddc.jpg
 gul 103-7 aksiya;DSB-13198;2000000064154;23100;23100;
 gul 103-15;BAF-42074;2000000019475;34500;30000;
-Gul 103-21;ZOG-83019;2000000005201;74800;68000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/46665443-82b8-47a2-a42c-2f719d6142d1.jpg
 Gul 103-22;WGK-17180;2000000057651;16100;14000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/67bfd4a8-3e03-46b3-be9a-abe440364d81.jpg
 gul 103-39;CPV-19928;2000000019482;45100;41000;
 gul 103-42;DQJ-72067;2000000019468;33000;30000;
@@ -2187,6 +2186,7 @@ gul postafka temir 39-23;WPM-22682;2000000007809;120000;;
 gul postafka temir 39-24;QTT-56920;2000000007816;120000;;
 gul postafka temir L7 41sm;FAE-17400;2000000012773;300000;250000;
 Gul Qogoz arz;JRS-16128;2000000025254;27500;25000;
+Gul Qogoz qimmat;HKJ-50933;2000000025261;55000;50000;
 Gul Qogoz UZ-1;DSN-27957;2000000025292;4400;4000;
 Gul Qogoz UZ-2;PMM-60593;2000000025278;4400;4000;
 Gul Qogoz UZ-3;EZE-75947;2000000025285;4400;4000;
@@ -2417,7 +2417,6 @@ hidli sham 10-1;KYF-19186;2000000051994;92000;80000;https://fra1.digitaloceanspa
 hidli sham 10-2;TLT-39228;2000000051062;51800;45000;
 hidli sham 10-3;IWU-13382;2000000050683;40300;35000;
 Hidli sham 10-5;SRB-40509;2000000050027;23000;20000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/cb856401-4bc0-4f41-a0b3-91f90a97ccc7.jpg
-Hidli sham 10-6;KLV-21810;2000000050423;32200;28000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/57962308-3a83-448b-bdfe-8982648359fc.jpg
 Hidli sham 10-8;TRG-48628;2000000049601;16100;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/a0338d60-ef4d-4061-a0e5-bf73d3007d2b.jpg
 Hidli Sham 12-28;UAH-91407;2000000021652;30800;28000;
 Hidli sham 13-7;NSW-34573;2000000049762;17300;15000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/5fe3c0c3-9c4b-4302-a40b-8b9566aaf462.jpg
@@ -2499,7 +2498,6 @@ idish nabor 30-15;NQN-17871;2000000069432;180000;165000;
 idish nabor 30-16;CMS-00896;2000000069449;270000;250000;
 idish nabor 30-17;ILF-54664;2000000069401;180000;165000;
 idish nabor 30-18;KIV-21812;2000000069524;270000;250000;
-idish urta 5-21;FDD-13422;2000000015255;49500;45000;
 igrushka 25-7-50-1;TSY-98173;2000000044255;126000;105000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/f5ef0649-3c1a-4627-9ac4-dbd08eb7ef54.jpg
 igrushka 25-7-50-3;SZR-21939;2000000044224;117600;98000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/fdb0cd7f-c79a-4cf1-bb49-bf30df10774e.jpg
 ilge 26-4-55-1;ZGH-66189;2000000000251;12100;11000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/6c51a263-870f-4ef2-8112-a30c5263cd54.jpg
@@ -2711,7 +2709,7 @@ Kartina 100x50 katta oyat;RNU-77615;2000000071282;250000;;
 Kartina 110x40;CST-85471;2000000053011;161000;140000;
 Kartina akrel 0171 90/60;FHC-88292;2000000030203;720000;600000;
 Kartina decor 35-4;AAC-91381;2000000028897;420000;350000;
-Kartina soat 60x100 3-2;RTU-23903;2000000045221;174000;;
+Kartina soat 70x45 3-1;YEQ-71927;2000000045214;105600;88000;
 Kartina soat 70x45 3-1;YEQ-71927;2000000045214;105600;88000;
 kartina soat 76;DVF-53584;2000000052298;109300;95000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/47c390e2-7ed9-4d16-b60c-33936c803b61.jpg
 KARTINA SOAT UCTALI;DAZ-34958;2000000053325;207000;180000;
@@ -2919,6 +2917,7 @@ lanj box 25-4-78-3;YIG-19710;2000000028637;69300;63000;
 lanj box 25-4-78-3;JWE-45158;2000000006833;69300;63000;
 lanj box 25-4-78-10;WMV-96171;2000000028620;60500;55000;
 lanj box 25-4-78-10;CGA-38709;2000000006826;60500;55000;
+lanj box 25-4-78-11;WAP-87431;2000000034782;114000;95000;
 lanj box 26-4-55-1;TNR-18866;2000000026626;31900;29000;
 lanj box 26-4-55-2;VTY-40187;2000000026671;30800;28000;
 lanj box 26-4-55-3;RTG-90106;2000000026633;36300;33000;
@@ -3144,9 +3143,9 @@ moh 5-6;CLC-52530;2000000059471;190000;160000;
 moshina defuzor 25-11-45-10;ANA-45342;2000000016245;114000;95000;
 moshina diffuser 26-4-45-9;JEF-22497;2000000052526;124200;108000;
 Moshina difusser26-4-41-13;VXP-86289;2000000045399;129600;108000;
+Moshina difusser26-4-41-13;VXP-86289;2000000045399;129600;108000;
 Moshina difusser 26-4-41-10;YWE-56187;2000000045382;84700;77000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/8a47513c-3625-443b-a4b6-d19b835403a2.jpg
 Moshina Mashina Tx-181 folga;GAG-68747;2000000034539;22000;;
-moto 25-7-34-7;FPM-16832;2000000050416;32200;28000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/8a95fee6-d1fa-4b6a-b8b1-3e567e330ec3.jpg
 Motosikl 61-2;WEL-35593;2000000011943;540000;450000;
 Motosikl 61-3;SEH-83229;2000000011929;528000;440000;
 Motosikl 61-4;NKK-40998;2000000011936;540000;450000;
@@ -3668,6 +3667,7 @@ oyna 25-11-8-12;CEW-50794;2000000027579;41800;38000;
 oyna 25-11-8-13;RXC-58086;2000000034799;50600;46000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/61e22a88-586c-4918-bed3-9a8548b95bdd.jpg
 oyna 25-11-8-14;RZW-88815;2000000027586;38500;35000;
 oyna 25-11-8-16;RGZ-84190;2000000027609;74800;68000;
+oyna 25-11-8-17;EDG-32467;2000000034768;112800;94000;
 oyna 25-11-8-18;GLB-29187;2000000027593;74800;68000;
 oyna 25-11-8-19;ZOR-76121;2000000034812;52800;48000;
 oyna 26-3-2-7;UOR-72994;2000000003054;13000;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/881a9bb5-9127-462b-80c8-900282e82ee0.jpg
@@ -3697,8 +3697,8 @@ Oyna 28-17;ATB-30817;2000000029054;17600;16000;
 Oyna 38-11;UIG-32901;2000000045573;960000;800000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/495582b5-5aee-4c37-bf23-3332e62dcb2d.jpg
 Oyna 48-3;PXU-19387;2000000050812;43700;38000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/dbcb26ff-0c46-4743-a312-7cabc77485ac.jpg
 Oyna 48-5;DFW-90440;2000000061894;65600;57000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/aeca8586-d152-474a-8603-d7e0523b0dbd.jpg
-Oyna 48-6;UGJ-38232;2000000050744;41400;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/3796b41b-f881-4538-8799-1c1109f937d1.jpg
 Oyna 48-6;VSK-16127;2000000050737;41400;36000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/c61a512b-1b54-4e6a-9cd2-ed7a5a4a7b3e.jpg
+Oyna 48-6;UGJ-38232;2000000050744;41400;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/3796b41b-f881-4538-8799-1c1109f937d1.jpg
 oyna 48-7;VCR-67023;2000000035734;55000;50000;
 oyna 48-8;MBX-70543;2000000035710;48400;44000;
 Oyna 48-11;PRQ-81707;2000000050799;43700;38000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/f151f99d-fe13-407c-9589-e6f7698342c9.jpg
@@ -3743,7 +3743,7 @@ p-324;RNB-45069;2000000048932;7500;6500;https://fra1.digitaloceanspaces.com/bill
 P-731 folga happy;VQR-87029;2000000057927;57500;50000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/9a3a6288-c9b1-45f8-a7f5-a19de3a18ea6.jpg
 Pachkali meva 9-5;RZV-98690;2000000054087;15600;13500;
 padadarka karobka 5-26;HYF-97012;2000000015286;180000;150000;
-Padarichni Gul karobka Kottasi 15/25sm 0810;VKT-84950;2000000015217;126000;;
+Padarichni Gul karobka O’rtasi 15/22sm 0810;XGR-63282;2000000015224;38500;;
 Padarichni Gul karobka O’rtasi 15/22sm 0810;XGR-63282;2000000015224;38500;;
 padarichniy idish 5-23;CTD-31765;2000000015231;44000;40000;
 Padarichniy ip 31-5;NSH-34775;2000000045863;4400;4000;
@@ -4010,6 +4010,7 @@ Pushti brilog myaxki stij 27-5;MJX-87999;2000000031088;27500;25000;
 pustoy gul 24tali;NLY-15243;2000000060781;126500;110000;
 PUZER;MNX-69151;2000000051031;51800;45000;
 qafas 02-9;WRH-84710;2000000050249;28800;25000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d4a0ebf7-aedc-49ea-ad0c-5ff98a9ffba8.jpg
+qafas 02-9;WRH-84710;2000000050249;28800;25000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d4a0ebf7-aedc-49ea-ad0c-5ff98a9ffba8.jpg
 qalam nabor pero panda 30-30;XPA-58694;2000000052861;149500;130000;
 Qanot osvijitel 18-6;FVE-85922;2000000071671;95000;85000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/8a5e64c9-521b-42cb-a1ef-206eee50ed70.jpg
 Qanot osvijitel 18-7;PPE-15232;2000000071688;200000;185000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/6b7ce724-1ff0-4bec-8b61-81187dcf79b4.jpg
@@ -4056,8 +4057,8 @@ qum soat 25-7-29-7;PUP-78642;2000000028132;28600;26000;
 Qum Soat 29-1;CNY-38725;2000000037790;55000;50000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/2b22423b-4abf-4be3-bb8f-0af88aeefb8c.jpg
 Qum Soat 29-2;IUG-85061;2000000037783;66000;60000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/4640628f-bdb6-42de-8d34-d186609ab052.jpg
 Qum soat 29-3;SWP-61366;2000000052151;103500;90000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/99d6a0e4-3290-4791-adef-ab36e6e630c3.jpg
-Qum soat 29-8;WVK-81732;2000000050669;40300;35000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/9a87fb5c-b21d-4e57-8cfc-fc59c89a6b29.jpg
 Qum soat 29-8;GRY-54683;2000000050652;40300;35000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d87bef71-3dc4-4e5c-8dbe-6dc59458e09f.jpg
+Qum soat 29-8;WVK-81732;2000000050669;40300;35000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/9a87fb5c-b21d-4e57-8cfc-fc59c89a6b29.jpg
 qum soat 29-9;UVM-27272;2000000050973;49500;43000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/a13510b1-d4e1-441f-b74f-80037563447c.jpg
 Qum soat 045;KOU-37112;2000000030609;49500;45000;
 Qum soat 70;KAG-78305;2000000059921;70000;65000;
@@ -4512,7 +4513,7 @@ Shar nabor 10-15;VTO-90451;2000000024967;17600;16000;
 Shar Nabor 10-19;AKO-87979;2000000033327;20900;;
 Shar Nabor 10-22;RUM-74043;2000000025056;9000;9000;
 Shar Nabor 10-23;VQX-40611;2000000025063;7000;7000;
-Shar Nabor 10-23;VQX-40611;2000000025063;7000;7000;
+Shar Nabor 10-28;ORP-36491;2000000025087;9000;;
 Shar Nabor 10-29;YPM-50597;2000000025094;16500;15000;
 Shar nabor 10-30;GTG-26454;6970540231209;16500;15000;
 Shar nabor 10pc 10-13;CKG-30609;2020090190137;7000;7000;
@@ -4804,6 +4805,7 @@ shkatulka 5-15;NNF-58465;2000000015064;66000;60000;
 Shkatulka 5-17;CPQ-80645;2000000069173;190000;180000;
 Shkatulka 5-18;JMF-23076;2000000015101;201600;168000;
 Shkatulka 5-19;DNC-56730;2000000015194;444000;370000;
+Shkatulka 5-19;DNC-56730;2000000015194;444000;370000;
 shkatulka 7-w03;NXP-31034;2000000051482;69000;60000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/5f381bc8-b050-4221-a1dc-c867e7adb176.jpg
 Shkatulka 7-W04;HTY-96027;2000000014753;88000;80000;
 shkatulka 10-8;KSL-26011;2000000053288;195500;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/65e9b2d6-b0c2-49c4-8981-9940dec5fc8c.jpg
@@ -4826,13 +4828,13 @@ shkatulka 25-4-37-Y116-34;ZKU-53664;2000000036861;71500;65000;https://fra1.digit
 Shkatulka 33-5;EOA-27447;2000000072456;135000;118000;
 Shkatulka 095;JMX-15312;2000000051871;86300;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/ae4aa013-11de-4fd0-8bfd-8500967bb1f7.jpg
 SHKATULKA 112;PLP-19768;2000000052748;138000;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/bf7c8bc6-a5af-4764-b2cd-1695400b9ddf.jpg
-Shkatulka 228;LVV-19670;2000000015125;120000;100000;
 shkatulka 640;CJR-22754;2000000053653;264500;230000;
 Shkatulka 641;PIB-71525;2000000069180;210000;200000;
 Shkatulka 641;OZR-95633;2000000014968;230000;210000;
 Shkatulka 660;VLP-20516;2000000063362;82000;82000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/e8948e8f-6cbb-4b32-9f06-8de3b7e15b97.jpg
 Shkatulka 817-1;YUJ-24317;2000000015156;74800;;
 shkatulka 818;LMD-59978;2000000052236;105800;92000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/4550d0df-bba5-41b4-a65e-b0ddee1d6f78.jpg
+Shkatulka 818-1;ZMA-33586;2000000015132;110000;92000;
 Shkatulka 818-1;ZMA-33586;2000000015132;110000;92000;
 Shkatulka 1728;VKL-95714;2000000053073;166800;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/902b1064-4d09-42e7-b34e-b4fde851d6f9.jpg
 Shkatulka A070-15;WKA-60978;2000000072449;100000;82000;
@@ -4869,12 +4871,12 @@ shkatulka H051-36;QQN-32569;2000000014906;150000;125000;
 shkatulka H366-26;QRS-47964;2000000014821;120000;100000;
 shkatulka h366-28;GNX-30595;2000000056364;126500;110000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/66ed9406-fa26-4d0e-93ff-965e56a97c65.jpg
 Shkatulka H-223;ZHB-34147;2000000036908;210000;;
-Shkatulka J21-11;IKA-52553;2000000015095;41800;38000;
 Shkatulka J708-34;RUN-23960;2000000015149;140000;;
 Shkatulka JCQ017-29;ZHZ-41893;2000000056227;40300;35000;
 shkatulka jqc817;ESO-62304;2000000036885;66000;60000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/9fc461dd-fcab-45a7-88b1-0d538040125a.jpg
 shkatulka JQD647-1;YGB-49600;2000000072418;120000;106000;
 Shkatulka JQD-642;ZHK-12429;2000000072401;95000;82000;
+shkatulka kojali A092-37;OOT-30053;2000000015187;82500;;
 shkatulka kojali A092-37;OOT-30053;2000000015187;82500;;
 shkatulka kojali A249-1-22;CKA-99401;2000000015163;71500;65000;
 shkatulka kojali F12J-3;TXU-49460;2000000014715;140000;120000;
@@ -5031,6 +5033,7 @@ Soat Oyna 5-120;XZQ-68741;2000000024233;41800;38000;
 Soat podstavka 55-6;LVG-65343;2000000031965;1920000;1600000;
 Soat podstavka 55-7;ZJR-42533;2000000031972;1920000;1600000;
 Soat qasr 50x60 3-9;FJO-88764;2000000045252;114000;95000;
+Soat qasr 50x60 3-9;FJO-88764;2000000045252;114000;95000;
 Soat s-9-6;WDQ-61351;2000000053349;207000;180000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/7fb5e600-6f37-470b-adb3-f7c87b06d0b1.jpg
 Soat sevishganlar statuetka 39-9;IKT-49664;2000000053219;189800;165000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/e83fd18e-3cf4-4081-b987-a9e5c79c3b9d.jpg
 Soat svitelnik hi tech 55-6;ESJ-79800;2000000047867;1920000;1600000;
@@ -5158,7 +5161,6 @@ statuetka 44-21;DWR-56734;2000000009414;588000;490000;
 Statuetka 45-7;REP-76179;2000000011646;480000;400000;
 statuetka 48-2;BDA-16590;2000000009377;492000;410000;
 statuetka 48-4;VCN-14767;2000000037271;528000;440000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/107bb4df-05fb-402b-9afc-002265be8456.jpg
-Statuetka 78-37;SUV-56483;2000000035215;234000;195000;
 Statuetka 78-37;SUV-56483;2000000035215;234000;195000;
 Statuetka Askar 66-77;FHU-72799;2000000012162;336000;280000;
 statuetka Ayiqcha 26-4-26-15;YLM-77515;2000000000398;258000;215000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/22e86387-1d8b-48eb-809b-6590d4f0fabf.jpg
@@ -5363,7 +5365,6 @@ svetilnik 16-6;JWY-88236;2000000066660;125000;112000;
 svetilnik 16-7;KTK-38422;2000000066646;100000;85000;
 svetilnik 16-12;PYZ-45847;2000000066790;105000;95000;
 Svetilnik 24-15;CRJ-71522;2000000051383;66700;58000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/dda9488f-c6bd-4c09-96e4-f9a4590a9bbf.jpg
-Svetilnik 25-7-16-6;GYO-64281;2000000035055;150000;125000;
 Svetilnik 25-7-16-6;GYO-64281;2000000035055;150000;125000;
 svetilnik 25-7-34-49;ZOF-42748;2000000051192;57500;50000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/795570bc-7485-4e82-b875-c7e4174161ef.jpg
 Svetilnik 25-11-9-5;JOP-22271;2000000071640;120000;100000;
@@ -5580,7 +5581,6 @@ T-234;XKA-43668;2000000005188;16500;15000;https://fra1.digitaloceanspaces.com/bi
 Tabiat kartina 100x120 700-14;SPK-75348;2000000032351;660000;550000;
 Table lamp Oyna 17-8;HAT-72288;2000000034355;34100;31000;
 Table lamp oyna 17-9;REP-85187;2000000034362;34100;31000;
-Taburetka pastafka 25-11-25-3;HJH-18468;2000000045351;294000;245000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/301ee11f-62fa-44ac-86db-08dc18947a0f.jpg
 Taburetka pastafka 25-11-25-4;AHX-36256;2000000045344;294000;245000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/0ed55ba4-13d4-4864-b8d9-f464a87c32d1.jpg
 Taburetka pastafka gold 25-11-25-7;XJA-43667;2000000045337;348000;290000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/9008e57b-3ec8-4b1c-b2e6-05218b543771.jpg
 Tabutretka pastafka qora 25-11-25-1;ICO-34199;2000000045320;294000;245000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/bbd2015a-0b0e-440b-b5f5-37c1c7d980da.jpg
@@ -5787,7 +5787,9 @@ Temir vaza kichik 26-10-3;EAN-89917;2000000061290;149500;;https://fra1.digitaloc
 Temir vaza urtacha 26-10-2;ASJ-53624;2000000061283;287500;250000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/dec8b209-c801-4554-8f08-c90080e2810f.jpg
 temr soat 25-7-18-1;OTC-59116;2000000005119;162000;135000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/72b5befe-a353-4f55-8347-760f4b6b9e4b.jpg
 temr soat 25-7-18-2;XPB-39638;2000000005133;140400;117000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/b2dd59de-9396-4144-9764-c07bbe1dc5d8.jpg
+temr soat 25-7-18-2;XPB-39638;2000000005133;140400;117000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/b2dd59de-9396-4144-9764-c07bbe1dc5d8.jpg
 temr soat 25-7-18-3;BIM-60173;2000000005140;213600;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/22244bba-4ebf-4455-86e9-210d8e6f545b.jpg
+temr soat 25-7-18-4;ONN-59249;2000000005126;156000;130000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/3229b320-481a-4962-b65d-6e97cfc0f71a.jpg
 temr soat 25-7-18-4;ONN-59249;2000000005126;156000;130000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/3229b320-481a-4962-b65d-6e97cfc0f71a.jpg
 temr soat 25-7-18-5;NZW-69872;2000000005164;186000;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/a86891c4-c2a2-4749-9d1c-6743c5725c33.jpg
 temr soat 25-7-18-6;NWG-69282;2000000005157;228000;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/7fd647f5-4f03-4337-8656-974ff8bbe592.jpg
@@ -6296,7 +6298,6 @@ Vazalar;VNF-55063;2000000044590;11000;10000;
 Velik brilog 0186;TJI-76501;2000000030838;25300;23000;
 Velik Osvijitel 0112;KLA-52065;2000000017181;79200;72000;
 Velik osvijitel moshina;DZU-67385;2000000060330;65000;65000;
-Velik soat 3-36;UNO-52262;2000000050515;34500;30000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/b278e18a-689f-406a-8c09-d74bac978734.jpg
 Velik soat 26-4-28-3;FCU-43345;2000000065274;380000;350000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/c545501a-8d73-41b3-b687-3d1da1b3978a.jpg
 Velosiped 27-4;RVM-29029;2000000063690;1897500;1650000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/487bda57-9359-45b4-bc98-179943a787d3.jpg
 Velosiped gul postafka 27-3;MVC-43469;2000000063706;345000;300000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/bb055811-16e3-43d6-9c12-3c4613dfaa94.jpg
@@ -6378,7 +6379,6 @@ xitoy soat 48-7;ICQ-62425;2000000066608;90000;78000;
 xitoy soat 48-8;KUP-12794;2000000066318;95000;80000;
 xitoy soat 48-9;GAQ-89945;2000000066325;120000;105000;
 xitoy soat 48-10;KBE-15649;2000000066332;55000;45000;
-Xitoy soat 51 700-900;KXY-97576;2000000045160;1140000;950000;
 xitoy soat AL -4;UPP-92938;2000000066530;190000;175000;
 xitoy soat AL-3;QRO-65161;2000000066523;190000;175000;
 Xitoy soat AL-4;BOK-79864;2000000068817;200000;175000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/604e5fb2-79b8-459e-9fc3-60b6945d7d48.jpg
@@ -6388,7 +6388,6 @@ Xitoy soat madel 38-20;XIU-98921;2000000032092;720000;600000;
 Xitoy soat madel 38-21;POC-90629;2000000032108;720000;600000;
 Xitoy soat madel 38-22;BAV-95111;2000000032115;540000;;
 Xitoy soat madel 38-23;ZKE-91028;2000000032122;480000;;
-xlopsuhka 50sm;VVS-49099;2000000050300;28800;25000;
 Xlopushka 20sm arzon;DRE-85080;2000000024646;10000;6500;
 XLOPUSHKA 20SM ARZONI;GHE-96205;2000000049120;9200;8000;
 xlopushka 30 Dollar;OMM-15741;2000000007700;22000;20000;
@@ -6437,6 +6436,7 @@ yashil barg 100-10;DFT-76020;2000000020242;23100;21000;
 yashil barg 100-11;ANG-20672;2000000020235;16500;15000;
 yashil barg 100-13;TXP-77295;2000000006512;9900;9000;
 Yehua SHAR XROM;XLT-84320;2000000010618;25000;25000;
+yn007 folga;QDL-40299;2000000050317;28800;25000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/ff029d9c-b232-4d39-bc74-fe450c360fd2.jpg
 yn007 folga;QDL-40299;2000000050317;28800;25000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/ff029d9c-b232-4d39-bc74-fe450c360fd2.jpg
 Yo'lbars a-017;GRA-87239;2000000060996;8100;7000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/2b2e2681-a7da-4821-8261-e3fdd2e92d2b.jpg
 Yo'lbars osvijitel 18-5;ALH-72619;2000000071718;65000;55000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/9bcd99fd-664e-4e80-8b2b-40a7f0e3d61f.jpg
