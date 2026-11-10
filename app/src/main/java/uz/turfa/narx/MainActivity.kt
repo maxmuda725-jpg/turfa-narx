@@ -791,9 +791,11 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- ro'yxatni rasmdan o'qish
     private fun scanMenu() {
-        AlertDialog.Builder(this).setTitle("Ro'yxatni rasmdan o'qish")
-            .setItems(arrayOf("📷 Kamera bilan rasmga olish", "🖼 Galereyadan / skrinshot")) { _, w ->
-                if (w == 0) openCamera() else openGallery()
+        val ai = aiKey().isNotEmpty()
+        AlertDialog.Builder(this).setTitle(if (ai) "Ro'yxatni o'qish (🤖 AI yoqilgan)" else "Ro'yxatni rasmdan o'qish")
+            .setItems(arrayOf("📷 Kamera bilan rasmga olish", "🖼 Galereyadan / skrinshot",
+                if (ai) "⚙️ AI kalitini o'zgartirish" else "🤖 AI'ni yoqish (Gemini kaliti)")) { _, w ->
+                when (w) { 0 -> openCamera(); 1 -> openGallery(); else -> askAiKey() }
             }.show()
     }
 
@@ -825,7 +827,54 @@ class MainActivity : Activity() {
         recognize(uri)
     }
 
+    private fun aiKey() = getSharedPreferences("kassa", MODE_PRIVATE).getString("gemini", "").orEmpty()
+
+    private fun askAiKey() {
+        val input = EditText(this).apply {
+            hint = "AIza..."; isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(aiKey())
+        }
+        val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+        AlertDialog.Builder(this).setTitle("Gemini AI kaliti")
+            .setMessage("aistudio.google.com/apikey dan olingan kalitni kiriting. Bo'sh qoldirsangiz, AI o'chadi.")
+            .setView(wrap)
+            .setPositiveButton("Saqlash") { _, _ ->
+                getSharedPreferences("kassa", MODE_PRIVATE).edit().putString("gemini", input.text.toString().trim()).apply()
+                toast(if (input.text.isBlank()) "AI o'chirildi" else "🤖 AI yoqildi")
+            }
+            .setNegativeButton("Bekor", null).show()
+    }
+
+    private fun showParsed(rows: List<String>) {
+        val idx = codeIndex ?: ListParser.index(all).also { codeIndex = it }
+        val lines = ListParser.parse(rows, idx, all)
+        if (lines.isEmpty()) AlertDialog.Builder(this).setTitle("Kod topilmadi")
+            .setMessage("Rasmda tovar kodi (masalan 43-25) topilmadi. Ro'yxat aniq va yorug' joyda rasmga olinganini tekshiring.")
+            .setPositiveButton("OK", null).show()
+        else showReview(lines)
+    }
+
     private fun recognize(uri: Uri) {
+        val key = aiKey()
+        if (key.isEmpty()) { recognizeLocal(uri); return }
+        val wait = AlertDialog.Builder(this).setMessage("🤖 AI ro'yxatni o'qiyapti…").setCancelable(false).show()
+        Thread {
+            val res = try { Result.success(AiReader.read(this, uri, key)) } catch (e: Exception) { Result.failure(e) }
+            main.post {
+                wait.dismiss()
+                res.onSuccess { rows ->
+                    if (rows.isEmpty()) { toast("AI ro'yxat topmadi, oddiy o'qishga o'tildi"); recognizeLocal(uri) }
+                    else showParsed(rows)
+                }.onFailure { e ->
+                    toast("AI: ${e.message ?: "xato"}. Oddiy o'qishga o'tildi")
+                    recognizeLocal(uri)
+                }
+            }
+        }.start()
+    }
+
+    private fun recognizeLocal(uri: Uri) {
         val wait = AlertDialog.Builder(this).setMessage("⏳ Ro'yxat o'qilmoqda…").setCancelable(false).show()
         val img = try { InputImage.fromFilePath(this, uri) } catch (e: Exception) {
             wait.dismiss(); toast("Rasmni ochib bo'lmadi"); return
@@ -833,13 +882,8 @@ class MainActivity : Activity() {
         TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).process(img)
             .addOnSuccessListener { vt ->
                 wait.dismiss()
-                val idx = codeIndex ?: ListParser.index(all).also { codeIndex = it }
                 val ocr = vt.textBlocks.flatMap { b -> b.lines.map { OcrLine(it.text, it.boundingBox) } }
-                val lines = ListParser.parse(ListParser.rows(ocr), idx, all)
-                if (lines.isEmpty()) AlertDialog.Builder(this).setTitle("Kod topilmadi")
-                    .setMessage("Rasmda tovar kodi (masalan 43-25) topilmadi. Ro'yxat aniq va yorug' joyda rasmga olinganini tekshiring.")
-                    .setPositiveButton("OK", null).show()
-                else showReview(lines)
+                showParsed(ListParser.rows(ocr))
             }
             .addOnFailureListener { e ->
                 wait.dismiss()
