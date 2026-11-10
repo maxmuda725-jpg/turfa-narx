@@ -1,0 +1,9 @@
+name: Billz diagnostika (faqat o'qish)
+on: workflow_dispatch
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - env: { BILLZ_SECRET_TOKEN: '${{ secrets.BILLZ_SECRET_TOKEN }}' }
+        run: python3 scripts/billz_diag.py
