@@ -7,7 +7,8 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.os.Bundle
 import android.text.Editable
 import android.text.InputType
@@ -25,12 +26,17 @@ import android.widget.TextView
 import android.widget.Toast
 import java.io.File
 import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // ======================= SOZLAMALAR =======================
 // Do'konchilar kiradigan PIN
 const val SELLER_PIN = "1234"
-// Bazani yangilash uchun (faqat egasi) PIN
-const val ADMIN_PIN = "7777"
+// Baza shu manzildan yuklanadi (GitHub). Tannarx bu faylda YO'Q.
+const val BASE_URL = "https://raw.githubusercontent.com/maxmuda725-jpg/turfa-narx/main/baza/products.csv"
 // ==========================================================
 
 data class Product(val name: String, val code: String, val dona: Long, val optom: Long) {
@@ -78,14 +84,27 @@ object Db {
         }
     }
 
-    /** Yangi fayl to'g'ri o'qilsa saqlaydi va mahsulotlar sonini qaytaradi. */
-    fun import(ctx: Context, uri: Uri): Int {
-        val bytes = ctx.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-        val list = parse(bytes.inputStream())
-        if (list.isEmpty()) return 0
-        File(ctx.filesDir, FILE).writeBytes(bytes)
-        return list.size
+    /** Internetdan yangi bazani yuklaydi. To'g'ri bo'lsa saqlaydi va sonini qaytaradi. */
+    fun download(ctx: Context): Int {
+        val c = URL(BASE_URL + "?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection
+        c.connectTimeout = 15000; c.readTimeout = 30000
+        c.setRequestProperty("Cache-Control", "no-cache")
+        try {
+            if (c.responseCode != 200) throw Exception("HTTP ${c.responseCode}")
+            val bytes = c.inputStream.use { it.readBytes() }
+            val list = parse(bytes.inputStream())
+            if (list.isEmpty()) throw Exception("bo'sh fayl")
+            val tmp = File(ctx.filesDir, "$FILE.tmp")
+            tmp.writeBytes(bytes)
+            tmp.renameTo(File(ctx.filesDir, FILE))
+            ctx.getSharedPreferences("baza", Context.MODE_PRIVATE).edit()
+                .putLong("updated", System.currentTimeMillis()).apply()
+            return list.size
+        } finally { c.disconnect() }
     }
+
+    fun updatedAt(ctx: Context): Long =
+        ctx.getSharedPreferences("baza", Context.MODE_PRIVATE).getLong("updated", 0)
 
     fun parse(input: InputStream): List<Product> {
         val text = input.bufferedReader(Charsets.UTF_8).readText().removePrefix("﻿")
@@ -157,7 +176,9 @@ class MainActivity : Activity() {
     private val GREEN = Color.parseColor("#0F7B5F")
     private val BLUE = Color.parseColor("#1F4E9E")
     private val BG = Color.parseColor("#F4F5F7")
-    private val REQ_IMPORT = 42
+    private val main = Handler(Looper.getMainLooper())
+    private var busy = false
+    private lateinit var refreshBtn: Button
 
     private var all: List<Product> = emptyList()
     private var shown: List<Product> = emptyList()
@@ -169,7 +190,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         all = Db.load(this)
         buildUi()
-        askPin(SELLER_PIN, "Do'konchi PIN-kodi", cancelable = false) { }
+        askPin(SELLER_PIN, "Do'konchi PIN-kodi", cancelable = false) { update(silent = true) }
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -196,11 +217,14 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE); textSize = 20f
             typeface = Typeface.DEFAULT_BOLD
         }, LinearLayout.LayoutParams(0, -2, 1f))
-        top.addView(Button(this).apply {
-            text = "⋮"; textSize = 20f
-            setTextColor(Color.WHITE); background = null
-            setOnClickListener { menu() }
-        }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        refreshBtn = Button(this).apply {
+            text = "🔄 Yangilash"; textSize = 15f; isAllCaps = false
+            setTextColor(GREEN); typeface = Typeface.DEFAULT_BOLD
+            background = box(Color.WHITE, 22)
+            setPadding(dp(14), 0, dp(14), 0)
+            setOnClickListener { update(silent = false) }
+        }
+        top.addView(refreshBtn, LinearLayout.LayoutParams(-2, dp(44)))
         root.addView(top)
 
         search = EditText(this).apply {
@@ -291,45 +315,40 @@ class MainActivity : Activity() {
         val q = search.text.toString()
         shown = Search.run(all, q)
         info.text = when {
-            all.isEmpty() -> "Baza bo'sh. ⋮ → Bazani yangilash"
-            q.isBlank() -> "Bazada ${all.size} ta mahsulot. Kod yoki nom yozing."
+            all.isEmpty() -> "Baza bo'sh. Internetni yoqib 🔄 Yangilash ni bosing."
+            q.isBlank() -> "Baza: ${baseDate()} · ${all.size} ta mahsulot"
             shown.isEmpty() -> "Topilmadi: \"${q.trim()}\""
             else -> "Topildi: ${shown.size} ta"
         }
         adapter.notifyDataSetChanged()
     }
 
-    private fun menu() {
-        AlertDialog.Builder(this)
-            .setItems(arrayOf("Bazani yangilash (CSV)", "Ilova haqida")) { _, w ->
-                if (w == 0) askPin(ADMIN_PIN, "Egasi PIN-kodi", cancelable = true) { pickFile() }
-                else AlertDialog.Builder(this).setTitle("TUR-FA narxlar 1.0")
-                    .setMessage("Bazada ${all.size} ta mahsulot.\nInternetsiz ishlaydi.")
-                    .setPositiveButton("OK", null).show()
-            }.show()
+    private fun baseDate(): String {
+        val t = Db.updatedAt(this)
+        return if (t == 0L) "ilova ichidagi"
+        else SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.US).format(Date(t))
     }
 
-    private fun pickFile() {
-        val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "*/*"
-        }
-        startActivityForResult(i, REQ_IMPORT)
+    private fun update(silent: Boolean) {
+        if (busy) return
+        busy = true
+        refreshBtn.text = "⏳ Yuklanmoqda"; refreshBtn.isEnabled = false
+        Thread {
+            val res = try { Result.success(Db.download(this)) } catch (e: Exception) { Result.failure(e) }
+            main.post {
+                busy = false
+                refreshBtn.text = "🔄 Yangilash"; refreshBtn.isEnabled = true
+                res.onSuccess { n ->
+                    all = Db.load(this); refresh()
+                    if (!silent) toast("✅ Baza yangilandi: $n ta mahsulot")
+                }.onFailure {
+                    if (!silent) toast("Internet yo'q yoki baza topilmadi. Eski baza bilan ishlayapsiz.")
+                }
+            }
+        }.start()
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        val uri = data?.data
-        if (requestCode != REQ_IMPORT || resultCode != RESULT_OK || uri == null) return
-        val n = try { Db.import(this, uri) } catch (e: Exception) { 0 }
-        if (n > 0) {
-            all = Db.load(this); refresh()
-            Toast.makeText(this, "Baza yangilandi: $n ta mahsulot", Toast.LENGTH_LONG).show()
-        } else {
-            Toast.makeText(this, "Faylni o'qib bo'lmadi. CSV formatini tekshiring.", Toast.LENGTH_LONG).show()
-        }
-    }
+    private fun toast(m: String) = Toast.makeText(this, m, Toast.LENGTH_LONG).show()
 
     private fun askPin(pin: String, title: String, cancelable: Boolean, ok: () -> Unit) {
         val input = EditText(this).apply {
