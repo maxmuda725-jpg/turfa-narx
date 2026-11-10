@@ -105,6 +105,43 @@ object Search {
             else p.nameLower.contains(w)
         }
 
+    /** "43-25" -> "43";  "25-7-44-7" -> "25-7-44";  defissiz kod -> null */
+    fun series(w: String): String? {
+        val i = w.lastIndexOf('-')
+        return if (i > 0 && w.substring(0, i).any { it.isDigit() }) w.substring(0, i) else null
+    }
+
+    /** Aniq natijadan tashqari, shu seriyadagi tovarlar (avval qoldig'i borlari). */
+    fun similar(all: List<Product>, query: String, exact: List<Product>): Pair<String, List<Product>> {
+        val words = tokens(query).toList()
+        val codeWord = words.lastOrNull { w -> w.any { it.isDigit() } && series(w) != null } ?: return "" to emptyList()
+        val pre = series(codeWord)!! + "-"
+        val others = words.filter { it != codeWord }
+        val skip = exact.map { it.key }.toHashSet()
+        // Faqat shu turdagi tovarlar: aniq topilgan tovar nomining birinchi so'zi (masalan "gul")
+        val kinds = exact.map { firstWord(it.name) }.filter { it.isNotEmpty() }.toHashSet()
+        val target = codeWord.substringAfterLast('-').toLongOrNull()
+        fun seriesToken(p: Product) = p.tokens.firstOrNull { it.startsWith(pre) && it != codeWord }
+        fun distance(p: Product): Long {
+            val n = seriesToken(p)?.substringAfterLast('-')?.toLongOrNull() ?: return Long.MAX_VALUE
+            return if (target == null) n else kotlin.math.abs(n - target)
+        }
+        val res = all.filter { p ->
+            p.key !in skip && seriesToken(p) != null && matches(p, others) &&
+                (kinds.isEmpty() || firstWord(p.name) in kinds)
+        }.sortedWith(compareBy<Product>(
+            { (it.qty.toDoubleOrNull() ?: 0.0) <= 0 },   // avval qoldig'i borlari
+            { distance(it) },                            // keyin raqami eng yaqinlari (43-24, 43-26)
+            { natKey(it.name) },
+        ))
+        return (pre + "…") to res.take(60)
+    }
+
+    private fun firstWord(s: String) = s.lowercase().trim().split(' ').firstOrNull().orEmpty()
+
+    private fun natKey(s: String): String =
+        Regex("\\d+").replace(s.lowercase()) { it.value.padStart(8, '0') }
+
     fun run(all: List<Product>, query: String): List<Product> {
         val words = tokens(query).toList()
         if (words.isEmpty()) return emptyList()
@@ -258,7 +295,9 @@ class MainActivity : Activity() {
     private var busy = false
 
     private var all: List<Product> = emptyList()
-    private var shown: List<Product> = emptyList()
+    private var shown: List<Any> = emptyList()   // Product yoki String (bo'lim sarlavhasi)
+    private var similarOpen = false
+    private var lastQuery = ""
 
     // Kassa (faqat hisob-kitob, Billz'ga hech narsa yuborilmaydi)
     private val cart = LinkedHashMap<String, CartItem>()
@@ -350,7 +389,8 @@ class MainActivity : Activity() {
             override fun getCount() = shown.size
             override fun getItem(p: Int) = shown[p]
             override fun getItemId(p: Int) = p.toLong()
-            override fun getView(p: Int, convert: View?, parent: ViewGroup?): View = productRow(shown[p])
+            override fun getView(p: Int, convert: View?, parent: ViewGroup?): View =
+                when (val r = shown[p]) { is Product -> productRow(r); else -> sectionHeader(r as String) }
         }
         val list = ListView(this).apply {
             this.adapter = this@MainActivity.adapter
@@ -443,6 +483,21 @@ class MainActivity : Activity() {
 
         val wrap = LinearLayout(this).apply { setPadding(dp(4), dp(5), dp(4), dp(5)) }
         wrap.addView(card, LinearLayout.LayoutParams(-1, -2))
+        return wrap
+    }
+
+    private fun sectionHeader(t: String): View {
+        val tv = TextView(this).apply {
+            text = t; textSize = 15f; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(if (t.startsWith("🔍")) BLUE else INK)
+            setPadding(dp(12), dp(14), dp(12), dp(8))
+            if (t.startsWith("🔍")) {
+                background = box(tint(BLUE, 22), 12)
+                setOnClickListener { similarOpen = !similarOpen; refresh() }
+            }
+        }
+        val wrap = LinearLayout(this).apply { setPadding(dp(4), dp(6), dp(4), dp(2)) }
+        wrap.addView(tv, LinearLayout.LayoutParams(-1, -2))
         return wrap
     }
 
@@ -625,12 +680,24 @@ class MainActivity : Activity() {
 
     private fun refresh() {
         val q = search.text.toString()
-        shown = Search.run(all, q)
+        if (q != lastQuery) { similarOpen = false; lastQuery = q }
+        val exact = Search.run(all, q)
+        val (ser, sim) = if (q.isBlank()) "" to emptyList<Product>() else Search.similar(all, q, exact)
+        val open = similarOpen || exact.isEmpty()
+        val rows = ArrayList<Any>()
+        if (exact.isNotEmpty() && sim.isNotEmpty()) rows += "🎯 Topildi: ${exact.size} ta"
+        rows.addAll(exact)
+        if (sim.isNotEmpty()) {
+            rows += "🔍 Shu seriyadan ($ser): ${sim.size} ta  " + if (open) "▴" else "▾ ochish"
+            if (open) rows.addAll(sim)
+        }
+        shown = rows
         info.text = when {
             all.isEmpty() -> "Baza bo'sh. Internetni yoqib 🔄 Yangilash ni bosing."
             q.isBlank() -> "Baza yangilangan: ${baseDate()}"
-            shown.isEmpty() -> "Topilmadi: \"${q.trim()}\""
-            else -> "Topildi: ${shown.size} ta"
+            exact.isEmpty() && sim.isEmpty() -> "Topilmadi: \"${q.trim()}\""
+            exact.isEmpty() -> "Aniq \"${q.trim()}\" topilmadi. Shu seriyadan:"
+            else -> "Topildi: ${exact.size} ta"
         }
         adapter.notifyDataSetChanged()
     }
