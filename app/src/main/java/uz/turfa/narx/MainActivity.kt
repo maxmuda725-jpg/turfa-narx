@@ -49,6 +49,8 @@ import java.util.concurrent.Executors
 const val SELLER_PIN = "1234"
 // Baza shu manzildan yuklanadi (GitHub). Tannarx bu faylda YO'Q.
 const val BASE_URL = "https://raw.githubusercontent.com/maxmuda725-jpg/turfa-narx/main/baza/products.csv"
+// Billz'ga qoralama yuboradigan server (Do'kon Yordamchisi, Lovable). Kalit telefonga bir marta kiritiladi.
+const val KASSA_API = "__KASSA_API__"
 // ==========================================================
 
 /** "17600" -> [17600];  "11200-17600" -> [11200, 17600] */
@@ -579,10 +581,13 @@ class MainActivity : Activity() {
         totalText = TextView(this).apply { textSize = 30f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD }
         totalBox.addView(totalSub); totalBox.addView(totalText)
         totalBox.addView(TextView(this).apply {
-            text = "Faqat hisob-kitob. Billz kassasiga yuborilmaydi."
+            text = "Hisob-kitob. Billz'ga faqat \"📤 Billz'ga qoralama\" bosilganda yuboriladi."
             textSize = 11f; setTextColor(Color.parseColor("#999999")); setPadding(0, dp(4), 0, 0)
         })
-        screen.addView(totalBox, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(4), dp(12), dp(12)) })
+        screen.addView(totalBox, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(4), dp(12), dp(6)) })
+        screen.addView(pill("📤 Billz'ga qoralama (Turfa)", Color.WHITE, Color.parseColor("#6A1B9A"), 17f) { sendToBillz() }
+            .apply { setOnLongClickListener { askKey {}; true } },
+            LinearLayout.LayoutParams(-1, dp(52)).apply { setMargins(dp(12), 0, dp(12), dp(12)) })
         return screen
     }
 
@@ -658,6 +663,95 @@ class MainActivity : Activity() {
         searchScreen.visibility = if (show) View.GONE else View.VISIBLE
         if (!show) adapter.notifyDataSetChanged()
     }
+
+    // ---------------------------------------------------------------- Billz'ga qoralama
+    private fun prefs() = getSharedPreferences("kassa", MODE_PRIVATE)
+
+    private fun askKey(then: () -> Unit) {
+        val input = EditText(this).apply {
+            hint = "Ulanish kaliti"; isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText(prefs().getString("key", ""))
+        }
+        val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+        AlertDialog.Builder(this).setTitle("Billz ulanish kaliti")
+            .setMessage("Do'kon egasidan olingan kalitni kiriting (bir marta).")
+            .setView(wrap)
+            .setPositiveButton("Saqlash") { _, _ ->
+                val k = input.text.toString().trim()
+                if (k.isNotEmpty()) { prefs().edit().putString("key", k).apply(); then() }
+            }
+            .setNegativeButton("Bekor", null).show()
+    }
+
+    private fun sendToBillz() {
+        if (cart.isEmpty()) { toast("Kassa bo'sh"); return }
+        if (KASSA_API.startsWith("__")) { toast("Billz ulanishi hali sozlanmagan"); return }
+        val key = prefs().getString("key", "").orEmpty()
+        if (key.isEmpty()) { askKey { sendToBillz() }; return }
+        val items = cart.values.toList()
+        val total = items.sumOf { it.p.unitPrice(optomMode) * it.count }
+        val mode = if (optomMode) "OPTOM" else "DONA"
+        AlertDialog.Builder(this).setTitle("Billz'ga yuborilsinmi?")
+            .setMessage("Turfa kassasida qoralama (отложенный чек) ochiladi.\n\n${items.size} xil, ${group(items.sumOf { it.count })} ta\n$mode narxda: ${fmt(total)}\n\nTo'lovni kassir Billz'da oladi.")
+            .setPositiveButton("Yuborish") { _, _ -> doSend(key, items) }
+            .setNegativeButton("Bekor", null).show()
+    }
+
+    private fun doSend(key: String, items: List<CartItem>) {
+        val wait = AlertDialog.Builder(this).setMessage("⏳ Billz'ga yuborilmoqda…").setCancelable(false).show()
+        val body = org.json.JSONObject().apply {
+            put("mode", if (optomMode) "optom" else "dona")
+            put("items", org.json.JSONArray().apply {
+                for (ci in items) put(org.json.JSONObject().apply {
+                    put("sku", ci.p.code.ifBlank { ci.p.barcode.ifBlank { ci.p.name } })
+                    if (ci.p.barcode.isNotBlank()) put("barcode", ci.p.barcode)
+                    put("name", ci.p.name.take(300))
+                    put("qty", ci.count)
+                    put("price", ci.p.unitPrice(optomMode))
+                })
+            })
+            put("note", "TUR-FA narxlar ilovasidan")
+        }.toString()
+        Thread {
+            val (code, text) = try {
+                val c = URL("$KASSA_API/api/kassa/qoralama").openConnection() as HttpURLConnection
+                c.requestMethod = "POST"; c.doOutput = true
+                c.connectTimeout = 15000; c.readTimeout = 120000
+                c.setRequestProperty("Content-Type", "application/json")
+                c.setRequestProperty("x-app-key", key)
+                c.outputStream.use { it.write(body.toByteArray()) }
+                val rc = c.responseCode
+                val t = (if (rc in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.readText().orEmpty()
+                c.disconnect(); rc to t
+            } catch (e: Exception) { -1 to "" }
+            main.post {
+                wait.dismiss()
+                val j = try { org.json.JSONObject(text) } catch (e: Exception) { null }
+                when {
+                    code == -1 -> alert("Internet yo'q", "Billz'ga ulanib bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.")
+                    code == 401 -> { prefs().edit().remove("key").apply(); alert("Kalit noto'g'ri", "Ulanish kaliti noto'g'ri. Qayta bosib, to'g'ri kalitni kiriting.") }
+                    j?.optBoolean("ok") == true -> {
+                        val nf = j.optJSONArray("not_found")?.length() ?: 0
+                        val fl = j.optJSONArray("failed")?.length() ?: 0
+                        val msg = buildString {
+                            append("Turfa kassasida qoralama tayyor.\nBillz'da: Отложенные чеки.\n\n")
+                            append("Qo'shildi: ${j.optInt("added")} xil tovar")
+                            if (nf > 0) append("\n❓ Billz'da topilmadi: $nf ta")
+                            if (fl > 0) append("\n⚠️ Qo'shilmadi: $fl ta")
+                        }
+                        AlertDialog.Builder(this).setTitle("✅ Billz'ga yuborildi").setMessage(msg)
+                            .setPositiveButton("Kassani tozalash") { _, _ -> cart.clear(); updateCart() }
+                            .setNegativeButton("Qoldirish", null).show()
+                    }
+                    else -> alert("Yuborilmadi", j?.optString("error")?.ifBlank { null } ?: "Server xatosi ($code). Keyinroq urinib ko'ring.")
+                }
+            }
+        }.start()
+    }
+
+    private fun alert(t: String, m: String) =
+        AlertDialog.Builder(this).setTitle(t).setMessage(m).setPositiveButton("OK", null).show()
 
     private fun clearCart() {
         if (cart.isEmpty()) return
