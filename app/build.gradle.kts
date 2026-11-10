@@ -11,6 +11,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        // Faqat telefon protsessorlari: APK kichikroq bo'ladi
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }
     buildTypes {
         release {
@@ -25,6 +27,6 @@ android {
     kotlinOptions { jvmTarget = "17" }
 }
 dependencies {
-    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("androidx.core:core:1.13.1")
 }

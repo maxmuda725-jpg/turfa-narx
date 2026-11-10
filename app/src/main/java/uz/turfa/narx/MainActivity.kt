@@ -841,7 +841,10 @@ class MainActivity : Activity() {
                     .setPositiveButton("OK", null).show()
                 else showReview(lines)
             }
-            .addOnFailureListener { wait.dismiss(); toast("Matnni o'qib bo'lmadi") }
+            .addOnFailureListener { e ->
+                wait.dismiss()
+                alert("Matnni o'qib bo'lmadi", "Sabab: ${e.message ?: e.javaClass.simpleName}\n\nRasmni yorug'roq va tikroq qilib qayta oling.")
+            }
     }
 
     private fun showReview(lines: MutableList<ScanLine>) {
