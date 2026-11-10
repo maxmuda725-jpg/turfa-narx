@@ -3,6 +3,13 @@ package uz.turfa.narx
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.MediaStore
+import androidx.core.content.FileProvider
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -302,6 +309,10 @@ class MainActivity : Activity() {
     // Kassa (faqat hisob-kitob, Billz'ga hech narsa yuborilmaydi)
     private val cart = LinkedHashMap<String, CartItem>()
     private var optomMode = false
+    private var codeIndex: Map<String, List<Product>>? = null
+    private var camUri: Uri? = null
+    private val REQ_GALLERY = 71
+    private val REQ_CAMERA = 72
 
     private lateinit var searchScreen: View
     private lateinit var kassaScreen: View
@@ -536,6 +547,8 @@ class MainActivity : Activity() {
         modeRow.addView(donaBtn, LinearLayout.LayoutParams(0, dp(48), 1f))
         modeRow.addView(optomBtn, LinearLayout.LayoutParams(0, dp(48), 1f))
         screen.addView(modeRow, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(12), dp(12), dp(6)) })
+        screen.addView(pill("📷 Ro'yxatni rasmdan qo'shish", INK, Color.WHITE, 16f) { scanMenu() },
+            LinearLayout.LayoutParams(-1, dp(48)).apply { setMargins(dp(12), dp(2), dp(12), dp(6)) })
 
         emptyCart = TextView(this).apply {
             text = "Kassa bo'sh.\nMahsulotni qidirib, \"＋ Kassaga\" tugmasini bosing."
@@ -669,6 +682,168 @@ class MainActivity : Activity() {
         input.requestFocus()
     }
 
+    // ---------------------------------------------------------------- ro'yxatni rasmdan o'qish
+    private fun scanMenu() {
+        AlertDialog.Builder(this).setTitle("Ro'yxatni rasmdan o'qish")
+            .setItems(arrayOf("📷 Kamera bilan rasmga olish", "🖼 Galereyadan / skrinshot")) { _, w ->
+                if (w == 0) openCamera() else openGallery()
+            }.show()
+    }
+
+    private fun openGallery() {
+        try {
+            startActivityForResult(Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "image/*"; addCategory(Intent.CATEGORY_OPENABLE)
+            }, REQ_GALLERY)
+        } catch (e: Exception) { toast("Galereya ochilmadi") }
+    }
+
+    private fun openCamera() {
+        try {
+            val f = File(File(cacheDir, "cam").apply { mkdirs() }, "royxat.jpg")
+            val uri = FileProvider.getUriForFile(this, "$packageName.files", f)
+            camUri = uri
+            startActivityForResult(Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }, REQ_CAMERA)
+        } catch (e: Exception) { toast("Kamera ochilmadi") }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK) return
+        val uri = when (requestCode) { REQ_GALLERY -> data?.data; REQ_CAMERA -> camUri; else -> null } ?: return
+        recognize(uri)
+    }
+
+    private fun recognize(uri: Uri) {
+        val wait = AlertDialog.Builder(this).setMessage("⏳ Ro'yxat o'qilmoqda…").setCancelable(false).show()
+        val img = try { InputImage.fromFilePath(this, uri) } catch (e: Exception) {
+            wait.dismiss(); toast("Rasmni ochib bo'lmadi"); return
+        }
+        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).process(img)
+            .addOnSuccessListener { vt ->
+                wait.dismiss()
+                val idx = codeIndex ?: ListParser.index(all).also { codeIndex = it }
+                val ocr = vt.textBlocks.flatMap { b -> b.lines.map { OcrLine(it.text, it.boundingBox) } }
+                val lines = ListParser.parse(ListParser.rows(ocr), idx)
+                if (lines.isEmpty()) AlertDialog.Builder(this).setTitle("Kod topilmadi")
+                    .setMessage("Rasmda tovar kodi (masalan 43-25) topilmadi. Ro'yxat aniq va yorug' joyda rasmga olinganini tekshiring.")
+                    .setPositiveButton("OK", null).show()
+                else showReview(lines)
+            }
+            .addOnFailureListener { wait.dismiss(); toast("Matnni o'qib bo'lmadi") }
+    }
+
+    private fun showReview(lines: MutableList<ScanLine>) {
+        var dlg: AlertDialog? = null
+        var ad: BaseAdapter? = null
+        fun okText() = "Kassaga qo'shish (${lines.count { it.include && it.chosen != null }})"
+        val changed: () -> Unit = {
+            ad?.notifyDataSetChanged()
+            dlg?.getButton(AlertDialog.BUTTON_POSITIVE)?.text = okText()
+        }
+        ad = object : BaseAdapter() {
+            override fun getCount() = lines.size
+            override fun getItem(p: Int) = lines[p]
+            override fun getItemId(p: Int) = p.toLong()
+            override fun getView(p: Int, convert: View?, parent: ViewGroup?): View = reviewRow(lines[p], changed)
+        }
+        val list = ListView(this).apply { adapter = ad; divider = null; setPadding(dp(8), dp(4), dp(8), dp(4)) }
+        val found = lines.count { it.chosen != null }
+        val d = AlertDialog.Builder(this)
+            .setTitle("Topildi: $found ta · tekshiring: ${lines.size - found} ta")
+            .setView(list)
+            .setPositiveButton(okText(), null)
+            .setNegativeButton("Bekor", null)
+            .create()
+        dlg = d
+        d.setOnShowListener {
+            d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                var added = 0L
+                for (l in lines) {
+                    val p = l.chosen ?: continue
+                    if (!l.include) continue
+                    cart.getOrPut(p.key) { CartItem(p, 0) }.count += l.count
+                    added += l.count
+                }
+                d.dismiss(); updateCart(); adapter.notifyDataSetChanged()
+                toast("✅ Kassaga qo'shildi: ${group(added)} ta")
+            }
+        }
+        d.show()
+    }
+
+    private fun reviewRow(l: ScanLine, changed: () -> Unit): View {
+        val ok = l.chosen != null && l.include
+        val (icon, color) = when {
+            l.chosen == null && l.candidates.size > 1 -> "⚠️" to ORANGE
+            l.chosen == null -> "❓" to RED
+            !l.include -> "⛔" to Color.GRAY
+            else -> "✅" to GREEN
+        }
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = box(if (ok) Color.WHITE else tint(color, 20), 12)
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            setOnClickListener { reviewOptions(l, changed) }
+        }
+        row.addView(TextView(this).apply { text = icon; textSize = 20f }, LinearLayout.LayoutParams(dp(34), -2))
+        val mid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        mid.addView(TextView(this).apply {
+            text = l.chosen?.name ?: if (l.candidates.size > 1) "${l.code}: ${l.candidates.size} xil tovar — tanlang"
+                else "Bazada yo'q: ${l.code}"
+            textSize = 15f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
+        })
+        mid.addView(TextView(this).apply {
+            text = "Rasmda: ${l.raw}"; textSize = 12f; setTextColor(Color.GRAY); maxLines = 2
+        })
+        row.addView(mid, LinearLayout.LayoutParams(0, -2, 1f))
+        row.addView(TextView(this).apply {
+            text = "${group(l.count)} ta"; textSize = 16f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
+            setPadding(dp(8), 0, 0, 0)
+        })
+        val wrap = LinearLayout(this).apply { setPadding(0, dp(3), 0, dp(3)) }
+        wrap.addView(row, LinearLayout.LayoutParams(-1, -2))
+        return wrap
+    }
+
+    private fun reviewOptions(l: ScanLine, changed: () -> Unit) {
+        val labels = ArrayList<String>()
+        val actions = ArrayList<() -> Unit>()
+        if (l.candidates.size > 1) {
+            labels += "Tovarni tanlash"
+            actions += {
+                AlertDialog.Builder(this).setTitle(l.code)
+                    .setItems(l.candidates.map { "${it.name} — ${it.donaText}" }.toTypedArray()) { _, i ->
+                        l.chosen = l.candidates[i]; l.include = true; changed()
+                    }.show()
+            }
+        }
+        labels += "Sonini o'zgartirish (${group(l.count)} ta)"
+        actions += {
+            val input = EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_NUMBER; textSize = 24f; gravity = Gravity.CENTER
+                setText(l.count.toString()); selectAll()
+            }
+            val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+            AlertDialog.Builder(this).setTitle("Soni").setView(wrap)
+                .setPositiveButton("OK") { _, _ ->
+                    input.text.toString().toLongOrNull()?.takeIf { it > 0 }?.let { l.count = it }
+                    changed()
+                }
+                .setNegativeButton("Bekor", null).show()
+        }
+        if (l.chosen != null) {
+            labels += if (l.include) "Qo'shmaslik" else "Qo'shish"
+            actions += { l.include = !l.include; changed() }
+        }
+        AlertDialog.Builder(this).setTitle(l.chosen?.name ?: l.raw)
+            .setItems(labels.toTypedArray()) { _, i -> actions[i]() }.show()
+    }
+
     // ---------------------------------------------------------------- umumiy
     private fun showPhoto(p: Product) {
         val iv = ImageView(this).apply { adjustViewBounds = true; setBackgroundColor(Color.WHITE) }
@@ -717,7 +892,7 @@ class MainActivity : Activity() {
                 busy = false
                 refreshBtn.text = "🔄 Yangilash"; refreshBtn.isEnabled = true
                 res.onSuccess {
-                    all = Db.load(this)
+                    all = Db.load(this); codeIndex = null
                     // Kassadagi mahsulotlar yangi narxga o'tadi
                     val byKey = all.associateBy { it.key }
                     val old = cart.values.toList(); cart.clear()
