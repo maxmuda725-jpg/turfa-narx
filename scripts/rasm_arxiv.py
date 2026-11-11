@@ -88,6 +88,11 @@ def main():
     # Server kalitini tekshirish: 400 = kalit to'g'ri, 401 = noto'g'ri, 503 = serverda RASM_KEY yo'q
     st, _ = http("POST", f"{SERVER}/api/kassa/rasm-arxiv", {"op": "forget", "name": "tekshiruv"}, {"x-rasm-key": key})
     print("Server kaliti:", {400: "to'g'ri ✅", 401: "NOTO'G'RI ❌", 503: "serverda RASM_KEY yo'q ❌"}.get(st, f"javob {st}"))
+    # Ilova kaliti (APK ichidagi) serverda qabul qilinadimi: 400 = ha, 401 = yo'q
+    import hashlib
+    app_key = hashlib.sha256(("turfa-app:" + key).encode()).hexdigest()
+    st, _ = http("POST", f"{SERVER}/api/kassa/rasm-belgi", {"name": "tekshiruv", "done": True}, {"x-app-key": app_key})
+    print("Ilova kaliti:", {400: "to'g'ri ✅", 401: "NOTO'G'RI ❌"}.get(st, f"javob {st}"))
     rows = read_csv()
     moved = forgot = 0
 
