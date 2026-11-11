@@ -418,6 +418,8 @@ class MainActivity : Activity() {
     private var photoHits: List<Pair<Product, Float>>? = null
     private var photoVec: FloatArray? = null
     private val photoLearned = HashSet<String>()
+    private var photoUri: Uri? = null          // qidirilgan rasm: tasdiqlansa hamma telefonga yuboriladi
+    private val photoShared = HashSet<String>()
     private var teachFor: Product? = null
     // Tovarga rasm yuklash (hamma telefonga)
     private val REQ_UP_CAM = 76
@@ -1082,13 +1084,14 @@ class MainActivity : Activity() {
         val wait = AlertDialog.Builder(this).setMessage("📷 Rasmga o'xshash tovarlar qidirilmoqda…").setCancelable(false).show()
         Thread {
             val res = try {
-                val v = Visual.embed(applicationContext, Visual.bitmap(this, uri))
-                Result.success(v to Visual.search(v, all))
+                val qs = Visual.embedQuery(applicationContext, Visual.bitmap(this, uri))
+                Result.success(qs[0] to Visual.search(qs, all))
             } catch (e: Throwable) { Result.failure(e) }
             main.post {
                 wait.dismiss()
                 res.onSuccess { (v, hits) ->
-                    photoVec = v; photoHits = hits; photoLearned.clear(); favMode = false; catSel = null; noPhotoMode = false
+                    photoVec = v; photoHits = hits; photoLearned.clear(); photoShared.clear(); photoUri = uri
+                    favMode = false; catSel = null; noPhotoMode = false
                     hideKb(search)
                     if (search.text.isNotEmpty()) search.setText("")
                     refresh()
@@ -1791,7 +1794,7 @@ class MainActivity : Activity() {
     }
 
     private fun closePhoto() {
-        photoHits = null; photoVec = null
+        photoHits = null; photoVec = null; photoUri = null
         refresh()
     }
 
@@ -1802,12 +1805,50 @@ class MainActivity : Activity() {
         Thread { Visual.learn(applicationContext, p, v) }.start()
     }
 
+    /**
+     * Rasm orqali qidirilib, do'konchi tasdiqlagan tovar: qidiruv rasmi oddiy "📸 Rasmini o'rgatish" yo'li bilan
+     * serverga yuboriladi — GitHub'da vektorga aylanib (scripts/embed.py), ~1 soatda hamma telefonlar ham taniydi.
+     * Do'kon sharoitida olingan haqiqiy rasm bo'lgani uchun keyingi qidiruvlarda eng foydali rasm shu.
+     */
+    private fun sharePhoto(p: Product) {
+        val uri = photoUri ?: run { toast("✅ Eslab qolindi"); return }
+        val key = BuildConfig.RASM_APP_KEY.ifBlank { prefs().getString("key", "").orEmpty() }
+        if (key.isEmpty()) { toast("✅ Shu telefonda eslab qolindi"); return }
+        if (!photoShared.add(p.key)) return
+        Thread {
+            val res = try {
+                val bmp = Visual.bitmap(this, uri, 1024)
+                val bytes = java.io.ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
+                val c = URL("$KASSA_API/api/kassa/rasm").openConnection() as HttpURLConnection
+                c.requestMethod = "POST"; c.doOutput = true
+                c.connectTimeout = 15000; c.readTimeout = 60000
+                c.setRequestProperty("Content-Type", "image/jpeg")
+                c.setRequestProperty("x-app-key", key)
+                c.setRequestProperty("x-xodim", xodimCode())
+                c.setRequestProperty("x-sku", java.net.URLEncoder.encode(p.code.ifBlank { p.name }, "UTF-8"))
+                c.outputStream.use { it.write(bytes) }
+                val rc = c.responseCode
+                val t = (if (rc in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.readText().orEmpty()
+                c.disconnect()
+                rc in 200..299 && (try { org.json.JSONObject(t).optBoolean("ok") } catch (_: Exception) { false })
+            } catch (_: Throwable) { false }
+            main.post {
+                if (res) toast("✅ Eslab qolindi va hamma telefonga yuborildi")
+                else { photoShared.remove(p.key); toast("✅ Shu telefonda eslab qolindi (serverga yuborilmadi — keyin uzoq bosib qayta urining)") }
+            }
+        }.start()
+    }
+
     private fun productMenu(p: Product) {
         val labels = ArrayList<String>()
         val actions = ArrayList<() -> Unit>()
         if (photoVec != null && photoHits?.any { it.first.key == p.key } == true && p.key !in photoLearned) {
-            labels += "✅ Rasmdagi tovar shu (eslab qol)"
-            actions += { rememberPhoto(p); toast("✅ Eslab qolindi") }
+            labels += "✅ Rasmdagi tovar shu (hamma telefonga o'rgat)"
+            actions += { rememberPhoto(p); sharePhoto(p) }
+        } else if (photoVec != null && photoUri != null && p.key in photoLearned && p.key !in photoShared &&
+            photoHits?.any { it.first.key == p.key } == true) {
+            labels += "📤 Shu rasmni hamma telefonga o'rgatish"
+            actions += { sharePhoto(p) }
         }
         labels += "🏷 Kod chiqarish ro'yxatiga qo'shish"
         actions += { kodAddProduct(p) }
@@ -2042,7 +2083,7 @@ class MainActivity : Activity() {
             val res = if (keep == null) list else list.filter { it.key in keep }
             shown = listOf<Any>("📷 Rasmga eng o'xshashlari: ${res.size} ta   ✕ yopish") + res
             info.text = when {
-                q.isBlank() -> "Ko'p chiqsa, nomini yozing (masalan: gul). To'g'ri tovarni \"＋ Kassaga\" bosing — telefon eslab qoladi."
+                q.isBlank() -> "Ko'p chiqsa, nomini yozing (masalan: gul). To'g'ri tovarni uzoq bosing → ✅ Rasmdagi tovar shu — hamma telefon o'rganadi."
                 res.isEmpty() -> "Rasm natijalari ichida \"${q.trim()}\" yo'q. ✕ yopib, oddiy qidiring."
                 else -> "Rasm natijalari ichida \"${q.trim()}\": ${res.size} ta"
             }

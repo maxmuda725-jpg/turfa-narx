@@ -1,0 +1,25 @@
+name: Rasm qidiruv sinovi
+# sinov/ papkasiga rasm qo'shilganda (yoki qo'lda) ishlaydi: hozirgi va kattaroq modelni solishtiradi.
+on:
+  push:
+    paths: ['sinov/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sinov:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: O'rnatish
+        run: |
+          pip install -q "mediapipe==0.10.14" "numpy<2" pillow pillow-heif
+          curl -fsSL -o small.tflite https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
+          curl -fsSL -o large.tflite https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite
+      - name: Hozirgi model (MobileNet V3 Small)
+        run: python3 scripts/sinov.py --current small.tflite --name "Hozirgi: MobileNet V3 Small"
+      - name: Kattaroq model (MobileNet V3 Large)
+        continue-on-error: true
+        run: python3 scripts/sinov.py --model large.tflite --name "Sinov: MobileNet V3 Large"

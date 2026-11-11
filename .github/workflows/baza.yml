@@ -31,11 +31,11 @@ jobs:
           pip install -q "mediapipe==0.10.14" "numpy<2" pillow
           curl -fsSL -o embedder.tflite "$EMBED_URL"
           python3 scripts/embed.py
+        env:
+          EMBED_URL: https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
       - name: Aqlli kategoriya (kalit so'z + seriya + rasm)
         continue-on-error: true
         run: python3 scripts/kategoriya.py
-        env:
-          EMBED_URL: https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
       - name: Saqlash
         run: |
           git config user.name "baza-bot"; git config user.email "baza-bot@users.noreply.github.com"

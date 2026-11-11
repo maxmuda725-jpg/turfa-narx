@@ -1,7 +1,7 @@
 name: APK yig'ish
 on:
   push:
-    paths-ignore: ['baza/**', '*.md', 'scripts/**', '.github/workflows/baza.yml', '.github/workflows/diag.yml', '.github/workflows/rasm_papka.yml']
+    paths-ignore: ['baza/**', '*.md', 'scripts/**', '.github/workflows/baza.yml', '.github/workflows/diag.yml', '.github/workflows/rasm_papka.yml', 'sinov/**', '.github/workflows/sinov.yml']
   workflow_dispatch:
 permissions:
   contents: write

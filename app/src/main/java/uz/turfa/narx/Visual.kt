@@ -29,6 +29,8 @@ object Visual {
     private const val MODEL = "embedder.tflite"
     private const val SIDE = 640          // scripts/embed.py dagi bilan bir xil
     private const val MAX_LEARNED = 4000
+    private const val STOCK_PENALTY = 0.03f   // tugagan tovar shuncha pastroq
+    private const val MAX_TWINS = 4
 
     class Entry(val key: String, val url: String, val v: ByteArray)
 
@@ -89,24 +91,69 @@ object Visual {
         return FloatArray(v.size) { v[it] / n }
     }
 
+    /** Markazdan kesilgan bo'lak (f — tomonlar ulushi). */
+    private fun center(bmp: Bitmap, f: Float): Bitmap {
+        val w = (bmp.width * f).roundToInt().coerceAtLeast(1)
+        val h = (bmp.height * f).roundToInt().coerceAtLeast(1)
+        return Bitmap.createBitmap(bmp, (bmp.width - w) / 2, (bmp.height - h) / 2, w, h)
+    }
+
+    /**
+     * Qidiruv rasmi -> bir nechta vektor: to'liq rasm + markazdagi 75% va 55%.
+     * Tovar rasmda kichik tushsa yoki fon (javon, qo'shni tovarlar) ko'p bo'lsa, markaz bo'lagi yaqinroq chiqadi.
+     * Birinchisi — to'liq rasm (eslab qolish uchun shu ishlatiladi).
+     */
+    fun embedQuery(ctx: Context, bmp: Bitmap): List<FloatArray> {
+        val out = arrayListOf(embed(ctx, bmp))
+        for (f in floatArrayOf(0.75f, 0.55f)) try { out += embed(ctx, center(bmp, f)) } catch (_: Throwable) {}
+        return out
+    }
+
     // ------------------------------------------------------------ qidirish
-    /** Eng o'xshash tovarlar (har tovar bir marta), o'xshashlik bo'yicha. */
-    fun search(q: FloatArray, all: List<Product>, n: Int = 40): List<Pair<Product, Float>> {
+    fun search(q: FloatArray, all: List<Product>, n: Int = 40): List<Pair<Product, Float>> = search(listOf(q), all, n)
+
+    /**
+     * Eng o'xshash tovarlar (har tovar bir marta), o'xshashlik bo'yicha.
+     * Har rasm uchun eng yaxshi bo'lak olinadi; tugagan tovar biroz pastga tushadi;
+     * 1-o'rindagi tovarning rasmi yo'q seriya egizaklari (o'lchami/rangi boshqa) uning yonida chiqadi.
+     */
+    fun search(qs: List<FloatArray>, all: List<Product>, n: Int = 40): List<Pair<Product, Float>> {
+        if (qs.isEmpty()) return emptyList()
+        val d = qs[0].size
         val byKey = all.associateBy { it.key }
         val byCode = all.filter { it.code.isNotBlank() }.groupBy { it.code }
         val best = HashMap<String, Float>()
         val prod = HashMap<String, Product>()
-        for ((list, bonus) in listOf(server to 0f, learned to 0.03f)) {   // shu telefonda o'rgatilganlari biroz ustun
+        for ((list, bonus) in listOf(server to 0f, learned to 0.03f)) {   // shu do'konda o'rgatilganlari biroz ustun
             for (e in list) {
-                if (e.v.size != q.size) continue
+                if (e.v.size != d) continue
                 val p = byKey[e.key] ?: byCode[e.key.substringBefore('|')]?.singleOrNull() ?: continue
-                var s = 0f
-                for (i in q.indices) s += q[i] * e.v[i]
-                s = s / 127f + bonus
+                var top = -9f
+                for (q in qs) {
+                    if (q.size != d) continue
+                    var s = 0f
+                    for (i in 0 until d) s += q[i] * e.v[i]
+                    if (s > top) top = s
+                }
+                val s = top / 127f + bonus
                 if (s > (best[p.key] ?: -9f)) { best[p.key] = s; prod[p.key] = p }
             }
         }
-        return best.entries.sortedByDescending { it.value }.take(n).map { prod[it.key]!! to it.value }
+        for ((k, p) in prod) if (Search.stockRank(p) == 2) best[k] = best[k]!! - STOCK_PENALTY
+        val ranked = best.entries.sortedByDescending { it.value }.take(n).map { prod[it.key]!! to it.value }.toMutableList()
+        if (ranked.isEmpty()) return ranked
+        // 1-o'rindagining rasmi yo'q egizaklari: bir seriya + nomi bir xil so'z bilan boshlanadi ("Gul vaza 39-1 Kichik" / "39-2 Kotta")
+        val (top, topS) = ranked[0]
+        val ser = Cats.series(top.name)
+        val first = Cats.words(top.name).firstOrNull()
+        if (ser != null && first != null) {
+            val have = ranked.map { it.first.key }.toHashSet()
+            val twins = all.filter {
+                it.key !in have && it.key !in best && Cats.series(it.name) == ser && Cats.words(it.name).firstOrNull() == first
+            }.sortedWith(compareBy<Product>({ Search.stockRank(it) }, { it.nameLower })).take(MAX_TWINS)
+            ranked.addAll(1, twins.map { it to topS })
+        }
+        return ranked
     }
 
     // ------------------------------------------------------------ fayllar
