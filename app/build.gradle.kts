@@ -25,8 +25,11 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    // Model faylini siqmasdan saqlash (MediaPipe uni to'g'ridan-to'g'ri o'qiydi)
+    androidResources { noCompress += "tflite" }
 }
 dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
     implementation("androidx.core:core:1.13.1")
 }

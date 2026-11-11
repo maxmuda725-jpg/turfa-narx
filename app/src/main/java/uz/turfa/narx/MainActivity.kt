@@ -328,6 +328,14 @@ class MainActivity : Activity() {
     private var camUri: Uri? = null
     private val REQ_GALLERY = 71
     private val REQ_CAMERA = 72
+    // Rasm orqali qidirish
+    private val REQ_PHOTO_CAM = 73
+    private val REQ_PHOTO_GAL = 74
+    private val REQ_TEACH = 75
+    private var photoHits: List<Pair<Product, Float>>? = null
+    private var photoVec: FloatArray? = null
+    private val photoLearned = HashSet<String>()
+    private var teachFor: Product? = null
 
     private lateinit var searchScreen: View
     private lateinit var kassaScreen: View
@@ -346,6 +354,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         all = Db.load(this)
+        Thread { Visual.load(applicationContext) }.start()
         val root = FrameLayout(this).apply { setBackgroundColor(BG); fitsSystemWindows = true }
         searchScreen = buildSearch()
         kassaScreen = buildKassa().apply { visibility = View.GONE }
@@ -358,7 +367,11 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (kassaScreen.visibility == View.VISIBLE) showKassa(false) else super.onBackPressed()
+        when {
+            kassaScreen.visibility == View.VISIBLE -> showKassa(false)
+            photoHits != null -> closePhoto()
+            else -> super.onBackPressed()
+        }
     }
 
     // ---------------------------------------------------------------- yordamchilar
@@ -406,7 +419,11 @@ class MainActivity : Activity() {
             background = box(Color.WHITE, 14)
             setPadding(dp(16), dp(14), dp(16), dp(14))
         }
-        screen.addView(search, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(12), dp(12), dp(4)) })
+        val searchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        searchRow.addView(search, LinearLayout.LayoutParams(0, -2, 1f))
+        searchRow.addView(pill("📷", Color.WHITE, GREEN, 22f) { photoMenu() },
+            LinearLayout.LayoutParams(dp(60), dp(56)).apply { leftMargin = dp(8) })
+        screen.addView(searchRow, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(12), dp(12), dp(4)) })
 
         info = TextView(this).apply { textSize = 13f; setTextColor(Color.GRAY); setPadding(dp(16), dp(4), dp(16), dp(4)) }
         screen.addView(info)
@@ -503,9 +520,12 @@ class MainActivity : Activity() {
             pill("＋ Kassaga", Color.WHITE, INK, 15f) {
                 val ci = cart.getOrPut(p.key) { CartItem(p, 0) }
                 ci.count += 1
+                rememberPhoto(p)
                 updateCart(); adapter.notifyDataSetChanged()
             }, LinearLayout.LayoutParams(-2, dp(44)))
         card.addView(addRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+
+        card.setOnLongClickListener { productMenu(p); true }
 
         val wrap = LinearLayout(this).apply { setPadding(dp(4), dp(5), dp(4), dp(5)) }
         wrap.addView(card, LinearLayout.LayoutParams(-1, -2))
@@ -517,6 +537,10 @@ class MainActivity : Activity() {
             text = t; textSize = 15f; typeface = Typeface.DEFAULT_BOLD
             setTextColor(if (t.startsWith("🔍")) BLUE else INK)
             setPadding(dp(12), dp(14), dp(12), dp(8))
+            if (t.startsWith("📷")) {
+                background = box(tint(GREEN, 22), 12)
+                setOnClickListener { closePhoto() }
+            }
             if (t.startsWith("🔍")) {
                 background = box(tint(BLUE, 22), 12)
                 setOnClickListener { similarOpen = !similarOpen; refresh() }
@@ -845,23 +869,23 @@ class MainActivity : Activity() {
             }.show()
     }
 
-    private fun openGallery() {
+    private fun openGallery(req: Int = REQ_GALLERY) {
         try {
             startActivityForResult(Intent(Intent.ACTION_GET_CONTENT).apply {
                 type = "image/*"; addCategory(Intent.CATEGORY_OPENABLE)
-            }, REQ_GALLERY)
+            }, req)
         } catch (e: Exception) { toast("Galereya ochilmadi") }
     }
 
-    private fun openCamera() {
+    private fun openCamera(req: Int = REQ_CAMERA) {
         try {
-            val f = File(File(cacheDir, "cam").apply { mkdirs() }, "royxat.jpg")
+            val f = File(File(cacheDir, "cam").apply { mkdirs() }, if (req == REQ_CAMERA) "royxat.jpg" else "tovar.jpg")
             val uri = FileProvider.getUriForFile(this, "$packageName.files", f)
             camUri = uri
             startActivityForResult(Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                 putExtra(MediaStore.EXTRA_OUTPUT, uri)
                 addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }, REQ_CAMERA)
+            }, req)
         } catch (e: Exception) { toast("Kamera ochilmadi") }
     }
 
@@ -869,8 +893,83 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK) return
-        val uri = when (requestCode) { REQ_GALLERY -> data?.data; REQ_CAMERA -> camUri; else -> null } ?: return
-        recognize(uri)
+        val uri = when (requestCode) {
+            REQ_GALLERY, REQ_PHOTO_GAL -> data?.data
+            REQ_CAMERA, REQ_PHOTO_CAM, REQ_TEACH -> camUri
+            else -> null
+        } ?: return
+        when (requestCode) {
+            REQ_PHOTO_CAM, REQ_PHOTO_GAL -> photoSearch(uri)
+            REQ_TEACH -> teachFor?.let { teachSave(it, uri) }
+            else -> recognize(uri)
+        }
+    }
+
+    // ---------------------------------------------------------------- rasm orqali qidirish
+    private fun photoMenu() {
+        AlertDialog.Builder(this).setTitle("📷 Tovarni rasm orqali topish")
+            .setItems(arrayOf("📷 Kamera bilan rasmga olish", "🖼 Galereyadan")) { _, w ->
+                if (w == 0) openCamera(REQ_PHOTO_CAM) else openGallery(REQ_PHOTO_GAL)
+            }.show()
+    }
+
+    private fun photoSearch(uri: Uri) {
+        if (!Visual.ready()) {
+            alert("Rasm bazasi yo'q", "Rasm orqali qidirish uchun bazani yuklash kerak. Internetni yoqib 🔄 Yangilash ni bosing.")
+            return
+        }
+        val wait = AlertDialog.Builder(this).setMessage("📷 Rasmga o'xshash tovarlar qidirilmoqda…").setCancelable(false).show()
+        Thread {
+            val res = try {
+                val v = Visual.embed(applicationContext, Visual.bitmap(this, uri))
+                Result.success(v to Visual.search(v, all))
+            } catch (e: Throwable) { Result.failure(e) }
+            main.post {
+                wait.dismiss()
+                res.onSuccess { (v, hits) ->
+                    photoVec = v; photoHits = hits; photoLearned.clear()
+                    hideKb(search)
+                    if (search.text.isNotEmpty()) search.setText("")
+                    refresh()
+                    if (hits.isEmpty()) toast("O'xshash tovar topilmadi")
+                }.onFailure { e ->
+                    alert("Rasmni o'qib bo'lmadi", e.message ?: e.javaClass.simpleName)
+                }
+            }
+        }.start()
+    }
+
+    private fun closePhoto() {
+        photoHits = null; photoVec = null
+        refresh()
+    }
+
+    /** Rasm bo'yicha topilgan tovar kassaga qo'shilsa — telefon shu rasmni eslab qoladi. */
+    private fun rememberPhoto(p: Product) {
+        val v = photoVec ?: return
+        if (photoHits?.any { it.first.key == p.key } != true || !photoLearned.add(p.key)) return
+        Thread { Visual.learn(applicationContext, p, v) }.start()
+    }
+
+    private fun productMenu(p: Product) {
+        val labels = ArrayList<String>()
+        val actions = ArrayList<() -> Unit>()
+        if (photoVec != null && photoHits?.any { it.first.key == p.key } == true && p.key !in photoLearned) {
+            labels += "✅ Rasmdagi tovar shu (eslab qol)"
+            actions += { rememberPhoto(p); toast("✅ Eslab qolindi") }
+        }
+        labels += "📷 Rasmini o'rgatish (kamera)"
+        actions += { teachFor = p; openCamera(REQ_TEACH) }
+        AlertDialog.Builder(this).setTitle(p.name)
+            .setItems(labels.toTypedArray()) { _, i -> actions[i]() }.show()
+    }
+
+    private fun teachSave(p: Product, uri: Uri) {
+        Thread {
+            val ok = try { Visual.learn(applicationContext, p, Visual.embed(applicationContext, Visual.bitmap(this, uri))); true }
+                catch (e: Throwable) { false }
+            main.post { toast(if (ok) "✅ Rasm eslab qolindi: ${p.name}" else "Rasmni o'qib bo'lmadi") }
+        }.start()
     }
 
     private fun aiKey() = getSharedPreferences("kassa", MODE_PRIVATE).getString("gemini", "").orEmpty()
@@ -1076,6 +1175,13 @@ class MainActivity : Activity() {
     private fun refresh() {
         val q = search.text.toString()
         if (q != lastQuery) { similarOpen = false; lastQuery = q }
+        if (q.isNotBlank()) { photoHits = null; photoVec = null }
+        photoHits?.let { hits ->
+            shown = listOf<Any>("📷 Rasmga eng o'xshashlari: ${hits.size} ta   ✕ yopish") + hits.map { it.first }
+            info.text = "To'g'ri tovarni \"＋ Kassaga\" bosing — telefon eslab qoladi. Rasm bazasi: ${Visual.count()} ta tovar"
+            adapter.notifyDataSetChanged()
+            return
+        }
         val exact = Search.run(all, q)
         val (ser, sim) = if (q.isBlank()) "" to emptyList<Product>() else Search.similar(all, q, exact)
         val open = similarOpen || exact.isEmpty()
@@ -1108,6 +1214,7 @@ class MainActivity : Activity() {
         refreshBtn.text = "⏳ Yuklanmoqda"; refreshBtn.isEnabled = false
         Thread {
             val res = try { Result.success(Db.download(this)) } catch (e: Exception) { Result.failure(e) }
+            try { Visual.download(applicationContext) } catch (_: Exception) {}
             main.post {
                 busy = false
                 refreshBtn.text = "🔄 Yangilash"; refreshBtn.isEnabled = true

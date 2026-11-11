@@ -14,9 +14,18 @@ jobs:
         with: { distribution: temurin, java-version: '17' }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.14.3' }
+      - name: Rasm modeli (rasm orqali qidirish)
+        run: |
+          mkdir -p app/src/main/assets
+          curl -fsSL -o app/src/main/assets/embedder.tflite \
+            https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
       - run: gradle assembleRelease
       - run: cp app/build/outputs/apk/release/*.apk TURFA-Narxlar.apk
+      - uses: actions/upload-artifact@v4
+        if: github.ref != 'refs/heads/main'
+        with: { name: TURFA-Narxlar-sinov, path: TURFA-Narxlar.apk }
       - name: Release
+        if: github.ref == 'refs/heads/main'
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
           gh release create "v1.${{ github.run_number }}" TURFA-Narxlar.apk \
