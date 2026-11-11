@@ -336,6 +336,9 @@ class MainActivity : Activity() {
     private var photoVec: FloatArray? = null
     private val photoLearned = HashSet<String>()
     private var teachFor: Product? = null
+    // Sevimlilar (shu telefonda saqlanadi)
+    private val favs = LinkedHashSet<String>()
+    private var favMode = false
 
     private lateinit var searchScreen: View
     private lateinit var kassaScreen: View
@@ -354,6 +357,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         all = Db.load(this)
+        favs += getSharedPreferences("sevimli", MODE_PRIVATE).getStringSet("keys", emptySet()).orEmpty()
         Thread { Visual.load(applicationContext) }.start()
         val root = FrameLayout(this).apply { setBackgroundColor(BG); fitsSystemWindows = true }
         searchScreen = buildSearch()
@@ -370,6 +374,7 @@ class MainActivity : Activity() {
         when {
             kassaScreen.visibility == View.VISIBLE -> showKassa(false)
             photoHits != null -> closePhoto()
+            favMode -> { favMode = false; refresh() }
             else -> super.onBackPressed()
         }
     }
@@ -410,6 +415,8 @@ class MainActivity : Activity() {
         val top = topBar()
         top.addView(title("TUR-FA narxlar"), LinearLayout.LayoutParams(0, -2, 1f))
         refreshBtn = pill("🔄 Yangilash", GREEN, Color.WHITE) { update(silent = false) }
+        top.addView(pill("⭐", GREEN, Color.WHITE, 18f) { toggleFavMode() },
+            LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
         top.addView(refreshBtn, LinearLayout.LayoutParams(-2, dp(44)))
         screen.addView(top)
 
@@ -479,6 +486,12 @@ class MainActivity : Activity() {
         }
         val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         head.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
+        val fav = p.key in favs
+        head.addView(TextView(this).apply {
+            text = if (fav) "★" else "☆"; textSize = 28f; gravity = Gravity.CENTER
+            setTextColor(if (fav) Color.parseColor("#F2A900") else Color.parseColor("#BBBBBB"))
+            setOnClickListener { toggleFav(p) }
+        }, LinearLayout.LayoutParams(dp(44), dp(44)).apply { leftMargin = dp(4) })
         card.addView(head)
 
         titleBox.addView(TextView(this).apply {
@@ -537,6 +550,10 @@ class MainActivity : Activity() {
             text = t; textSize = 15f; typeface = Typeface.DEFAULT_BOLD
             setTextColor(if (t.startsWith("🔍")) BLUE else INK)
             setPadding(dp(12), dp(14), dp(12), dp(8))
+            if (t.startsWith("⭐")) {
+                background = box(tint(Color.parseColor("#F2A900"), 34), 12)
+                setOnClickListener { favMode = false; refresh() }
+            }
             if (t.startsWith("📷")) {
                 background = box(tint(GREEN, 22), 12)
                 setOnClickListener { closePhoto() }
@@ -927,7 +944,7 @@ class MainActivity : Activity() {
             main.post {
                 wait.dismiss()
                 res.onSuccess { (v, hits) ->
-                    photoVec = v; photoHits = hits; photoLearned.clear()
+                    photoVec = v; photoHits = hits; photoLearned.clear(); favMode = false
                     hideKb(search)
                     if (search.text.isNotEmpty()) search.setText("")
                     refresh()
@@ -937,6 +954,20 @@ class MainActivity : Activity() {
                 }
             }
         }.start()
+    }
+
+    // ---------------------------------------------------------------- sevimlilar
+    private fun toggleFav(p: Product) {
+        if (!favs.remove(p.key)) { favs += p.key; toast("⭐ Sevimlilarga qo'shildi") }
+        getSharedPreferences("sevimli", MODE_PRIVATE).edit().putStringSet("keys", HashSet(favs)).apply()
+        if (favMode) refresh() else adapter.notifyDataSetChanged()
+    }
+
+    private fun toggleFavMode() {
+        favMode = !favMode
+        if (favMode) { photoHits = null; photoVec = null }
+        hideKb(search)
+        refresh()
     }
 
     private fun closePhoto() {
@@ -1179,6 +1210,20 @@ class MainActivity : Activity() {
         photoHits?.let { hits ->
             shown = listOf<Any>("📷 Rasmga eng o'xshashlari: ${hits.size} ta   ✕ yopish") + hits.map { it.first }
             info.text = "To'g'ri tovarni \"＋ Kassaga\" bosing — telefon eslab qoladi. Rasm bazasi: ${Visual.count()} ta tovar"
+            adapter.notifyDataSetChanged()
+            return
+        }
+        if (favMode) {
+            val byKey = all.associateBy { it.key }
+            val list = favs.mapNotNull { byKey[it] }.reversed()   // oxirgi qo'shilgani tepada
+            val res = if (q.isBlank()) list else Search.run(list, q)
+            shown = listOf<Any>("⭐ Sevimlilar: ${res.size} ta   ✕ yopish") + res
+            info.text = when {
+                list.isEmpty() -> "Sevimli tovar yo'q. Tovar yonidagi ☆ belgisini bosing."
+                q.isBlank() -> "Sevimlilar ichidan qidirish uchun yozing"
+                res.isEmpty() -> "Sevimlilar ichida topilmadi: \"${q.trim()}\""
+                else -> "Sevimlilar ichida topildi: ${res.size} ta"
+            }
             adapter.notifyDataSetChanged()
             return
         }
