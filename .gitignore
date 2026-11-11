@@ -6,3 +6,4 @@ local.properties
 app/src/main/assets/embedder.tflite
 embedder.tflite
 __pycache__/
+app/turfa.jks

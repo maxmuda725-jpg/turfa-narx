@@ -9,17 +9,31 @@ android {
         applicationId = "uz.turfa.narx"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // Versiya GitHub Actions run raqamidan: reliz v1.N bilan bir xil (ilova ichidagi yangilanish shunga qaraydi)
+        val run = System.getenv("APP_VERSION")?.toIntOrNull() ?: 1
+        versionCode = run
+        versionName = "1.$run"
         // Faqat telefon protsessorlari: APK kichikroq bo'ladi
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         // Rasm yuklash kaliti: GitHub Actions'da RASM_KEY secret'dan hosil qilinadi, kodda saqlanmaydi
         buildConfigField("String", "RASM_APP_KEY", "\"${System.getenv("RASM_APP_KEY") ?: ""}\"")
     }
+    // Doimiy imzo: app/turfa.jks (yig'ishda shifrdan ochiladi). Bo'lmasa — debug (faqat sinov uchun).
+    val ksFile = file("turfa.jks")
+    val ksPass = System.getenv("KS_PASS")
+    signingConfigs {
+        create("turfa") {
+            if (ksFile.exists() && ksPass != null) {
+                storeFile = ksFile; storePassword = ksPass
+                keyAlias = "turfa"; keyPassword = ksPass
+            }
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (ksFile.exists() && ksPass != null) signingConfigs.getByName("turfa")
+                else signingConfigs.getByName("debug")
         }
     }
     compileOptions {

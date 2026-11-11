@@ -442,7 +442,7 @@ class MainActivity : Activity() {
         root.addView(kassaScreen, -1, -1)
         setContentView(root)
         refresh(); updateCart()
-        askPin(SELLER_PIN, "Do'konchi PIN-kodi") { update(silent = true) }
+        askPin(SELLER_PIN, "Do'konchi PIN-kodi") { update(silent = true); checkAppUpdate(silent = true) }
     }
 
     @Deprecated("Deprecated in Java")
@@ -492,7 +492,8 @@ class MainActivity : Activity() {
 
         val top = topBar()
         top.addView(title("TUR-FA narxlar"), LinearLayout.LayoutParams(0, -2, 1f))
-        refreshBtn = pill("🔄", GREEN, Color.WHITE, 18f) { update(silent = false) }
+        refreshBtn = pill("🔄", GREEN, Color.WHITE, 18f) { update(silent = false); checkAppUpdate(silent = true) }
+            .apply { setOnLongClickListener { checkAppUpdate(silent = false); true } }
         top.addView(pill("🗂", GREEN, Color.WHITE, 18f) { catMenu() },
             LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
         top.addView(pill("⭐", GREEN, Color.WHITE, 18f) { toggleFavMode() },
@@ -1767,6 +1768,109 @@ class MainActivity : Activity() {
                 after(ok == rs.size)
             }
         }.start()
+    }
+
+    // ---------------------------------------------------------------- ilovani yangilash
+    private var updateBusy = false
+
+    /** GitHub'dagi eng yangi relizni tekshiradi; yangisi bo'lsa yuklab, o'rnatishni taklif qiladi. */
+    private fun checkAppUpdate(silent: Boolean) {
+        if (updateBusy) return
+        updateBusy = true
+        Thread {
+            val res = try {
+                val c = URL("https://api.github.com/repos/maxmuda725-jpg/turfa-narx/releases/latest").openConnection() as HttpURLConnection
+                c.connectTimeout = 15000; c.readTimeout = 20000
+                c.setRequestProperty("Accept", "application/vnd.github+json")
+                val j = org.json.JSONObject(c.inputStream.use { it.bufferedReader().readText() }); c.disconnect()
+                val tag = j.optString("tag_name")                         // "v1.45"
+                val num = tag.substringAfterLast('.').toIntOrNull() ?: 0
+                val assets = j.optJSONArray("assets")
+                var url = ""
+                for (i in 0 until (assets?.length() ?: 0)) {
+                    val a = assets!!.getJSONObject(i)
+                    if (a.optString("name").endsWith(".apk")) url = a.optString("browser_download_url")
+                }
+                Result.success(Triple(num, tag, url))
+            } catch (e: Exception) { Result.failure(e) }
+            main.post {
+                updateBusy = false
+                res.onSuccess { (num, tag, url) ->
+                    val mine = BuildConfig.VERSION_CODE
+                    if (num > mine && url.isNotEmpty()) {
+                        AlertDialog.Builder(this).setTitle("⬆️ Yangi versiya: $tag")
+                            .setMessage("Sizda: v${BuildConfig.VERSION_NAME}\nYangilansinmi? (~50 MB, Wi-Fi'da yaxshi)")
+                            .setPositiveButton("Yangilash") { _, _ -> downloadUpdate(url, tag) }
+                            .setNegativeButton("Keyin", null).show()
+                    } else if (!silent) toast("✅ Eng yangi versiya: v${BuildConfig.VERSION_NAME}")
+                }.onFailure { if (!silent) toast("Yangilanishni tekshirib bo'lmadi (internet?)") }
+            }
+        }.start()
+    }
+
+    private fun downloadUpdate(url: String, tag: String) {
+        val bar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100 }
+        val txt = TextView(this).apply { text = "Yuklanmoqda…"; setPadding(0, dp(8), 0, 0) }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(16), dp(24), dp(8))
+            addView(bar, -1, -2); addView(txt)
+        }
+        val dlg = AlertDialog.Builder(this).setTitle("⬆️ $tag").setView(box).setCancelable(false).show()
+        Thread {
+            val f = File(File(cacheDir, "update").apply { mkdirs() }, "TURFA-Narxlar.apk")
+            val ok = try {
+                var u = URL(url)
+                var c: HttpURLConnection
+                var hops = 0
+                while (true) {   // GitHub boshqa domenga yo'naltiradi
+                    c = u.openConnection() as HttpURLConnection
+                    c.instanceFollowRedirects = false
+                    c.connectTimeout = 15000; c.readTimeout = 60000
+                    val code = c.responseCode
+                    if (code in 300..399 && hops++ < 5) { u = URL(u, c.getHeaderField("Location")); c.disconnect(); continue }
+                    if (code != 200) throw Exception("HTTP $code")
+                    break
+                }
+                val total = c.contentLengthLong
+                var done = 0L
+                c.inputStream.use { inp -> f.outputStream().use { out ->
+                    val buf = ByteArray(64 * 1024)
+                    var last = 0
+                    while (true) {
+                        val n = inp.read(buf); if (n < 0) break
+                        out.write(buf, 0, n); done += n
+                        val pct = if (total > 0) (done * 100 / total).toInt() else 0
+                        if (pct != last) { last = pct; main.post { bar.progress = pct; txt.text = "Yuklanmoqda… $pct%" } }
+                    }
+                } }
+                c.disconnect()
+                total <= 0 || done == total
+            } catch (e: Exception) { false }
+            main.post {
+                dlg.dismiss()
+                if (ok) installApk(f) else alert("Yuklanmadi", "Internetni tekshirib, qayta urinib ko'ring (🔄 ni uzoq bosing).")
+            }
+        }.start()
+    }
+
+    private fun installApk(f: File) {
+        if (android.os.Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
+            AlertDialog.Builder(this).setTitle("Ruxsat kerak")
+                .setMessage("Ilovani yangilash uchun \"Noma'lum ilovalarni o'rnatish\" ga ruxsat bering, keyin ilovaga qaytib 🔄 tugmasini uzoq bosing.")
+                .setPositiveButton("Sozlamalar") { _, _ ->
+                    try { startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))) }
+                    catch (e: Exception) { toast("Sozlamalar ochilmadi") }
+                }
+                .setNegativeButton("Bekor", null).show()
+            return
+        }
+        try {
+            val uri = FileProvider.getUriForFile(this, "$packageName.files", f)
+            startActivity(Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        } catch (e: Exception) { alert("O'rnatib bo'lmadi", e.message ?: "xato") }
     }
 
     private fun askPin(pin: String, title: String, ok: () -> Unit) {

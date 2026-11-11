@@ -23,7 +23,14 @@ jobs:
       - name: APK yig'ish
         env:
           RASM_KEY: ${{ secrets.RASM_KEY }}
+          APP_VERSION: ${{ github.run_number }}
         run: |
+          # Doimiy imzo kaliti (shifrlangan, RASM_KEY bilan ochiladi)
+          K=$(python3 -c "import os;print(os.environ.get('RASM_KEY','').strip())")
+          if [ -n "$K" ]; then
+            openssl enc -d -aes-256-cbc -pbkdf2 -in app/turfa.jks.enc -out app/turfa.jks -pass pass:"$K"
+            export KS_PASS=$(python3 -c "import hashlib,sys;print(hashlib.sha256(('ks:'+sys.argv[1]).encode()).hexdigest()[:24])" "$K")
+          fi
           # rasm_arxiv.py bilan bir xil: secret .strip() qilinadi (ko'rinmas bo'sh joylar ham)
           export RASM_APP_KEY=$(python3 -c "import os,hashlib;k=os.environ.get('RASM_KEY','').strip();print(hashlib.sha256(('turfa-app:'+k).encode()).hexdigest() if k else '')")
           gradle assembleRelease
