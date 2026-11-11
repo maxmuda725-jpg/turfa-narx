@@ -1571,7 +1571,7 @@ class MainActivity : Activity() {
             val sent = ArrayList<File>()
             for (f in files) {
                 try {
-                    val bmp = Visual.bitmap(this, Uri.fromFile(f), 1280)
+                    val bmp = Visual.bitmap(this, Uri.fromFile(f), 1024)
                     val bytes = java.io.ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
                     val c = URL("$KASSA_API/api/kassa/rasm").openConnection() as HttpURLConnection
                     c.requestMethod = "POST"; c.doOutput = true

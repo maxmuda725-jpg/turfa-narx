@@ -11,6 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Ilova rasmlarini GitHub'ga ko'chirish (bepul saqlash)
+        continue-on-error: true
+        env:
+          RASM_KEY: ${{ secrets.RASM_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/rasm_arxiv.py
       - name: Billz'dan yuklash
         env:
           BILLZ_SECRET_TOKEN: ${{ secrets.BILLZ_SECRET_TOKEN }}
