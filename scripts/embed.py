@@ -70,16 +70,20 @@ def main():
     rows = list(csv.reader(open(CSV, encoding="utf-8-sig"), delimiter=";"))
     head = [h.strip().lower() for h in rows[0]]
     iN, iK, iR = head.index("nomi"), head.index("kod"), head.index("rasm")
+    iX = head.index("rasmlar") if "rasmlar" in head else -1
     items = []
     for r in rows[1:]:
-        if len(r) <= iR or not r[iR].startswith("http"):
-            continue
-        items.append((f"{r[iK].strip()}|{r[iN].strip()}", r[iR].strip()))
+        urls = [r[iR].strip()] if len(r) > iR else []
+        if 0 <= iX < len(r):
+            urls += r[iX].split()
+        key = f"{r[iK].strip()}|{r[iN].strip()}"
+        for u in dict.fromkeys(u for u in urls if u.startswith("http")):
+            items.append((key, u))
 
     old_dim, old = read_bin(OUT)
     known = {url: vec for _, url, vec in old}
     todo = sorted({u for _, u in items if u not in known})
-    print(f"Rasmli tovar: {len(items)}, oldin hisoblangan: {len(known)}, yangi: {len(todo)}")
+    print(f"Rasmli tovar: {len({k for k, _ in items})}, rasm: {len(items)}, oldin hisoblangan: {len(known)}, yangi: {len(todo)}")
 
     dim = old_dim
     if todo:

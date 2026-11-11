@@ -1273,10 +1273,17 @@ class MainActivity : Activity() {
     private fun refresh() {
         val q = search.text.toString()
         if (q != lastQuery) { similarOpen = false; lastQuery = q }
-        if (q.isNotBlank()) { photoHits = null; photoVec = null }
         photoHits?.let { hits ->
-            shown = listOf<Any>("📷 Rasmga eng o'xshashlari: ${hits.size} ta   ✕ yopish") + hits.map { it.first }
-            info.text = "To'g'ri tovarni \"＋ Kassaga\" bosing — telefon eslab qoladi. Rasm bazasi: ${Visual.count()} ta tovar"
+            // Rasm natijalari ichidan so'z bilan qisqartirish ("gul", "vaza"), o'xshashlik tartibi saqlanadi
+            val list = hits.map { it.first }
+            val keep = if (q.isBlank()) null else Search.run(list, q).map { it.key }.toHashSet()
+            val res = if (keep == null) list else list.filter { it.key in keep }
+            shown = listOf<Any>("📷 Rasmga eng o'xshashlari: ${res.size} ta   ✕ yopish") + res
+            info.text = when {
+                q.isBlank() -> "Ko'p chiqsa, nomini yozing (masalan: gul). To'g'ri tovarni \"＋ Kassaga\" bosing — telefon eslab qoladi."
+                res.isEmpty() -> "Rasm natijalari ichida \"${q.trim()}\" yo'q. ✕ yopib, oddiy qidiring."
+                else -> "Rasm natijalari ichida \"${q.trim()}\": ${res.size} ta"
+            }
             adapter.notifyDataSetChanged()
             return
         }

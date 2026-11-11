@@ -91,7 +91,7 @@ object Visual {
 
     // ------------------------------------------------------------ qidirish
     /** Eng o'xshash tovarlar (har tovar bir marta), o'xshashlik bo'yicha. */
-    fun search(q: FloatArray, all: List<Product>, n: Int = 24): List<Pair<Product, Float>> {
+    fun search(q: FloatArray, all: List<Product>, n: Int = 40): List<Pair<Product, Float>> {
         val byKey = all.associateBy { it.key }
         val byCode = all.filter { it.code.isNotBlank() }.groupBy { it.code }
         val best = HashMap<String, Float>()
