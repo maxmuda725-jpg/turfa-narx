@@ -175,11 +175,10 @@ Aroma mashina va uy osvejitel 0108;ZSJ-50586;2000000017143;77000;70000;;15;
 Aroma mashina va uy osvejitel 0109;XZG-48090;2000000017150;144000;120000;;2;
 Aroma mashina va uy Osvijitel 0110;OHK-25562;2000000017167;71500;65000;;27;
 AROMATERAPHY ESSENTIAL 10-16;XEF-86736;2000000050850;43700;38000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/c2f61a14-3cbb-4702-b1fd-876b6de3b40d.jpg;0;
-AROMATERAPHY ESSENTIAL 10-16;XEF-86736;2000000050850;43700;38000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/c2f61a14-3cbb-4702-b1fd-876b6de3b40d.jpg;0;
 Arqon;MDE-62614;2000000044491;71500;65000;;19;
 Arqonli brilog 0181;HEM-47238;2000000030784;19800;18000;;175;
-Arxideya;TES-14698;2000000057262;51800;45000;;0;
 Arxideya;CZL-48268;2000000057255;40300;;;0;
+Arxideya;TES-14698;2000000057262;51800;45000;;0;
 Arxideya 5-62;HIL-18224;2000000012230;1300000;1300000;;2;
 Arxideya 5-66;TQS-50976;2000000012322;1800000;1500000;;4;
 Arxideya 5-76;BBE-15603;2000000023540;420000;350000;;2;
@@ -205,6 +204,7 @@ Arzon Shar Donali 123-6 11111;FZF-45139;2000000020662;500;500;;15343;
 arzon tasbex;CZE-90957;2000000048901;6900;6000;;57;
 Asal vitamin 0210;OLY-84672;2000000015675;60000;55000;;29;
 Askar ot 25-7-50-4;JRA-33325;2000000012360;134400;112000;;11;
+Asvijitel 01-60;JSU-35406;2000000050911;46000;40000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/52f66af4-2fab-4c39-a71c-89ef015d887a.jpg;0;
 Atir 0200;UGY-88727;2000000015613;120000;;;0;
 Atirgul;WTJ-53050;2000000047676;44000;40000;;6;
 Atirgul 10-51;OFP-20338;2000000049892;20700;18000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/53d17cf7-753f-4553-b4c5-7c49d8d86cf8.jpg;0;
@@ -929,10 +929,10 @@ Dekorative led sham 25-7 33333;GUG-78992;2000000032962;35000;32000;;61;
 Dekorative led sham 25-11;RBO-79582;2000000032955;51700;47000;;1;
 dekorativni barg 26-3-8-2;BDU-77427;2000000047980;22000;20000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/c5fb3db0-2759-4c91-9d3b-717f7237bb12.jpg;171;
 delete;PRE-49790;2000000019031;330000;;;0;
-delete;FOL-32718;2000000014036;444000;;;0;
 delete;OHQ-65346;2000000014043;1260000;;;0;
-delete;LPN-74560;2000000014067;420000;;;0;
 delete;LKF-34344;2000000014050;444000;;;0;
+delete;LPN-74560;2000000014067;420000;;;0;
+delete;FOL-32718;2000000014036;444000;;;0;
 Delfin svitelnik bf-2;NGN-67548;2000000030579;138000;115000;;18;
 delfinun gul 47-3;DKL-81671;2000000047478;19800;18000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/6ac1ffcf-7a4c-4f9b-853b-58376e06229c.jpg;55;
 dengiz o'ti 9-23;OGS-17855;2000000049540;15000;13000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/3ff706a0-9d36-45a3-b3c3-46f87f14070b.jpg;0;
@@ -2615,7 +2615,6 @@ kapilka temir 25-9-10-11;MVF-31162;2000000028149;30800;28000;;4;
 Kapybara 140;QQD-69100;2000000032689;41800;38000;;2;
 karam barg;KMZ-81862;2000000056609;17300;15000;;0;
 Karne gul 12-1;EBU-82866;2000000050782;43700;38000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/95deedbc-bf2a-446e-a0d8-002f034778c9.jpg;0;
-Karne gul 12-1;EBU-82866;2000000050782;43700;38000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/95deedbc-bf2a-446e-a0d8-002f034778c9.jpg;0;
 karobka 5-24;EUM-12830;2000000015262;16500;;;0;
 karobka 5-25;YSV-41750;2000000015279;22000;;;0;
 Karobka 34-7;JOR-99908;2000000068329;50000;40000;;10;
@@ -2830,7 +2829,7 @@ Kitob idish 7-11;ATH-77823;2000000045610;240000;200000;https://fra1.digitalocean
 Kitob Idish Machalkalik;AZG-23293;2000000025537;35200;32000;;133;
 Kitob Idish oddiy;ZOV-47271;2000000025520;28600;26000;;5;
 KITOB SEYF 36-12;VBM-88526;2000000052243;110000;93000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/c88c5df9-f0ac-4629-a7cd-4c279a768d01.jpg;25;
-kitob seyf 36-13;TBR-29192;2000000069920;65000;58000;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/VEJSLTI5MTky__1794381676914_u2s0jyfw.jpg;31;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/VEJSLTI5MTky__1794381679253_3k6z6ct5.jpg
+kitob seyf 36-13;TBR-29192;2000000069920;65000;58000;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/VEJSLTI5MTky__1794381679253_3k6z6ct5.jpg;31;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/VEJSLTI5MTky__1794381676914_u2s0jyfw.jpg
 kitob seyf 36-14;OOS-90584;2000000007830;52800;48000;;57;
 Kitob Svetilnik 6-7;TAH-95201;2000000044484;117600;98000;;4;
 KITOB SVITILNIK 6-7;JAV-46458;2000000052380;112700;98000;;0;
@@ -3517,6 +3516,7 @@ organayzer 183;LKK-91691;2000000052021;92000;80000;https://fra1.digitaloceanspac
 organayzer 188;SYV-53638;2000000053547;247300;215000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/99479f1d-c425-4312-bd48-3d622c778850.jpg;0;
 Organayzer 190;FSZ-45576;2000000020808;250000;235000;;1;
 Organayzer 214;EJZ-74852;2000000015910;218400;;;0;
+organayzer 0250;LWQ-61968;2000000050935;46000;40000;;0;
 Organayzer AA-32-B02;YJR-23968;2000000043395;240000;200000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/7943200d-ed7d-4798-8830-14b95fc319c4.jpg;1;
 Organayzer AS-13;EOT-20362;2000000043708;55000;50000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/7d3e2627-f3d8-4718-a8dc-88aff63af5f1.jpg;20;
 Organayzer Ayollar uchun N-160;QJQ-59358;2000000043807;33000;30000;;10;
@@ -4205,9 +4205,9 @@ ramazon idish 25-9-24-7;NYM-16266;2000000005034;69300;63000;https://fra1.digital
 ramazon idish 25-9-24-8;XIV-23563;2000000005065;67100;61000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/92607d75-3009-489c-8a5a-45554f1d3964.jpg;56;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d37664ef-38d7-46e1-9478-4f3f3dfa732d.jpg
 ramazon led grlyan 31-3;JHW-77791;2000000020440;55000;50000;;5;
 Ramazon paket 25-9-25-8;HEH-73271;2000000061665;2900;2500;https://fra1.digitaloceanspaces.com/billz2-minio-billz/ac5eb242-bf7f-4427-9910-30c902540209.jpg;1200;
-Ramazon sumka;MCN-45856;2000000060712;16100;14000;;0;
-Ramazon sumka;VGC-30424;2000000060729;15000;13000;;0;
 Ramazon sumka;CIX-25171;2000000060743;12700;11000;;0;
+Ramazon sumka;VGC-30424;2000000060729;15000;13000;;0;
+Ramazon sumka;MCN-45856;2000000060712;16100;14000;;0;
 Ramazon sumka;WMO-95375;2000000060736;13800;12000;;0;
 Ramazon Svetilnik AA-6-1;GEN-11602;2000000043555;300000;250000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/780a74e1-8d3b-419e-b976-02c417e52ef6.jpg;10;
 ramazon svitelnik 49-37;RVL-40685;2000000052816;143800;125000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/e6379ffd-9f17-4e5e-b6c2-a3fb6c876e04.jpg;0;
@@ -4853,8 +4853,8 @@ shkatulka 25-4-37-JQB9706-2-49;PFR-62215;2000000014098;114000;95000;;14;
 shkatulka 25-4-37-JQC017-29;XQB-90716;2000000036298;38500;35000;;8;
 shkatulka 25-4-37-JQC9403-53;UCJ-92223;2000000036281;88000;80000;;3;
 shkatulka 25-4-37-PU092-57;WXL-72639;2000000036373;88000;80000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/6cc217fc-7773-420c-bb23-257fe8382f8d.jpg;17;
-shkatulka 25-4-37-W05-15;HDN-28421;2000000036304;126000;105000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/5e25d7a9-2aa6-41ce-bc13-052cf68f34c4.jpg;15;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/SEROLTI4NDIx__1794383995630_njajfz3b.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/SEROLTI4NDIx__1794384003253_p8w8of7y.jpg
-shkatulka 25-4-37-W06-14;PHF-70081;2000000014128;132000;110000;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794383311599_rbyr6ev0.jpg;17;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794383333106_zcnfxujr.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794384065446_650xpmck.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794384070081_fw4566v6.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794384797615_uz7ogxoh.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794384802975_vu24gz1y.jpg
+shkatulka 25-4-37-W05-15;HDN-28421;2000000036304;126000;105000;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/dzA1MTU__1794384114684_9y532ovk.jpg;15;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/dzA1MTU__1794384110554_t4wiksf3.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/SEROLTI4NDIx__1794384003253_p8w8of7y.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/SEROLTI4NDIx__1794383995630_njajfz3b.jpg https://fra1.digitaloceanspaces.com/billz2-minio-billz/5e25d7a9-2aa6-41ce-bc13-052cf68f34c4.jpg
+shkatulka 25-4-37-W06-14;PHF-70081;2000000014128;132000;110000;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794384802975_vu24gz1y.jpg;17;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794384797615_uz7ogxoh.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794384070081_fw4566v6.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794384065446_650xpmck.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794383333106_zcnfxujr.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/UEhGLTcwMDgx__1794383311599_rbyr6ev0.jpg
 shkatulka 25-4-37-Y116-34;ZKU-53664;2000000036861;71500;65000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/1a392dfa-9c66-4e33-b4a8-cc2878704cf6.jpg;8;
 Shkatulka 33-5;EOA-27447;2000000072456;135000;118000;;6;
 Shkatulka 095;JMX-15312;2000000051871;86300;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/ae4aa013-11de-4fd0-8bfd-8500967bb1f7.jpg;0;
@@ -4890,7 +4890,7 @@ shkatulka b228;ZAT-28830;2000000056180;101200;88000;https://fra1.digitaloceanspa
 Shkatulka c12c;RJA-80929;2000000057460;135700;118000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/0886c48f-3cb9-41c4-888d-0fd10293c7ff.jpg;0;
 shkatulka C13A;VNS-15294;2000000063232;160000;143000;;10;
 shkatulka C13C-8;UFW-30029;2000000014692;174000;;;0;
-Shkatulka C016-4;MLC-19297;2000000072425;195000;170000;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794382971059_vutrnip0.jpg;15;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794382976095_qq11hx9a.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794382977652_wvigjwkn.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794382979081_kor8825o.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794384155025_a6oebeho.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794384160075_1l53s3so.jpg
+Shkatulka C016-4;MLC-19297;2000000072425;195000;170000;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794384160075_1l53s3so.jpg;15;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794384155025_a6oebeho.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794382979081_kor8825o.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794382977652_wvigjwkn.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794382976095_qq11hx9a.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/TUxDLTE5Mjk3__1794382971059_vutrnip0.jpg
 shkatulka c57c;RBY-64141;2000000052397;112700;;https://fra1.digitaloceanspaces.com/billz2-minio-billz/730af481-7d7c-48fe-8703-2df93910af04.jpg;0;
 shkatulka C228;ZFB-14073;2000000014746;110400;92000;;3;
 Shkatulka C322-25;RUG-42159;2000000014883;198000;165000;;1;
@@ -4935,7 +4935,7 @@ Shkatulka Y224-44;TMF-74796;2000000014722;216000;;;0;
 Shkatulka y228-55;JQR-54470;2000000056197;101200;88000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/08b478b6-5825-482a-93f4-de5793c100ec.jpg;0;
 shkatulka YM065-23;FHD-45175;2000000015071;318000;265000;;1;
 shkatulka Z051;HYY-24638;2000000063188;140000;126000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/cb3c59e6-a39c-49a1-9635-72292d4c1023.jpg;11;
-SHKATULKA Z068;JMI-82508;2000000036847;175000;156000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/0c7eca6f-01e5-4bf4-81ef-029c3bdc438d.jpg;9;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/Sk1JLTgyNTA4__1794382897092_f17k64eg.jpg https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/Sk1JLTgyNTA4__1794382902403_a1w7mrc3.jpg
+SHKATULKA Z068;JMI-82508;2000000036847;175000;156000;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/Sk1JLTgyNTA4__1794382902403_a1w7mrc3.jpg;9;https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-1/Sk1JLTgyNTA4__1794382897092_f17k64eg.jpg https://fra1.digitaloceanspaces.com/billz2-minio-billz/0c7eca6f-01e5-4bf4-81ef-029c3bdc438d.jpg
 Shokker ruchka 48-2;HXT-41463;2000000032177;5500;5000;;44;
 Siena sena gul 1.5sm;RIL-70683;2000000045948;47300;43000;;13;
 Siena sena gul 1.5sm 5-1;HFB-53072;2000000045955;53900;49000;;8;
