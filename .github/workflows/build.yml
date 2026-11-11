@@ -24,7 +24,8 @@ jobs:
         env:
           RASM_KEY: ${{ secrets.RASM_KEY }}
         run: |
-          if [ -n "$RASM_KEY" ]; then export RASM_APP_KEY=$(printf %s "turfa-app:$RASM_KEY" | sha256sum | cut -d' ' -f1); fi
+          K=$(printf %s "$RASM_KEY" | tr -d '[:space:]')   # secret oxiridagi bo'sh joy/qatorni olib tashlash
+          if [ -n "$K" ]; then export RASM_APP_KEY=$(printf %s "turfa-app:$K" | sha256sum | cut -d' ' -f1); fi
           gradle assembleRelease
       - run: cp app/build/outputs/apk/release/*.apk TURFA-Narxlar.apk
       - uses: actions/upload-artifact@v4
