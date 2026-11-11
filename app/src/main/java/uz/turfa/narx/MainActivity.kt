@@ -407,6 +407,7 @@ class MainActivity : Activity() {
     private var upProduct: Product? = null
     private var upPending: File? = null
     private var upDone: ((Int) -> Unit)? = null   // kod ro'yxatidan kelinganda: yuklangach shu chaqiriladi
+    private var upKodId: String? = null           // shu 🏷 qatoriga rasm nusxasi (kichik) saqlanadi
     private val upFiles = ArrayList<File>()
     // Sevimlilar (shu telefonda saqlanadi)
     private val favs = LinkedHashSet<String>()
@@ -1101,14 +1102,15 @@ class MainActivity : Activity() {
     }
 
     // ---------------------------------------------------------------- 🏷 kod chiqarish ro'yxati (shu telefonda)
-    private class KodItem(val code: String, var name: String, val sku: String, var qty: Long, var photos: Int)
+    private class KodItem(val id: String, val code: String, var name: String, val sku: String, var qty: Long, var photos: Int)
 
     private fun kodLoad(): MutableList<KodItem> {
         val out = ArrayList<KodItem>()
         try {
             val a = org.json.JSONArray(getSharedPreferences("kod", MODE_PRIVATE).getString("list", "[]"))
             for (i in 0 until a.length()) a.getJSONObject(i).let {
-                out += KodItem(it.optString("code"), it.optString("name"), it.optString("sku"), it.optLong("qty", 1), it.optInt("photos"))
+                out += KodItem(it.optString("id").ifBlank { "k${System.nanoTime()}_$i" }, it.optString("code"), it.optString("name"),
+                    it.optString("sku"), it.optLong("qty", 1), it.optInt("photos"))
             }
         } catch (_: Exception) {}
         return out
@@ -1116,35 +1118,102 @@ class MainActivity : Activity() {
 
     private fun kodSave(list: List<KodItem>) {
         val a = org.json.JSONArray()
-        for (k in list) a.put(org.json.JSONObject().put("code", k.code).put("name", k.name).put("sku", k.sku).put("qty", k.qty).put("photos", k.photos))
+        for (k in list) a.put(org.json.JSONObject().put("id", k.id).put("code", k.code).put("name", k.name)
+            .put("sku", k.sku).put("qty", k.qty).put("photos", k.photos))
         getSharedPreferences("kod", MODE_PRIVATE).edit().putString("list", a.toString()).apply()
     }
 
+    private fun newKodId() = "k" + System.currentTimeMillis() + "_" + (0..999).random()
+    private fun kodDir(id: String) = File(File(filesDir, "kod"), id)
+    private fun kodThumbs(id: String): List<File> =
+        kodDir(id).listFiles()?.filter { it.name.endsWith(".jpg") }?.sortedBy { it.name }.orEmpty()
+
+    private var kodDlg: AlertDialog? = null
+
+    /** 🏷 ro'yxati rasmlari bilan: kod yopishtirishda tovarni ko'rib topish uchun. */
     private fun kodList() {
         val list = kodLoad()
+        kodSave(list)   // eski yozuvlarga id beriladi
+        val byCode = all.filter { it.code.isNotBlank() }.associateBy { it.code }
         val total = list.sumOf { it.qty }
-        val labels = ArrayList<String>()
-        labels += "➕ Kod qo'shish"
-        for (k in list) labels += "${k.code} — ${group(k.qty)} ta" + (if (k.photos > 0) "  📷${k.photos}" else "") +
-            "\n   " + (k.name.ifBlank { "bazada yo'q" })
-        if (list.isNotEmpty()) { labels += "📋 Ro'yxatni nusxalash (matn)"; labels += "🗑 Ro'yxatni tozalash" }
-        AlertDialog.Builder(this).setTitle("🏷 Kod chiqarish: ${list.size} ta kod, ${group(total)} ta")
-            .setItems(labels.toTypedArray()) { _, i ->
+        val ad = object : BaseAdapter() {
+            override fun getCount() = list.size
+            override fun getItem(i: Int) = list[i]
+            override fun getItemId(i: Int) = i.toLong()
+            override fun getView(i: Int, cv: View?, parent: ViewGroup?): View {
+                val k = list[i]
+                val row = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    background = box(Color.WHITE, 12); setPadding(dp(8), dp(8), dp(10), dp(8))
+                    setOnClickListener { kodDlg?.dismiss(); kodItemMenu(list, i) }
+                }
+                val iv = ImageView(this@MainActivity).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP; background = box(Color.parseColor("#EEEEEE"), 10); clipToOutline = true
+                }
+                val local = kodThumbs(k.id)
+                val url = byCode[k.sku]?.photo.orEmpty()
                 when {
-                    i == 0 -> kodAdd()
-                    i <= list.size -> kodItemMenu(list, i - 1)
-                    i == list.size + 1 -> {
+                    local.isNotEmpty() -> iv.setImageBitmap(BitmapFactory.decodeFile(local.last().path, BitmapFactory.Options().apply { inSampleSize = 2 }))
+                    url.isNotBlank() -> Img.load(this@MainActivity, url, iv)
+                    else -> { iv.setImageDrawable(null) }
+                }
+                iv.setOnClickListener { kodPhotos(k, url) }
+                row.addView(iv, LinearLayout.LayoutParams(dp(84), dp(84)).apply { rightMargin = dp(12) })
+                val col = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+                col.addView(TextView(this@MainActivity).apply {
+                    text = k.code; textSize = 22f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
+                })
+                col.addView(TextView(this@MainActivity).apply {
+                    text = "${group(k.qty)} ta" + (if (local.isNotEmpty()) "   📷 ${local.size}" else if (url.isBlank()) "   📷 rasm yo'q" else "")
+                    textSize = 16f; setTextColor(GREEN); typeface = Typeface.DEFAULT_BOLD
+                })
+                col.addView(TextView(this@MainActivity).apply {
+                    text = k.name.ifBlank { "bazada yo'q" }; textSize = 13f; setTextColor(Color.GRAY); maxLines = 2
+                })
+                row.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
+                return LinearLayout(this@MainActivity).apply { setPadding(0, dp(4), 0, dp(4)); addView(row, -1, -2) }
+            }
+        }
+        val lv = ListView(this).apply { adapter = ad; divider = null; setPadding(dp(8), dp(4), dp(8), dp(4)) }
+        val empty = TextView(this).apply {
+            text = "Ro'yxat bo'sh.\n\n\"➕ Qo'shish\" yoki tovar kartasidagi 🏷 tugmasi bilan qo'shing."
+            textSize = 16f; gravity = Gravity.CENTER; setTextColor(Color.GRAY); setPadding(dp(24), dp(32), dp(24), dp(32))
+        }
+        kodDlg = AlertDialog.Builder(this).setTitle("🏷 Kod chiqarish: ${list.size} ta kod, ${group(total)} ta")
+            .setView(if (list.isEmpty()) empty else lv)
+            .setPositiveButton("➕ Qo'shish") { _, _ -> kodAdd() }
+            .setNeutralButton("⋯") { _, _ ->
+                if (list.isEmpty()) return@setNeutralButton
+                AlertDialog.Builder(this).setItems(arrayOf("📋 Ro'yxatni nusxalash (matn)", "🗑 Ro'yxatni tozalash")) { _, w ->
+                    if (w == 0) {
                         val text = list.joinToString("\n") { "${it.code} — ${it.qty} ta" + if (it.name.isNotBlank()) " (${it.name})" else "" }
                         (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
                             .setPrimaryClip(android.content.ClipData.newPlainText("kodlar", text))
                         toast("📋 Nusxalandi: ${list.size} ta kod"); kodList()
-                    }
-                    else -> AlertDialog.Builder(this).setMessage("Ro'yxat tozalansinmi? (${list.size} ta kod)\nRasmlar o'chmaydi.")
-                        .setPositiveButton("Tozalash") { _, _ -> kodSave(emptyList()); toast("🗑 Tozalandi") }
+                    } else AlertDialog.Builder(this).setMessage("Ro'yxat tozalansinmi? (${list.size} ta kod)\nYuklangan rasmlar umumiy bazada qoladi.")
+                        .setPositiveButton("Tozalash") { _, _ ->
+                            kodSave(emptyList()); File(filesDir, "kod").deleteRecursively(); toast("🗑 Tozalandi")
+                        }
                         .setNegativeButton("Yo'q") { _, _ -> kodList() }.show()
-                }
+                }.show()
             }
             .setNegativeButton("Yopish", null).show()
+    }
+
+    /** Ro'yxatdagi tovar rasmlarini katta ko'rish (o'zingiz olganlari, bo'lmasa bazadagi). */
+    private fun kodPhotos(k: KodItem, url: String) {
+        val local = kodThumbs(k.id)
+        val strip = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(8), dp(8), dp(8), dp(8)) }
+        for (f in local) strip.addView(ImageView(this).apply {
+            adjustViewBounds = true; setImageBitmap(BitmapFactory.decodeFile(f.path))
+        }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+        if (local.isEmpty() && url.isNotBlank()) strip.addView(ImageView(this).apply {
+            adjustViewBounds = true; Img.load(this@MainActivity, url, this, big = true)
+        }, LinearLayout.LayoutParams(-1, -2))
+        if (strip.childCount == 0) { toast("Rasm yo'q. Qatorni bosib 📷 Rasmga oling"); return }
+        AlertDialog.Builder(this).setTitle("${k.code} — ${group(k.qty)} ta")
+            .setView(android.widget.ScrollView(this).apply { addView(strip) })
+            .setPositiveButton("Yopish", null).show()
     }
 
     private fun kodAdd() {
@@ -1169,7 +1238,7 @@ class MainActivity : Activity() {
                 fun save(p: Product?) {
                     val list = kodLoad()
                     val shown = if (canon.isNotBlank()) canon else c
-                    list += KodItem(shown, p?.name.orEmpty(), p?.code.orEmpty(), n, 0)
+                    list += KodItem(newKodId(), shown, p?.name.orEmpty(), p?.code.orEmpty(), n, 0)
                     kodSave(list)
                     AlertDialog.Builder(this).setTitle("✅ Saqlandi: $shown — $n ta")
                         .setItems(arrayOf("📷 Hozir rasmga olish", "➕ Yana kod qo'shish", "🏷 Ro'yxatni ko'rish")) { _, w ->
@@ -1192,9 +1261,10 @@ class MainActivity : Activity() {
     private fun kodItemMenu(list: MutableList<KodItem>, i: Int) {
         val k = list[i]
         AlertDialog.Builder(this).setTitle("${k.code} — ${group(k.qty)} ta" + if (k.name.isNotBlank()) "\n${k.name}" else "")
-            .setItems(arrayOf("📷 Rasmga olish (hamma telefonga)", "✏️ Sonini o'zgartirish", "❌ Ro'yxatdan olib tashlash")) { _, w ->
+            .setItems(arrayOf("📷 Rasmga olish (hamma telefonga)", "✏️ Sonini o'zgartirish", "❌ Ro'yxatdan olib tashlash", "🖼 Rasmlarini ko'rish")) { _, w ->
                 when (w) {
                     0 -> kodPhoto(i)
+                    3 -> { kodPhotos(k, all.firstOrNull { it.code == k.sku }?.photo.orEmpty()); }
                     1 -> {
                         val input = EditText(this).apply { inputType = InputType.TYPE_CLASS_NUMBER; textSize = 24f; setText(k.qty.toString()); selectAll() }
                         val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
@@ -1204,7 +1274,7 @@ class MainActivity : Activity() {
                                 kodList()
                             }.setNegativeButton("Bekor") { _, _ -> kodList() }.show()
                     }
-                    else -> { list.removeAt(i); kodSave(list); kodList() }
+                    else -> { kodDir(k.id).deleteRecursively(); list.removeAt(i); kodSave(list); kodList() }
                 }
             }
             .setNegativeButton("Orqaga") { _, _ -> kodList() }.show()
@@ -1229,7 +1299,7 @@ class MainActivity : Activity() {
                 val n = input.text.toString().toLongOrNull()?.takeIf { it > 0 } ?: 1
                 val l = kodLoad()
                 val o = l.firstOrNull { it.sku.isNotBlank() && it.sku == p.code }
-                if (o != null) o.qty += n else l += KodItem(shopCode(p), p.name, p.code, n, 0)
+                if (o != null) o.qty += n else l += KodItem(newKodId(), shopCode(p), p.name, p.code, n, 0)
                 kodSave(l)
                 toast("🏷 Qo'shildi: ${shopCode(p)} — ${group(o?.qty ?: n)} ta (ro'yxatda ${l.size} ta kod)")
             }
@@ -1242,9 +1312,11 @@ class MainActivity : Activity() {
         val k = kodLoad().getOrNull(i) ?: return
         val p = (if (k.sku.isNotBlank()) all.firstOrNull { it.code == k.sku } else null)
             ?: Product(name = k.name.ifBlank { "Yangi kod ${k.code}" }, code = k.sku.ifBlank { k.code }, barcode = "", dona = "", optom = "", qty = "")
+        upKodId = k.id
         upDone = { n ->
+            upKodId = null
             val list = kodLoad()
-            list.getOrNull(i)?.let { it.photos += n; kodSave(list) }
+            list.firstOrNull { it.id == k.id }?.let { it.photos += n; kodSave(list) }
             kodList()
         }
         uploadFor(p)
@@ -1819,6 +1891,13 @@ class MainActivity : Activity() {
                         else -> lastErr = j?.optString("error")?.ifBlank { null } ?: "Server xatosi ($rc)"
                     }
                 } catch (e: Exception) { lastErr = "Internet yo'q yoki server javob bermadi" }
+            }
+            upKodId?.let { id ->   // 🏷 ro'yxatida ko'rinishi uchun kichik nusxa
+                val dir = kodDir(id).apply { mkdirs() }
+                for (f in sent) try {
+                    val b = Visual.bitmap(this, Uri.fromFile(f), 640)
+                    File(dir, "${System.currentTimeMillis()}_${f.name.hashCode().toUInt()}.jpg").outputStream().use { b.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+                } catch (_: Exception) {}
             }
             main.post {
                 wait.dismiss()
