@@ -35,6 +35,23 @@ def main():
                      if SHOP in (s.get("shop_name") or "").lower() and s.get("shop_id")), None)
     print("Turfa shop_id:", "topildi" if turfa_id else "TOPILMADI (qoldiq yozilmaydi)")
 
+    # Kategoriyalar (diagnostika): Billz'da qanday kategoriyalar borligini ko'rish
+    import collections
+    ckeys = sorted({k for p in products for k in p if "categor" in k.lower()})
+    print("Kategoriya maydonlari:", ckeys)
+    def cat(p):
+        for k in ckeys:
+            v = p.get(k)
+            if isinstance(v, list) and v:
+                x = v[0]
+                return (x.get("name") if isinstance(x, dict) else str(x)) or ""
+            if isinstance(v, dict) and v.get("name"): return v["name"]
+            if isinstance(v, str) and v: return v
+        return ""
+    cc = collections.Counter(cat(p) for p in products)
+    print(f"Kategoriyasiz: {cc.get('', 0)} / {len(products)}, kategoriyalar soni: {len(cc) - (1 if '' in cc else 0)}")
+    for n, c in cc.most_common(40): print(f"  {c:5d}  {n or '(yo`q)'}")
+
     rows = []
     for p in products:
         prices = p.get("shop_prices") or []
