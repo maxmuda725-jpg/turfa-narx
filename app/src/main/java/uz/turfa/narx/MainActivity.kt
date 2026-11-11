@@ -1499,8 +1499,9 @@ class MainActivity : Activity() {
         val p = upProduct ?: return
         val items = arrayOf("📷 Rasmga olish", "🖼 Galereyadan (bir nechtasini tanlash)",
             "⬆️ Yuklash (${upFiles.size} ta rasm)", "🗑 Tanlanganlarni tozalash")
-        AlertDialog.Builder(this).setTitle("📸 ${p.name} · ${p.code}")
-            .setMessage(if (upFiles.isEmpty()) "Tovarni 3–4 xil tomondan rasmga oling. Rasm hamma telefonga yuboriladi va rasm orqali qidiruv uni taniydi." else "Tanlandi: ${upFiles.size} ta rasm. Yana olishingiz yoki yuklashingiz mumkin.")
+        // Diqqat: setMessage bilan setItems birga ishlamaydi (ro'yxat ko'rinmay qoladi), shuning uchun izoh sarlavhada
+        val hint = if (upFiles.isEmpty()) "3–4 xil tomondan rasmga oling" else "Tanlandi: ${upFiles.size} ta rasm"
+        AlertDialog.Builder(this).setTitle("📸 ${p.name} · ${p.code}\n$hint")
             .setItems(items) { _, w ->
                 when (w) {
                     0 -> openUpCamera()
