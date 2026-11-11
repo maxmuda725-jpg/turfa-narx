@@ -37,7 +37,7 @@ jobs:
           target: google_apis
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -cores 3 -memory 4096
           script: bash scripts/ui_sinov.sh
       - uses: actions/upload-artifact@v4
         if: always()

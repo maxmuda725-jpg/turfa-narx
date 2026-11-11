@@ -730,8 +730,7 @@ class MainActivity : Activity() {
             text = "Tez kirish"; textSize = 15f; setTextColor(MUTED); typeface = Typeface.DEFAULT_BOLD
             setPadding(dp(4), 0, 0, dp(8))
         })
-        val noPhoto = all.count { it.photo.isBlank() && Search.stockRank(it) == 0 }
-        val cats = all.map { Cats.of(it).first }.toSet().size
+        val (noPhoto, cats) = homeStats()
         val tiles = listOf(
             Triple("📷", "Rasm bilan topish", "") to { photoPick() },
             Triple("📍", "Polkalar", "Qaysi tovar qayerda") to { polkaMenu() },
@@ -769,6 +768,17 @@ class MainActivity : Activity() {
             wrap.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
         }
         return wrap
+    }
+
+    // Bosh ekran raqamlari: baza o'zgarganda bir marta hisoblanadi (har chizishda emas — sekin telefonda qotmasin)
+    private var homeStatsKey: Any? = null
+    private var homeStatsVal = 0 to 0
+    private fun homeStats(): Pair<Int, Int> {
+        if (homeStatsKey !== all) {
+            homeStatsVal = all.count { it.photo.isBlank() && Search.stockRank(it) == 0 } to all.mapTo(HashSet()) { Cats.of(it).first }.size
+            homeStatsKey = all
+        }
+        return homeStatsVal
     }
 
     private fun badge(t: String, fg: Int, bg: Int) = TextView(this).apply {

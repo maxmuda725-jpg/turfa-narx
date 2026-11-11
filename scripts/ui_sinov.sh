@@ -10,6 +10,10 @@ end() { echo "::endgroup::"; }
 check() { "$@" || { echo "::error::QADAM XATO: $*"; FAIL=1; }; }
 
 adb wait-for-device
+# Tizim to'liq yuklanguncha kutish (aks holda "System UI isn't responding" oynasi chiqadi)
+for i in $(seq 1 60); do [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1" ] && break; sleep 3; done
+sleep 25
+dismiss() { for i in 1 2 3; do $U tap "Wait" >/dev/null 2>&1 || break; sleep 2; done; }
 adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0
@@ -34,7 +38,9 @@ adb shell svc wifi disable; adb shell svc data disable
 adb logcat -c
 
 step "1. Bosh ekran"
+dismiss
 adb shell am start -n $PKG/.MainActivity; sleep 8
+dismiss
 $U shot 01-bosh-ekran
 check $U has "Tez kirish"
 check $U has "Qidiruv"
