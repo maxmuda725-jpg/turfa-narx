@@ -93,6 +93,8 @@ def main():
     app_key = hashlib.sha256(("turfa-app:" + key).encode()).hexdigest()
     st, _ = http("POST", f"{SERVER}/api/kassa/rasm-belgi", {"name": "tekshiruv", "done": True}, {"x-app-key": app_key})
     print("Ilova kaliti:", {400: "to'g'ri ✅", 401: "NOTO'G'RI ❌"}.get(st, f"javob {st}"))
+    st, r = http("GET", f"{SERVER}/api/kassa/kod-royxat", headers={"x-app-key": app_key})
+    print("Kelgan ro'yxatlar:", f"{len(r.get('items') or [])} ta ✅" if st == 200 and isinstance(r, dict) else f"javob {st} ❌")
     rows = read_csv()
     moved = forgot = 0
 
