@@ -24,8 +24,8 @@ jobs:
         env:
           RASM_KEY: ${{ secrets.RASM_KEY }}
         run: |
-          K=$(printf %s "$RASM_KEY" | tr -d '[:space:]')   # secret oxiridagi bo'sh joy/qatorni olib tashlash
-          if [ -n "$K" ]; then export RASM_APP_KEY=$(printf %s "turfa-app:$K" | sha256sum | cut -d' ' -f1); fi
+          # rasm_arxiv.py bilan bir xil: secret .strip() qilinadi (ko'rinmas bo'sh joylar ham)
+          export RASM_APP_KEY=$(python3 -c "import os,hashlib;k=os.environ.get('RASM_KEY','').strip();print(hashlib.sha256(('turfa-app:'+k).encode()).hexdigest() if k else '')")
           gradle assembleRelease
       - run: cp app/build/outputs/apk/release/*.apk TURFA-Narxlar.apk
       - uses: actions/upload-artifact@v4
