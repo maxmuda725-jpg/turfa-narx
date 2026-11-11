@@ -1563,7 +1563,8 @@ class MainActivity : Activity() {
     private fun doUpload() {
         val p = upProduct ?: return
         if (upFiles.isEmpty()) { toast("Avval rasm oling yoki tanlang"); uploadDialog(); return }
-        val key = prefs().getString("key", "").orEmpty()
+        // Ilova ichidagi kalit; bo'lmasa (eski yig'ilish) — Billz ulanish kaliti
+        val key = BuildConfig.RASM_APP_KEY.ifBlank { prefs().getString("key", "").orEmpty() }
         if (key.isEmpty()) { askKey { doUpload() }; return }
         val files = upFiles.toList()
         val wait = AlertDialog.Builder(this).setMessage("⬆️ ${files.size} ta rasm yuklanmoqda…").setCancelable(false).show()
@@ -1598,8 +1599,9 @@ class MainActivity : Activity() {
             main.post {
                 wait.dismiss()
                 if (unauthorized) {
-                    prefs().edit().remove("key").apply()
-                    alert("Kalit noto'g'ri", "Ulanish kaliti noto'g'ri. Qayta yuklab, to'g'ri kalitni kiriting.")
+                    if (BuildConfig.RASM_APP_KEY.isBlank()) prefs().edit().remove("key").apply()
+                    alert("Ruxsat yo'q", if (BuildConfig.RASM_APP_KEY.isBlank()) "Ulanish kaliti noto'g'ri. Qayta yuklab, to'g'ri kalitni kiriting."
+                        else "Server bu ilovani tanimadi. Eng yangi APK'ni o'rnating.")
                     return@post
                 }
                 sent.forEach { it.delete() }
@@ -1731,7 +1733,7 @@ class MainActivity : Activity() {
     }
 
     private fun markRasmlar(rs: List<Rasm>, remove: Boolean, after: (Boolean) -> Unit) {
-        val key = prefs().getString("key", "").orEmpty()
+        val key = BuildConfig.RASM_APP_KEY.ifBlank { prefs().getString("key", "").orEmpty() }
         if (key.isEmpty()) { askKey { markRasmlar(rs, remove, after) }; return }
         Thread {
             var ok = 0; var code = 0
@@ -1746,7 +1748,10 @@ class MainActivity : Activity() {
                 if (code in 200..299) ok++ else if (code == 401) break
             } catch (_: Exception) {}
             main.post {
-                if (code == 401) { prefs().edit().remove("key").apply(); alert("Kalit noto'g'ri", "Ulanish kalitini qayta kiriting."); return@post }
+                if (code == 401) {
+                    if (BuildConfig.RASM_APP_KEY.isBlank()) prefs().edit().remove("key").apply()
+                    alert("Ruxsat yo'q", "Eng yangi APK'ni o'rnating yoki ulanish kalitini qayta kiriting."); return@post
+                }
                 toast(if (ok == rs.size) (if (remove) "🗑 O'chirildi" else "✅ Belgilandi") else "Bajarildi: $ok / ${rs.size}")
                 after(ok == rs.size)
             }

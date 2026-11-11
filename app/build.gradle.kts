@@ -13,6 +13,8 @@ android {
         versionName = "1.0"
         // Faqat telefon protsessorlari: APK kichikroq bo'ladi
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        // Rasm yuklash kaliti: GitHub Actions'da RASM_KEY secret'dan hosil qilinadi, kodda saqlanmaydi
+        buildConfigField("String", "RASM_APP_KEY", "\"${System.getenv("RASM_APP_KEY") ?: ""}\"")
     }
     buildTypes {
         release {
@@ -25,6 +27,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
+    buildFeatures { buildConfig = true }
     // Model faylini siqmasdan saqlash (MediaPipe uni to'g'ridan-to'g'ri o'qiydi)
     androidResources { noCompress += "tflite" }
 }

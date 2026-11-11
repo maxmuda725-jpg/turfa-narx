@@ -20,7 +20,12 @@ jobs:
           cp baza/kategoriyalar.txt app/src/main/assets/kategoriyalar.txt
           curl -fsSL -o app/src/main/assets/embedder.tflite \
             https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
-      - run: gradle assembleRelease
+      - name: APK yig'ish
+        env:
+          RASM_KEY: ${{ secrets.RASM_KEY }}
+        run: |
+          if [ -n "$RASM_KEY" ]; then export RASM_APP_KEY=$(printf %s "turfa-app:$RASM_KEY" | sha256sum | cut -d' ' -f1); fi
+          gradle assembleRelease
       - run: cp app/build/outputs/apk/release/*.apk TURFA-Narxlar.apk
       - uses: actions/upload-artifact@v4
         if: github.ref != 'refs/heads/main'
