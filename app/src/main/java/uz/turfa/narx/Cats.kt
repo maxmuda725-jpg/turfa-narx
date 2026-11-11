@@ -22,6 +22,51 @@ object Cats {
         private set
     private val cache = HashMap<String, Pair<String, String?>>()
 
+    // Qo'lda almashtirilgan kategoriyalar (hamma telefonga, server orqali): tovar kodi -> "Kategoriya|Bo'lim"
+    private const val OVR_FILE = "kategoriya_qolda.json"
+    @Volatile private var overrides: Map<String, String> = emptyMap()
+
+    fun override(p: Product): String? = overrides[p.code]
+
+    private fun parseOverrides(text: String): Map<String, String> {
+        val j = org.json.JSONObject(text)
+        val o = j.optJSONObject("items") ?: j
+        val m = HashMap<String, String>()
+        for (k in o.keys()) o.optString(k).takeIf { it.isNotBlank() }?.let { m[k] = it }
+        return m
+    }
+
+    fun loadOverrides(ctx: Context) {
+        overrides = try { parseOverrides(File(ctx.filesDir, OVR_FILE).readText()) } catch (e: Exception) { emptyMap() }
+    }
+
+    fun downloadOverrides(ctx: Context) {
+        val c = URL("$KASSA_API/api/public/kategoriyalar?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection
+        c.connectTimeout = 15000; c.readTimeout = 30000
+        try {
+            if (c.responseCode != 200) return
+            val text = c.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
+            val m = parseOverrides(text)
+            File(ctx.filesDir, OVR_FILE).writeText(org.json.JSONObject(m as Map<*, *>).toString())
+            overrides = m
+        } finally { c.disconnect() }
+    }
+
+    /** Server tasdiqlagandan keyin shu telefonda darrov qo'llash. value = null — avtomatikka qaytarish. */
+    fun setLocal(ctx: Context, code: String, value: String?) {
+        overrides = overrides.toMutableMap().apply { if (value == null) remove(code) else put(code, value) }
+        try { File(ctx.filesDir, OVR_FILE).writeText(org.json.JSONObject(overrides as Map<*, *>).toString()) } catch (_: Exception) {}
+    }
+
+    /** Qoida bo'yicha (qo'lda almashtirilganini hisobga olmasdan). */
+    @Synchronized
+    fun auto(p: Product): Pair<String, String?> = cache.getOrPut(p.name) {
+        val ws = words(p.name)
+        val c = cats.firstOrNull { any(ws, it.kws) } ?: return@getOrPut OTHER to null
+        if (c.subs.isEmpty()) c.name to null
+        else c.name to (c.subs.firstOrNull { any(ws, it.kws) }?.name ?: OTHER_SUB)
+    }
+
     private val APOS = Regex("['`ʻʼ‘’]")
     private val WORD = Regex("[a-zа-яёé]+")
 
@@ -71,13 +116,14 @@ object Cats {
         } finally { c.disconnect() }
     }
 
-    /** Tovar -> (kategoriya, bo'lim). Bo'limi yo'q kategoriyada bo'lim = null. */
-    @Synchronized
-    fun of(p: Product): Pair<String, String?> = cache.getOrPut(p.name) {
-        val ws = words(p.name)
-        val c = cats.firstOrNull { any(ws, it.kws) } ?: return@getOrPut OTHER to null
-        if (c.subs.isEmpty()) c.name to null
-        else c.name to (c.subs.firstOrNull { any(ws, it.kws) }?.name ?: OTHER_SUB)
+    /** Tovar -> (kategoriya, bo'lim). Avval qo'lda almashtirilgani, bo'lmasa qoida bo'yicha. */
+    fun of(p: Product): Pair<String, String?> {
+        overrides[p.code]?.let { v ->
+            val c = v.substringBefore('|').trim()
+            val s = v.substringAfter('|', "").trim().ifEmpty { null }
+            if (c.isNotEmpty()) return c to s
+        }
+        return auto(p)
     }
 
     /** Fayldagi tartibda: kategoriya nomi -> bo'limlar nomi (bo'sh bo'lishi mumkin). */

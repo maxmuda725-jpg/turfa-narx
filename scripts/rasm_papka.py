@@ -69,6 +69,10 @@ def main():
     iX = head.index("rasmlar") if "rasmlar" in head else -1
     name_of = {r[iK].strip(): r[iN].strip() for r in rows[1:] if len(r) > iK}
     cats = load_cats()
+    try:   # qo'lda almashtirilgan kategoriyalar (ilovadan)
+        ovr = json.loads(get(SERVER + "/api/public/kategoriyalar")).get("items") or {}
+    except Exception:
+        ovr = {}
 
     jobs = []   # (kod, url, manba)
     try:
@@ -111,7 +115,10 @@ def main():
             ext = url.rsplit(".", 1)[-1].split("?")[0].lower()
             ext = ext if ext in ("jpg", "jpeg", "png", "webp") else "jpg"
             top = "Ilovadan" if src == "ilova" else "Billz"
-            cat = category(cats, name_of.get(kod, "")) if kod in name_of else "Bazada yoq"
+            if kod in ovr:
+                cat = "/".join(folder_name(x) for x in ovr[kod].split("|") if x.strip())
+            else:
+                cat = category(cats, name_of.get(kod, "")) if kod in name_of else "Bazada yoq"
             z.writestr(f"{top}/{cat}/{base} {count[base]}.{ext}", data)
         z.writestr("OQING.txt", "Papkalar: Ilovadan / Billz -> Kategoriya -> Bo'lim.\n"
                    "Har rasm nomi: <tovar nomi> [<kod>] <tartib raqami>.\n"

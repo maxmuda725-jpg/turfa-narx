@@ -435,6 +435,7 @@ class MainActivity : Activity() {
         favs += getSharedPreferences("sevimli", MODE_PRIVATE).getStringSet("keys", emptySet()).orEmpty()
         Thread { Visual.load(applicationContext) }.start()
         Cats.load(this)
+        Cats.loadOverrides(this)
         val root = FrameLayout(this).apply { setBackgroundColor(BG); fitsSystemWindows = true }
         searchScreen = buildSearch()
         kassaScreen = buildKassa().apply { visibility = View.GONE }
@@ -1094,6 +1095,49 @@ class MainActivity : Activity() {
             }.show()
     }
 
+    // ---------------------------------------------------------------- kategoriyani qo'lda almashtirish
+    private fun changeCat(p: Product) {
+        if (p.code.isBlank()) { toast("Bu tovarning kodi yo'q"); return }
+        val order = Cats.order()
+        AlertDialog.Builder(this).setTitle("🗂 ${p.name}: qaysi kategoriya?")
+            .setItems(order.map { it.first }.toTypedArray()) { _, i ->
+                val (c, subs) = order[i]
+                if (subs.isEmpty()) saveCat(p, c)
+                else AlertDialog.Builder(this).setTitle("$c: qaysi bo'lim?")
+                    .setItems(subs.toTypedArray()) { _, j -> saveCat(p, "$c|${subs[j]}") }
+                    .show()
+            }.show()
+    }
+
+    /** value = "Kategoriya|Bo'lim" / "Kategoriya" yoki null (avtomatik). Hamma telefonga saqlanadi. */
+    private fun saveCat(p: Product, value: String?) {
+        val key = BuildConfig.RASM_APP_KEY.ifBlank { prefs().getString("key", "").orEmpty() }
+        if (key.isEmpty()) { askKey { saveCat(p, value) }; return }
+        Thread {
+            val code = try {
+                val c = URL("$KASSA_API/api/kassa/kategoriya").openConnection() as HttpURLConnection
+                c.requestMethod = "POST"; c.doOutput = true
+                c.connectTimeout = 15000; c.readTimeout = 30000
+                c.setRequestProperty("Content-Type", "application/json")
+                c.setRequestProperty("x-app-key", key)
+                c.outputStream.use { it.write(org.json.JSONObject().put("sku", p.code).put("value", value ?: org.json.JSONObject.NULL).toString().toByteArray()) }
+                val rc = c.responseCode; c.disconnect(); rc
+            } catch (e: Exception) { -1 }
+            main.post {
+                when (code) {
+                    in 200..299 -> {
+                        Cats.setLocal(applicationContext, p.code, value)
+                        refresh()
+                        toast(if (value == null) "↩️ Avtomatik kategoriyaga qaytdi" else "✅ ${value.replace("|", " › ")} — hamma telefonda 🔄 dan keyin")
+                    }
+                    -1 -> toast("Internet yo'q — saqlanmadi")
+                    401 -> alert("Ruxsat yo'q", "Eng yangi APK'ni o'rnating.")
+                    else -> toast("Saqlanmadi (server $code). Keyinroq urinib ko'ring")
+                }
+            }
+        }.start()
+    }
+
     private fun zipMenu() {
         val base = "https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-papka/"
         AlertDialog.Builder(this).setTitle("📁 Rasmlar papkasi (har kecha yangilanadi)")
@@ -1155,6 +1199,13 @@ class MainActivity : Activity() {
         }
         labels += "📸 Rasmini o'rgatish (hamma telefonga)"
         actions += { uploadFor(p) }
+        val cur = Cats.of(p)
+        labels += "🗂 Kategoriyasini o'zgartirish (hozir: ${cur.first}${cur.second?.let { " › $it" } ?: ""})"
+        actions += { changeCat(p) }
+        if (Cats.override(p) != null) {
+            labels += "↩️ Kategoriyani avtomatikka qaytarish"
+            actions += { saveCat(p, null) }
+        }
         AlertDialog.Builder(this).setTitle(p.name)
             .setItems(labels.toTypedArray()) { _, i -> actions[i]() }.show()
     }
@@ -1460,6 +1511,7 @@ class MainActivity : Activity() {
             val res = try { Result.success(Db.download(this)) } catch (e: Exception) { Result.failure(e) }
             try { Visual.download(applicationContext) } catch (_: Exception) {}
             try { Cats.download(applicationContext) } catch (_: Exception) {}
+            try { Cats.downloadOverrides(applicationContext) } catch (_: Exception) {}
             main.post {
                 busy = false
                 refreshBtn.text = "🔄"; refreshBtn.isEnabled = true
