@@ -53,12 +53,12 @@ object Visual {
     ).also { embedder = it }
 
     /** Rasmni ochadi: burilishini to'g'rilaydi, uzun tomoni SIDE gacha kichraytiradi. */
-    fun bitmap(ctx: Context, uri: Uri): Bitmap {
+    fun bitmap(ctx: Context, uri: Uri, side: Int = SIDE): Bitmap {
         val bytes = ctx.contentResolver.openInputStream(uri)!!.use { it.readBytes() }
         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
         var smp = 1
-        while (maxOf(o.outWidth, o.outHeight) / (smp * 2) >= SIDE) smp *= 2
+        while (maxOf(o.outWidth, o.outHeight) / (smp * 2) >= side) smp *= 2
         var b = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply {
             inSampleSize = smp; inPreferredConfig = Bitmap.Config.ARGB_8888
         }) ?: throw IllegalStateException("Rasm ochilmadi")
@@ -70,7 +70,7 @@ object Visual {
                 else -> 0f
             }
         } catch (e: Exception) { 0f }
-        val scale = minOf(1f, SIDE.toFloat() / maxOf(b.width, b.height))
+        val scale = minOf(1f, side.toFloat() / maxOf(b.width, b.height))
         if (rot != 0f || scale < 1f) {
             val m = Matrix().apply { postScale(scale, scale); postRotate(rot) }
             b = Bitmap.createBitmap(b, 0, 0, b.width, b.height, m, true)

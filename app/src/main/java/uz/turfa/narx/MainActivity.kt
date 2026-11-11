@@ -401,6 +401,12 @@ class MainActivity : Activity() {
     private var photoVec: FloatArray? = null
     private val photoLearned = HashSet<String>()
     private var teachFor: Product? = null
+    // Tovarga rasm yuklash (hamma telefonga)
+    private val REQ_UP_CAM = 76
+    private val REQ_UP_GAL = 77
+    private var upProduct: Product? = null
+    private var upPending: File? = null
+    private val upFiles = ArrayList<File>()
     // Sevimlilar (shu telefonda saqlanadi)
     private val favs = LinkedHashSet<String>()
     private var favMode = false
@@ -1002,6 +1008,7 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQ_UP_CAM || requestCode == REQ_UP_GAL) { uploadResult(requestCode, resultCode, data); return }
         if (resultCode != RESULT_OK) return
         val uri = when (requestCode) {
             REQ_GALLERY, REQ_PHOTO_GAL -> data?.data
@@ -1018,8 +1025,14 @@ class MainActivity : Activity() {
     // ---------------------------------------------------------------- rasm orqali qidirish
     private fun photoMenu() {
         AlertDialog.Builder(this).setTitle("📷 Tovarni rasm orqali topish")
-            .setItems(arrayOf("📷 Kamera bilan rasmga olish", "🖼 Galereyadan")) { _, w ->
-                if (w == 0) openCamera(REQ_PHOTO_CAM) else openGallery(REQ_PHOTO_GAL)
+            .setItems(arrayOf("🔍 Kamera bilan qidirish", "🔍 Galereyadagi rasm bilan qidirish",
+                "📸 Tovarga rasm yuklash (kod bilan)", "🖼 Yuklangan rasmlar (Billz'ga qo'shish)")) { _, w ->
+                when (w) {
+                    0 -> openCamera(REQ_PHOTO_CAM)
+                    1 -> openGallery(REQ_PHOTO_GAL)
+                    2 -> uploadStart()
+                    else -> rasmlarList()
+                }
             }.show()
     }
 
@@ -1111,8 +1124,8 @@ class MainActivity : Activity() {
             labels += "✅ Rasmdagi tovar shu (eslab qol)"
             actions += { rememberPhoto(p); toast("✅ Eslab qolindi") }
         }
-        labels += "📷 Rasmini o'rgatish (kamera)"
-        actions += { teachFor = p; openCamera(REQ_TEACH) }
+        labels += "📸 Rasmini o'rgatish (hamma telefonga)"
+        actions += { uploadFor(p) }
         AlertDialog.Builder(this).setTitle(p.name)
             .setItems(labels.toTypedArray()) { _, i -> actions[i]() }.show()
     }
@@ -1418,6 +1431,292 @@ class MainActivity : Activity() {
                 }.onFailure {
                     if (!silent) toast("Internet yo'q yoki baza topilmadi. Eski baza bilan ishlayapsiz.")
                 }
+            }
+        }.start()
+    }
+
+    // ---------------------------------------------------------------- tovarga rasm yuklash
+    private fun uploadStart() {
+        val input = EditText(this).apply {
+            hint = "Tovar kodi: 43-39"; isSingleLine = true; textSize = 20f
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+        AlertDialog.Builder(this).setTitle("📸 Qaysi tovarga rasm?")
+            .setMessage("Kodini yoki nomini yozing")
+            .setView(wrap)
+            .setPositiveButton("Topish") { _, _ ->
+                val found = Search.run(all, input.text.toString()).take(40)
+                when (found.size) {
+                    0 -> { toast("Topilmadi: ${input.text}"); uploadStart() }
+                    1 -> uploadFor(found[0])
+                    else -> AlertDialog.Builder(this).setTitle("Qaysi biri?")
+                        .setItems(found.map { "${it.name}\n${it.code}" }.toTypedArray()) { _, i -> uploadFor(found[i]) }
+                        .show()
+                }
+            }
+            .setNegativeButton("Bekor", null).show()
+        input.requestFocus()
+    }
+
+    private fun uploadFor(p: Product) {
+        upProduct = p; upFiles.clear()
+        uploadDialog()
+    }
+
+    private fun uploadDialog() {
+        val p = upProduct ?: return
+        val items = arrayOf("📷 Rasmga olish", "🖼 Galereyadan (bir nechtasini tanlash)",
+            "⬆️ Yuklash (${upFiles.size} ta rasm)", "🗑 Tanlanganlarni tozalash")
+        AlertDialog.Builder(this).setTitle("📸 ${p.name} · ${p.code}")
+            .setMessage(if (upFiles.isEmpty()) "Tovarni 3–4 xil tomondan rasmga oling. Rasm hamma telefonga yuboriladi va rasm orqali qidiruv uni taniydi." else "Tanlandi: ${upFiles.size} ta rasm. Yana olishingiz yoki yuklashingiz mumkin.")
+            .setItems(items) { _, w ->
+                when (w) {
+                    0 -> openUpCamera()
+                    1 -> openUpGallery()
+                    2 -> doUpload()
+                    else -> { upFiles.clear(); uploadDialog() }
+                }
+            }
+            .setNegativeButton("Bekor") { _, _ -> upFiles.clear(); upProduct = null }
+            .show()
+    }
+
+    private fun upDir() = File(cacheDir, "cam").apply { mkdirs() }
+
+    private fun openUpCamera() {
+        if (upFiles.size >= 8) { toast("Bir tovarga 8 tagacha rasm"); uploadDialog(); return }
+        try {
+            val f = File(upDir(), "up_${System.currentTimeMillis()}.jpg")
+            upPending = f
+            val uri = FileProvider.getUriForFile(this, "$packageName.files", f)
+            startActivityForResult(Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                putExtra(MediaStore.EXTRA_OUTPUT, uri)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }, REQ_UP_CAM)
+        } catch (e: Exception) { toast("Kamera ochilmadi"); uploadDialog() }
+    }
+
+    private fun openUpGallery() {
+        try {
+            startActivityForResult(Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "image/*"; addCategory(Intent.CATEGORY_OPENABLE)
+                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            }, REQ_UP_GAL)
+        } catch (e: Exception) { toast("Galereya ochilmadi"); uploadDialog() }
+    }
+
+    private fun uploadResult(req: Int, result: Int, data: Intent?) {
+        if (result == RESULT_OK) {
+            if (req == REQ_UP_CAM) {
+                upPending?.takeIf { it.exists() && it.length() > 0 }?.let { upFiles += it }
+            } else {
+                val uris = ArrayList<Uri>()
+                data?.clipData?.let { c -> for (i in 0 until c.itemCount) uris += c.getItemAt(i).uri }
+                if (uris.isEmpty()) data?.data?.let { uris += it }
+                for (u in uris) {
+                    if (upFiles.size >= 8) { toast("Bir tovarga 8 tagacha rasm"); break }
+                    try {
+                        val f = File(upDir(), "up_${System.nanoTime()}.jpg")
+                        contentResolver.openInputStream(u)!!.use { inp -> f.outputStream().use { inp.copyTo(it) } }
+                        upFiles += f
+                    } catch (e: Exception) { toast("Rasm ochilmadi") }
+                }
+            }
+        }
+        upPending = null
+        uploadDialog()
+    }
+
+    private fun doUpload() {
+        val p = upProduct ?: return
+        if (upFiles.isEmpty()) { toast("Avval rasm oling yoki tanlang"); uploadDialog(); return }
+        val key = prefs().getString("key", "").orEmpty()
+        if (key.isEmpty()) { askKey { doUpload() }; return }
+        val files = upFiles.toList()
+        val wait = AlertDialog.Builder(this).setMessage("⬆️ ${files.size} ta rasm yuklanmoqda…").setCancelable(false).show()
+        Thread {
+            var ok = 0; var lastErr = ""; var unauthorized = false
+            val sent = ArrayList<File>()
+            for (f in files) {
+                try {
+                    val bmp = Visual.bitmap(this, Uri.fromFile(f), 1280)
+                    val bytes = java.io.ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
+                    val c = URL("$KASSA_API/api/kassa/rasm").openConnection() as HttpURLConnection
+                    c.requestMethod = "POST"; c.doOutput = true
+                    c.connectTimeout = 15000; c.readTimeout = 60000
+                    c.setRequestProperty("Content-Type", "image/jpeg")
+                    c.setRequestProperty("x-app-key", key)
+                    c.setRequestProperty("x-sku", java.net.URLEncoder.encode(p.code.ifBlank { p.name }, "UTF-8"))
+                    c.outputStream.use { it.write(bytes) }
+                    val rc = c.responseCode
+                    val t = (if (rc in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.readText().orEmpty()
+                    c.disconnect()
+                    val j = try { org.json.JSONObject(t) } catch (e: Exception) { null }
+                    when {
+                        rc == 401 -> { unauthorized = true; break }
+                        j?.optBoolean("ok") == true -> {
+                            ok++; sent += f
+                            try { Visual.learn(applicationContext, p, Visual.embed(applicationContext, bmp)) } catch (_: Throwable) {}
+                        }
+                        else -> lastErr = j?.optString("error")?.ifBlank { null } ?: "Server xatosi ($rc)"
+                    }
+                } catch (e: Exception) { lastErr = "Internet yo'q yoki server javob bermadi" }
+            }
+            main.post {
+                wait.dismiss()
+                if (unauthorized) {
+                    prefs().edit().remove("key").apply()
+                    alert("Kalit noto'g'ri", "Ulanish kaliti noto'g'ri. Qayta yuklab, to'g'ri kalitni kiriting.")
+                    return@post
+                }
+                sent.forEach { it.delete() }
+                upFiles.removeAll(sent.toSet())
+                val msg = buildString {
+                    append("${p.name}\n\n✅ Yuklandi: $ok ta rasm")
+                    if (ok < files.size) append("\n⚠️ Yuklanmadi: ${files.size - ok} ta — $lastErr")
+                    if (ok > 0) append("\n\nBu telefonda darrov ishlaydi. Boshqa telefonlarda taxminan 1 soatda (🔄 bosilganda) ko'rinadi.")
+                }
+                AlertDialog.Builder(this).setTitle(if (ok == files.size) "✅ Tayyor" else "Yuklash").setMessage(msg)
+                    .setPositiveButton("Boshqa tovar") { _, _ -> upProduct = null; upFiles.clear(); uploadStart() }
+                    .setNegativeButton(if (upFiles.isEmpty()) "Yopish" else "Qayta urinish") { _, _ ->
+                        if (upFiles.isEmpty()) upProduct = null else uploadDialog()
+                    }.show()
+            }
+        }.start()
+    }
+
+    // ---------------------------------------------------------------- yuklangan rasmlar (egasi uchun)
+    private class Rasm(val sku: String, val name: String, val url: String, val at: Long)
+
+    private fun rasmlarList() {
+        val wait = AlertDialog.Builder(this).setMessage("⏳ Rasmlar yuklanmoqda…").setCancelable(false).show()
+        Thread {
+            val res = try {
+                val c = URL("$KASSA_API/api/public/rasmlar?t=${System.currentTimeMillis()}").openConnection() as HttpURLConnection
+                c.connectTimeout = 15000; c.readTimeout = 30000
+                val t = c.inputStream.use { it.bufferedReader().readText() }; c.disconnect()
+                val arr = org.json.JSONObject(t).getJSONArray("items")
+                val list = ArrayList<Rasm>()
+                for (i in 0 until arr.length()) {
+                    val o = arr.getJSONObject(i)
+                    if (!o.optBoolean("done")) list += Rasm(o.optString("sku"), o.optString("name"), o.optString("url"), o.optLong("at"))
+                }
+                Result.success(list)
+            } catch (e: Exception) { Result.failure(e) }
+            main.post {
+                wait.dismiss()
+                res.onSuccess { showRasmlar(it) }.onFailure { alert("Ochilmadi", "Rasmlar ro'yxati olinmadi. Internetni tekshiring yoki server hali yangilanmagan bo'lishi mumkin.") }
+            }
+        }.start()
+    }
+
+    private fun showRasmlar(items: List<Rasm>) {
+        val byCode = all.filter { it.code.isNotBlank() }.groupBy { it.code }
+        val groups = items.groupBy { it.sku }.entries.sortedByDescending { e -> e.value.maxOf { it.at } }
+            .map { it.key to it.value }.toMutableList()
+        if (groups.isEmpty()) { alert("🖼 Yuklangan rasmlar", "Billz'ga qo'shilmagan rasm yo'q. ✅"); return }
+        var dlg: AlertDialog? = null
+        lateinit var ad: BaseAdapter
+        ad = object : BaseAdapter() {
+            override fun getCount() = groups.size
+            override fun getItem(i: Int) = groups[i]
+            override fun getItemId(i: Int) = i.toLong()
+            override fun getView(i: Int, cv: View?, parent: ViewGroup?): View {
+                val (sku, rs) = groups[i]
+                val p = byCode[sku]?.firstOrNull()
+                val row = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.VERTICAL; background = box(Color.WHITE, 12)
+                    setPadding(dp(10), dp(8), dp(10), dp(8))
+                    setOnClickListener {
+                        rasmMenu(sku, p, rs) { done ->
+                            if (done) { groups.removeAt(groups.indexOfFirst { it.first == sku }); ad.notifyDataSetChanged()
+                                dlg?.setTitle("🖼 Billz'ga qo'shilmagan: ${groups.size} ta tovar") }
+                        }
+                    }
+                }
+                row.addView(TextView(this@MainActivity).apply {
+                    text = (p?.name ?: "Bazada yo'q") + "\n" + sku + " · ${rs.size} ta rasm"
+                    textSize = 15f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
+                })
+                val strip = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.HORIZONTAL }
+                for (r in rs.take(4)) {
+                    val iv = ImageView(this@MainActivity).apply { scaleType = ImageView.ScaleType.CENTER_CROP; setBackgroundColor(Color.parseColor("#EEEEEE")) }
+                    Img.load(this@MainActivity, r.url, iv)
+                    strip.addView(iv, LinearLayout.LayoutParams(dp(64), dp(64)).apply { rightMargin = dp(6); topMargin = dp(6) })
+                }
+                row.addView(strip)
+                return LinearLayout(this@MainActivity).apply { setPadding(0, dp(4), 0, dp(4)); addView(row, -1, -2) }
+            }
+        }
+        val list = ListView(this).apply { adapter = ad; divider = null; setPadding(dp(8), dp(4), dp(8), dp(4)) }
+        dlg = AlertDialog.Builder(this).setTitle("🖼 Billz'ga qo'shilmagan: ${groups.size} ta tovar")
+            .setView(list).setPositiveButton("Yopish", null).show()
+    }
+
+    private fun rasmMenu(sku: String, p: Product?, rs: List<Rasm>, after: (Boolean) -> Unit) {
+        AlertDialog.Builder(this).setTitle((p?.name ?: sku) + " · $sku")
+            .setItems(arrayOf("📤 Rasmlarni ulashish / saqlash (${rs.size} ta)", "📋 Kodni nusxalash",
+                "✅ Billz'ga qo'shildi", "🗑 Rasmlarni o'chirish")) { _, w ->
+                when (w) {
+                    0 -> shareRasmlar(rs)
+                    1 -> {
+                        (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                            .setPrimaryClip(android.content.ClipData.newPlainText("kod", sku))
+                        toast("Nusxalandi: $sku")
+                    }
+                    2 -> markRasmlar(rs, remove = false, after = after)
+                    else -> AlertDialog.Builder(this).setMessage("${rs.size} ta rasm o'chirilsinmi?")
+                        .setPositiveButton("O'chirish") { _, _ -> markRasmlar(rs, remove = true, after = after) }
+                        .setNegativeButton("Yo'q", null).show()
+                }
+            }.show()
+    }
+
+    private fun shareRasmlar(rs: List<Rasm>) {
+        val wait = AlertDialog.Builder(this).setMessage("⏳ Tayyorlanmoqda…").setCancelable(false).show()
+        Thread {
+            val uris = ArrayList<Uri>()
+            val dir = File(cacheDir, "share").apply { mkdirs() }
+            for (r in rs) try {
+                val f = File(dir, r.name.substringAfterLast('_').let { "tovar_$it" })
+                if (!f.exists()) {
+                    val c = URL(r.url).openConnection() as HttpURLConnection
+                    c.connectTimeout = 15000; c.readTimeout = 30000
+                    c.inputStream.use { inp -> f.outputStream().use { inp.copyTo(it) } }; c.disconnect()
+                }
+                uris += FileProvider.getUriForFile(this, "$packageName.files", f)
+            } catch (_: Exception) {}
+            main.post {
+                wait.dismiss()
+                if (uris.isEmpty()) { toast("Rasmlar yuklanmadi"); return@post }
+                val i = if (uris.size == 1) Intent(Intent.ACTION_SEND).apply { putExtra(Intent.EXTRA_STREAM, uris[0]) }
+                    else Intent(Intent.ACTION_SEND_MULTIPLE).apply { putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris) }
+                i.type = "image/jpeg"; i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                try { startActivity(Intent.createChooser(i, "Rasmlarni ulashish")) } catch (e: Exception) { toast("Ulashib bo'lmadi") }
+            }
+        }.start()
+    }
+
+    private fun markRasmlar(rs: List<Rasm>, remove: Boolean, after: (Boolean) -> Unit) {
+        val key = prefs().getString("key", "").orEmpty()
+        if (key.isEmpty()) { askKey { markRasmlar(rs, remove, after) }; return }
+        Thread {
+            var ok = 0; var code = 0
+            for (r in rs) try {
+                val c = URL("$KASSA_API/api/kassa/rasm-belgi").openConnection() as HttpURLConnection
+                c.requestMethod = "POST"; c.doOutput = true
+                c.connectTimeout = 15000; c.readTimeout = 30000
+                c.setRequestProperty("Content-Type", "application/json")
+                c.setRequestProperty("x-app-key", key)
+                c.outputStream.use { it.write(org.json.JSONObject().put("name", r.name).put("done", true).put("remove", remove).toString().toByteArray()) }
+                code = c.responseCode; c.disconnect()
+                if (code in 200..299) ok++ else if (code == 401) break
+            } catch (_: Exception) {}
+            main.post {
+                if (code == 401) { prefs().edit().remove("key").apply(); alert("Kalit noto'g'ri", "Ulanish kalitini qayta kiriting."); return@post }
+                toast(if (ok == rs.size) (if (remove) "🗑 O'chirildi" else "✅ Belgilandi") else "Bajarildi: $ok / ${rs.size}")
+                after(ok == rs.size)
             }
         }.start()
     }

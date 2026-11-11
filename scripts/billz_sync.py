@@ -4,6 +4,24 @@ Kalit GitHub secret'dan olinadi: BILLZ_SECRET_TOKEN."""
 import csv, io, json, os, re, sys, urllib.request
 
 API = "https://api-admin.billz.ai"
+# Ilovadan yuklangan tovar rasmlari (Do'kon Yordamchisi serveri, faqat o'qish)
+RASM_URL = os.environ.get("RASM_URL", "https://do-kon-savdo-yordamchisi.lovable.app/api/public/rasmlar")
+
+def uploaded_photos():
+    try:
+        r = urllib.request.Request(RASM_URL, headers={"Accept": "application/json", "User-Agent": "turfa-narx"})
+        with urllib.request.urlopen(r, timeout=30) as resp:
+            items = json.load(resp).get("items") or []
+        out = {}
+        for it in items:
+            u = str(it.get("url") or "")
+            if u.startswith("http") and it.get("sku"):
+                out.setdefault(str(it["sku"]).strip(), []).append(u)
+        print(f"Ilovadan yuklangan rasmlar: {sum(map(len, out.values()))} ta, {len(out)} ta tovar")
+        return out
+    except Exception as e:
+        print("Ilova rasmlari olinmadi:", type(e).__name__)
+        return {}
 SHOP = os.environ.get("BILLZ_SHOP", "turfa").lower()
 
 def req(method, path, token=None, body=None):
@@ -52,6 +70,7 @@ def main():
     print(f"Kategoriyasiz: {cc.get('', 0)} / {len(products)}, kategoriyalar soni: {len(cc) - (1 if '' in cc else 0)}")
     for n, c in cc.most_common(40): print(f"  {c:5d}  {n or '(yo`q)'}")
 
+    upl = uploaded_photos()
     rows = []
     for p in products:
         prices = p.get("shop_prices") or []
@@ -66,9 +85,10 @@ def main():
                    if num(x.get("wholesale_price")) > 0]
         ph = sorted(p.get("photos") or [], key=lambda x: (not x.get("is_main"), x.get("sequence") or 0))
         cands = [p.get("main_image_url_full"), *[x.get("photo_url") for x in ph], p.get("main_image_url")]
-        urls = list(dict.fromkeys(str(c) for c in cands if c and str(c).startswith("http")))
+        urls = list(dict.fromkeys(str(c) for c in cands if c and str(c).startswith("http")))[:5]
+        urls += [u for u in upl.get((p.get("sku") or "").strip(), []) if u not in urls][-6:]   # ilovadan yuklanganlar
         photo = urls[0] if urls else ""
-        extra = " ".join(urls[1:5])   # qo'shimcha rasmlar (rasm orqali qidirish uchun)
+        extra = " ".join(urls[1:11])   # qo'shimcha rasmlar (rasm orqali qidirish uchun)
         if not photo and any(cands) and not globals().get("_shown"):
             globals()["_shown"] = True
             print("Rasm namunasi (to'liq havola emas):", [c for c in cands if c][:3])
