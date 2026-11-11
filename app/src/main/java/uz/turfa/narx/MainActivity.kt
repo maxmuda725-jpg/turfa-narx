@@ -74,6 +74,7 @@ fun priceText(v: List<Long>): String = when (v.size) {
 data class Product(
     val name: String, val code: String, val barcode: String,
     val dona: String, val optom: String, val qty: String, val photo: String = "",
+    val cat: String = "",   // GitHub'da hisoblangan "aqlli" kategoriya: "Kategoriya|Bo'lim"
 ) {
     val nameLower = name.lowercase()
     val tokens: Set<String> = Search.tokens(name) + Search.tokens(code) + Search.tokens(barcode)
@@ -295,6 +296,7 @@ object Db {
         val iBar = idx("shtrix", "barkod", "barcode", "баркод")
         val iQty = idx("qoldiq", "soni", "количество", "qty")
         val iPhoto = idx("rasm", "photo", "image", "фото")
+        val iCat = head.indexOf("kategoriya")
 
         val hasHeader = iName >= 0 && iDona >= 0
         if (!hasHeader) { iName = 0; iCode = 1; iDona = 2; iOptom = 3 }
@@ -312,6 +314,7 @@ object Db {
                 optom = if (iOptom >= 0) c.getOrNull(iOptom).orEmpty() else "",
                 qty = if (iQty >= 0) c.getOrNull(iQty)?.trim().orEmpty() else "",
                 photo = if (iPhoto >= 0) c.getOrNull(iPhoto)?.trim().orEmpty() else "",
+                cat = if (iCat >= 0) c.getOrNull(iCat)?.trim().orEmpty() else "",
             )
         }
         return out
@@ -1521,15 +1524,31 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("🗂 ${p.name}: qaysi kategoriya?")
             .setItems(order.map { it.first }.toTypedArray()) { _, i ->
                 val (c, subs) = order[i]
-                if (subs.isEmpty()) saveCat(p, c)
+                if (subs.isEmpty()) saveCatAsk(p, c)
                 else AlertDialog.Builder(this).setTitle("$c: qaysi bo'lim?")
-                    .setItems(subs.toTypedArray()) { _, j -> saveCat(p, "$c|${subs[j]}") }
+                    .setItems(subs.toTypedArray()) { _, j -> saveCatAsk(p, "$c|${subs[j]}") }
                     .show()
             }.show()
     }
 
+    /** Seriyadagi boshqa tovarlar (shu kategoriyada) bo'lsa — hammasiga qo'llashni taklif qiladi. */
+    private fun saveCatAsk(p: Product, value: String) {
+        val s = Cats.series(p.name)
+        val curCat = Cats.of(p).first
+        val mates = if (s == null) emptyList() else all.filter {
+            it.key != p.key && it.code.isNotBlank() && Cats.series(it.name) == s && Cats.of(it).first == curCat &&
+                Cats.of(it).let { c -> (c.first + (c.second?.let { "|$it" } ?: "")) != value }
+        }
+        if (mates.isEmpty()) { saveCat(p, value); return }
+        AlertDialog.Builder(this).setTitle("Butun seriyaga qo'llansinmi?")
+            .setMessage("\"$s-…\" seriyasida yana ${mates.size} ta tovar bor (masalan: ${mates.take(3).joinToString(", ") { it.name }}).\n\nHammasini ${value.replace("|", " › ")} ga o'tkazaymi?")
+            .setPositiveButton("Ha, hammasini (${mates.size + 1})") { _, _ -> saveCat(p, value, mates) }
+            .setNegativeButton("Faqat shu tovar") { _, _ -> saveCat(p, value) }
+            .show()
+    }
+
     /** value = "Kategoriya|Bo'lim" / "Kategoriya" yoki null (avtomatik). Hamma telefonga saqlanadi. */
-    private fun saveCat(p: Product, value: String?) {
+    private fun saveCat(p: Product, value: String?, more: List<Product> = emptyList()) {
         val key = BuildConfig.RASM_APP_KEY.ifBlank { prefs().getString("key", "").orEmpty() }
         if (key.isEmpty()) { askKey { saveCat(p, value) }; return }
         Thread {
@@ -1539,15 +1558,18 @@ class MainActivity : Activity() {
                 c.connectTimeout = 15000; c.readTimeout = 30000
                 c.setRequestProperty("Content-Type", "application/json")
                 c.setRequestProperty("x-app-key", key)
-                c.outputStream.use { it.write(org.json.JSONObject().put("sku", p.code).put("value", value ?: org.json.JSONObject.NULL).toString().toByteArray()) }
+                val skus = org.json.JSONArray().apply { put(p.code); more.forEach { put(it.code) } }
+                c.outputStream.use { it.write(org.json.JSONObject().put("skus", skus).put("value", value ?: org.json.JSONObject.NULL).toString().toByteArray()) }
                 val rc = c.responseCode; c.disconnect(); rc
             } catch (e: Exception) { -1 }
             main.post {
                 when (code) {
                     in 200..299 -> {
                         Cats.setLocal(applicationContext, p.code, value)
+                        more.forEach { Cats.setLocal(applicationContext, it.code, value) }
                         refresh()
-                        toast(if (value == null) "↩️ Avtomatik kategoriyaga qaytdi" else "✅ ${value.replace("|", " › ")} — hamma telefonda 🔄 dan keyin")
+                        toast(if (value == null) "↩️ Avtomatik kategoriyaga qaytdi"
+                            else "✅ ${1 + more.size} ta tovar: ${value.replace("|", " › ")} — hamma telefonda 🔄 dan keyin")
                     }
                     -1 -> toast("Internet yo'q — saqlanmadi")
                     401 -> alert("Ruxsat yo'q", "Eng yangi APK'ni o'rnating.")

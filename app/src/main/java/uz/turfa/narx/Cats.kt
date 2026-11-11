@@ -123,7 +123,22 @@ object Cats {
             val s = v.substringAfter('|', "").trim().ifEmpty { null }
             if (c.isNotEmpty()) return c to s
         }
+        // GitHub'da hisoblangani (kalit so'z + seriya + rasm), agar shu kategoriya hozirgi faylda bo'lsa
+        if (p.cat.isNotBlank()) {
+            val c = p.cat.substringBefore('|').trim()
+            val s = p.cat.substringAfter('|', "").trim().ifEmpty { null }
+            if (c == OTHER || cats.any { it.name == c }) return c to s
+        }
         return auto(p)
+    }
+
+    /** Seriya kaliti: "gul 25-4-47-9" -> "25-4-47", "01-04" -> "1" (scripts/kategoriya.py bilan bir xil). */
+    fun series(name: String): String? {
+        val t = name.lowercase().split(Regex("[\\s,;/|()\\[\\]{}\"'«»]+"))
+            .lastOrNull { it.contains('-') && it.any { ch -> ch.isDigit() } } ?: return null
+        val parts = t.split('-')
+        if (parts.size < 2) return null
+        return parts.dropLast(1).joinToString("-") { p -> if (p.isNotEmpty() && p.all { it.isDigit() }) p.trimStart('0').ifEmpty { "0" } else p }
     }
 
     /** Fayldagi tartibda: kategoriya nomi -> bo'limlar nomi (bo'sh bo'lishi mumkin). */
