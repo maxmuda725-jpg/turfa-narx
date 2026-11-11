@@ -567,9 +567,9 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(0, -2, 1f))
         if (p.qty.isNotBlank()) {
             val n = p.qty.toDoubleOrNull()?.toLong() ?: 0
-            val c = if (n > 0) ORANGE else RED
+            val c = if (n > 0) GREEN else RED
             sub.addView(TextView(this).apply {
-                text = if (n > 0) "Qoldiq: ${group(n)} ta" else "Tugagan"
+                text = if (n > 0) "✅ Bor" else "❌ Tugagan"
                 textSize = 13f; setTextColor(c); typeface = Typeface.DEFAULT_BOLD
                 background = box(tint(c, 30), 8); setPadding(dp(8), dp(3), dp(8), dp(3))
             })
