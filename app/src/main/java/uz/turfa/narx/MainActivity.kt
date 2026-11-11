@@ -436,6 +436,11 @@ class MainActivity : Activity() {
     private var catSel: Pair<String, String?>? = null
     // Rasmi yo'q tovarlar ko'rinishi (faqat ko'rsatish, kassa va kategoriyaga ta'sir qilmaydi)
     private var noPhotoMode = false
+    // 📍 Polkalar: polkaView — ko'rish ("7-2" qavat, "7" stellaj, "?" joyi yo'qlar); polkaAdd — joylash rejimi (qaysi qavatga)
+    private var polkaView: String? = null
+    private var polkaAdd: String? = null
+    private var photoScope: String? = null      // rasm qidiruv faqat shu stellaj ichida (keyingi qidiruv uchun)
+    private var photoScopeShown: String? = null // ko'rsatilayotgan natija qaysi stellajdan
 
     private lateinit var searchScreen: View
     private lateinit var kassaScreen: View
@@ -458,6 +463,7 @@ class MainActivity : Activity() {
         Thread { Visual.load(applicationContext) }.start()
         Cats.load(this)
         Cats.loadOverrides(this)
+        Polka.load(this)
         val root = FrameLayout(this).apply { setBackgroundColor(BG); fitsSystemWindows = true }
         searchScreen = buildSearch()
         kassaScreen = buildKassa().apply { visibility = View.GONE }
@@ -473,6 +479,8 @@ class MainActivity : Activity() {
         when {
             kassaScreen.visibility == View.VISIBLE -> showKassa(false)
             photoHits != null -> closePhoto()
+            polkaAdd != null -> polkaAddMenu()
+            polkaView != null -> { polkaView = null; refresh() }
             favMode -> { favMode = false; refresh() }
             catSel != null -> { catSel = null; refresh() }
             noPhotoMode -> { noPhotoMode = false; refresh() }
@@ -518,11 +526,13 @@ class MainActivity : Activity() {
         refreshBtn = pill("🔄", GREEN, Color.WHITE, 18f) { update(silent = false); checkAppUpdate(silent = true); verifyAccess() }
             .apply { setOnLongClickListener { checkAppUpdate(silent = false); true } }
         top.addView(pill("🏷", GREEN, Color.WHITE, 18f) { kodList() },
-            LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
+            LinearLayout.LayoutParams(dp(46), dp(44)).apply { rightMargin = dp(4) })
+        top.addView(pill("📍", GREEN, Color.WHITE, 18f) { polkaMenu() },
+            LinearLayout.LayoutParams(dp(46), dp(44)).apply { rightMargin = dp(4) })
         top.addView(pill("🗂", GREEN, Color.WHITE, 18f) { catMenu() },
-            LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
+            LinearLayout.LayoutParams(dp(46), dp(44)).apply { rightMargin = dp(4) })
         top.addView(pill("⭐", GREEN, Color.WHITE, 18f) { toggleFavMode() },
-            LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
+            LinearLayout.LayoutParams(dp(46), dp(44)).apply { rightMargin = dp(4) })
         top.addView(refreshBtn, LinearLayout.LayoutParams(-2, dp(44)))
         screen.addView(top)
 
@@ -607,6 +617,13 @@ class MainActivity : Activity() {
         val sub = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         sub.addView(TextView(this).apply { text = p.code; textSize = 12f; setTextColor(Color.GRAY) },
             LinearLayout.LayoutParams(0, -2, 1f))
+        val locs = Polka.of(p)
+        if (locs.isNotEmpty()) sub.addView(TextView(this).apply {
+            text = "📍 " + locs.joinToString(", ")
+            textSize = 14f; setTextColor(BLUE); typeface = Typeface.DEFAULT_BOLD
+            background = box(tint(BLUE, 26), 8); setPadding(dp(8), dp(3), dp(8), dp(3))
+            setOnClickListener { openPolka(locs[0]) }
+        }, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(6) })
         if (p.qty.isNotBlank()) {
             val n = p.qty.toDoubleOrNull()?.toLong() ?: 0
             val c = if (n > 0) GREEN else RED
@@ -648,6 +665,13 @@ class MainActivity : Activity() {
             }, LinearLayout.LayoutParams(-2, dp(44)))
         card.addView(addRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
 
+        polkaAdd?.let { target ->
+            val here = target in locs
+            card.addView(pill(if (here) "✓ $target da turibdi — olib tashlash" else "📍 $target ga qo'yish",
+                if (here) BLUE else Color.WHITE, if (here) tint(BLUE, 30) else BLUE, 16f) { polkaPlace(p, target, remove = here) },
+                LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(10) })
+        }
+
         card.setOnLongClickListener { productMenu(p); true }
 
         if (Search.stockRank(p) == 2) card.background = box(Color.parseColor("#E6E6E6"), 14)   // tugagan — kulrang (kassaga baribir qo'shiladi)
@@ -673,6 +697,10 @@ class MainActivity : Activity() {
             if (t.startsWith("⭐")) {
                 background = box(tint(Color.parseColor("#F2A900"), 34), 12)
                 setOnClickListener { favMode = false; refresh() }
+            }
+            if (t.startsWith("📍") || t.startsWith("❓")) {
+                background = box(tint(BLUE, 30), 12)
+                setOnClickListener { if (polkaAdd != null) polkaAddMenu() else { polkaView = null; refresh() } }
             }
             if (t.startsWith("📷")) {
                 background = box(tint(GREEN, 22), 12)
@@ -1046,7 +1074,7 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQ_UP_CAM || requestCode == REQ_UP_GAL) { uploadResult(requestCode, resultCode, data); return }
-        if (resultCode != RESULT_OK) return
+        if (resultCode != RESULT_OK) { if (requestCode == REQ_PHOTO_CAM || requestCode == REQ_PHOTO_GAL) photoScope = null; return }
         val uri = when (requestCode) {
             REQ_GALLERY, REQ_PHOTO_GAL -> data?.data
             REQ_CAMERA, REQ_PHOTO_CAM, REQ_TEACH -> camUri
@@ -1085,17 +1113,20 @@ class MainActivity : Activity() {
         Thread {
             val res = try {
                 val qs = Visual.embedQuery(applicationContext, Visual.bitmap(this, uri))
-                Result.success(qs[0] to Visual.search(qs, all))
+                val scope = photoScope
+                val pool = if (scope == null) all else all.filter { Polka.matches(it, scope) }
+                Result.success(qs[0] to Visual.search(qs, pool))
             } catch (e: Throwable) { Result.failure(e) }
             main.post {
                 wait.dismiss()
                 res.onSuccess { (v, hits) ->
                     photoVec = v; photoHits = hits; photoLearned.clear(); photoShared.clear(); photoUri = uri
-                    favMode = false; catSel = null; noPhotoMode = false
+                    favMode = false; catSel = null; noPhotoMode = false; polkaView = null
+                    photoScopeShown = photoScope; photoScope = null
                     hideKb(search)
                     if (search.text.isNotEmpty()) search.setText("")
                     refresh()
-                    if (hits.isEmpty()) toast("O'xshash tovar topilmadi")
+                    if (hits.isEmpty()) toast(if (photoScopeShown != null) "${photoScopeShown}-stellajda o'xshash tovar topilmadi" else "O'xshash tovar topilmadi")
                 }.onFailure { e ->
                     alert("Rasmni o'qib bo'lmadi", e.message ?: e.javaClass.simpleName)
                 }
@@ -1764,7 +1795,7 @@ class MainActivity : Activity() {
     }
 
     private fun openNoPhoto() {
-        noPhotoMode = true
+        noPhotoMode = true; polkaView = null
         catSel = null; favMode = false; photoHits = null; photoVec = null
         hideKb(search)
         if (search.text.isNotEmpty()) search.setText("")
@@ -1772,11 +1803,175 @@ class MainActivity : Activity() {
     }
 
     private fun openCat(c: String, sub: String?) {
-        catSel = c to sub
+        catSel = c to sub; polkaView = null
         favMode = false; photoHits = null; photoVec = null; noPhotoMode = false
         hideKb(search)
         if (search.text.isNotEmpty()) search.setText("")
         refresh()
+    }
+
+    // ---------------------------------------------------------------- 📍 polkalar
+    // "stellaj-qavat", qavat TEPADAN sanaladi. Stellajlarda qavat soni har xil bo'lishi mumkin.
+    private fun polkaMenu() {
+        val counts = all.flatMap { Polka.of(it) }.groupingBy { Polka.stellaj(it) }.eachCount()
+        val noPlace = all.count { Polka.of(it).isEmpty() && Search.stockRank(it) == 0 }
+        AlertDialog.Builder(this).setTitle("📍 Polkalar (qavat tepadan sanaladi)")
+            .setItems(arrayOf(
+                "📍 Polkaga tovar joylash",
+                "🔎 Polkani ko'rish" + if (counts.isEmpty()) "" else "  (${counts.size} ta stellaj)",
+                "📷 Stellajda rasm bilan qidirish",
+                "❓ Joyi yozilmagan tovarlar ($noPlace ta)")) { _, w ->
+                when (w) {
+                    0 -> askPolka("Qaysi polkaga joylaymiz?", prefs().getString("polka_last", "") ?: "", false) { startPolkaAdd(it) }
+                    1 -> polkaPick()
+                    2 -> askPolka("Qaysi stellajda qidiramiz?", "", true) { st ->
+                        photoScope = Polka.stellaj(st)
+                        AlertDialog.Builder(this).setTitle("📷 ${photoScope}-stellajda qidirish")
+                            .setItems(arrayOf("Kamera bilan", "Galereyadan")) { _, k ->
+                                if (k == 0) openCamera(REQ_PHOTO_CAM) else openGallery(REQ_PHOTO_GAL)
+                            }.setOnCancelListener { photoScope = null }.show()
+                    }
+                    else -> openPolka("?")
+                }
+            }.show()
+    }
+
+    /** Raqam so'raydi: "7-2" (qavat) yoki stellajOk bo'lsa "7" ham. */
+    private fun askPolka(title: String, preset: String, stellajOk: Boolean, then: (String) -> Unit) {
+        val input = EditText(this).apply {
+            hint = if (stellajOk) "Masalan: 7" else "Masalan: 7-2"; setText(preset); setSelection(preset.length)
+            textSize = 24f; isSingleLine = true; inputType = InputType.TYPE_CLASS_PHONE
+        }
+        val d = AlertDialog.Builder(this).setTitle(title)
+            .setMessage(if (stellajOk) "Stellaj raqami (yoki 7-2 kabi aniq qavat)" else "Stellaj-qavat. Qavat TEPADAN sanaladi: 7-1 — eng yuqori qavat.")
+            .setView(input).setPositiveButton("OK", null).setNegativeButton("Bekor", null).create()
+        d.setOnShowListener {
+            d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val t = input.text.toString().trim()
+                val v = Polka.normalize(t) ?: if (stellajOk) t.toIntOrNull()?.takeIf { it in 1..999 }?.toString() else null
+                if (v == null) { toast(if (stellajOk) "Raqam yozing: 7 yoki 7-2" else "Masalan: 7-2 (stellaj-qavat)"); return@setOnClickListener }
+                d.dismiss(); then(v)
+            }
+        }
+        d.show()
+    }
+
+    private fun polkaPick() {
+        val st = all.flatMap { Polka.of(it) }.groupingBy { Polka.stellaj(it) }.eachCount()
+            .toList().sortedBy { it.first.toIntOrNull() ?: 999 }
+        val labels = listOf("✏️ Raqamini yozish") + st.map { "${it.first}-stellaj  (${it.second} ta)" }
+        AlertDialog.Builder(this).setTitle("🔎 Qaysi polka?").setItems(labels.toTypedArray()) { _, i ->
+            if (i == 0) askPolka("Qaysi polka?", "", true) { openPolka(it) }
+            else {
+                val s0 = st[i - 1].first
+                val levels = all.flatMap { Polka.of(it) }.filter { Polka.stellaj(it) == s0 }
+                    .groupingBy { it }.eachCount().toList().sortedBy { Polka.sortKey(it.first) }
+                val l2 = listOf("Hamma qavatlar") + levels.map { "${it.first}  (${it.second} ta)" }
+                AlertDialog.Builder(this).setTitle("$s0-stellaj").setItems(l2.toTypedArray()) { _, j ->
+                    openPolka(if (j == 0) s0 else levels[j - 1].first)
+                }.show()
+            }
+        }.show()
+    }
+
+    private fun openPolka(sel: String) {
+        polkaView = sel
+        catSel = null; favMode = false; noPhotoMode = false; photoHits = null; photoVec = null
+        hideKb(search)
+        if (search.text.isNotEmpty()) search.setText("")
+        refresh()
+    }
+
+    private fun startPolkaAdd(target: String) {
+        polkaAdd = target; polkaView = null
+        catSel = null; favMode = false; noPhotoMode = false; photoHits = null; photoVec = null
+        prefs().edit().putString("polka_last", target).apply()
+        if (search.text.isNotEmpty()) search.setText("")
+        refresh()
+        search.requestFocus()
+    }
+
+    private fun polkaAddMenu() {
+        val t = polkaAdd ?: return
+        val nx = Polka.next(t)
+        AlertDialog.Builder(this).setTitle("📍 $t ga joylash")
+            .setItems(arrayOf("▶ Keyingi qavat ($nx)", "✏️ Boshqa polka", "📷 Rasm bilan topib qo'yish", "✅ Tugatish")) { _, w ->
+                when (w) {
+                    0 -> { startPolkaAdd(nx); toast("📍 $nx — pastroqdagi qavat") }
+                    1 -> askPolka("Qaysi polkaga?", t, false) { startPolkaAdd(it) }
+                    2 -> photoMenu()
+                    else -> { polkaAdd = null; refresh(); toast("✅ Joylash tugadi") }
+                }
+            }.show()
+    }
+
+    /** Joylash rejimida: tovarni shu qavatga qo'yish yoki olib tashlash. */
+    private fun polkaPlace(p: Product, target: String, remove: Boolean) {
+        if (p.code.isBlank()) { toast("Bu tovarning kodi yo'q"); return }
+        val cur = Polka.of(p)
+        fun done() {
+            if (photoHits != null) closePhoto()
+            if (search.text.isNotEmpty()) search.setText("")
+            search.requestFocus()
+        }
+        when {
+            remove -> polkaSave(p, (cur - target).joinToString(",").ifEmpty { null }) { toast("↩️ ${p.name}: $target dan olindi") }
+            cur.isEmpty() -> polkaSave(p, target) { toast("✅ ${p.name} → $target"); done() }
+            else -> {
+                val opts = arrayListOf("➡️ Ko'chirish: faqat $target")
+                if (cur.size < 3) opts += "➕ Qo'shimcha joy: ${(cur + target).joinToString(", ")}"
+                AlertDialog.Builder(this).setTitle("${p.name}\nhozir: ${cur.joinToString(", ")}")
+                    .setItems(opts.toTypedArray()) { _, w ->
+                        val v = if (w == 0) target else (cur + target).joinToString(",")
+                        polkaSave(p, v) { toast("✅ ${p.name} → ${v.replace(",", ", ")}"); done() }
+                    }.setNegativeButton("Bekor", null).show()
+            }
+        }
+    }
+
+    /** Tovar menyusidan: joyini qo'lda yozish/o'zgartirish (vergul bilan 3 tagacha). */
+    private fun polkaEdit(p: Product) {
+        if (p.code.isBlank()) { toast("Bu tovarning kodi yo'q"); return }
+        val cur = Polka.of(p)
+        val input = EditText(this).apply {
+            hint = "7-2   yoki   7-2, 15-4"; setText(cur.joinToString(", ")); setSelection(text.length)
+            textSize = 22f; isSingleLine = true; inputType = InputType.TYPE_CLASS_PHONE
+        }
+        val b = AlertDialog.Builder(this).setTitle("📍 ${p.name}")
+            .setMessage("Stellaj-qavat, qavat tepadan sanaladi. Bir necha joy bo'lsa vergul bilan (3 tagacha).")
+            .setView(input).setPositiveButton("Saqlash", null).setNegativeButton("Bekor", null)
+        if (cur.isNotEmpty()) b.setNeutralButton("🗑 O'chirish") { _, _ -> polkaSave(p, null) { toast("🗑 Joyi o'chirildi") } }
+        val d = b.create()
+        d.setOnShowListener {
+            d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val parts = input.text.toString().split(',', ';').map { it.trim() }.filter { it.isNotEmpty() }
+                val norm = parts.map { Polka.normalize(it) }
+                if (parts.isEmpty() || norm.any { it == null } || parts.size > 3) { toast("Masalan: 7-2 yoki 7-2, 15-4"); return@setOnClickListener }
+                val v = norm.filterNotNull().distinct().joinToString(",")
+                d.dismiss()
+                polkaSave(p, v) { toast("✅ ${p.name} → ${v.replace(",", ", ")}") }
+            }
+        }
+        d.show()
+    }
+
+    /** Serverga yozadi (hamma telefonga), muvaffaqiyatli bo'lsa shu telefonda darrov qo'llaydi. */
+    private fun polkaSave(p: Product, value: String?, ok: () -> Unit) {
+        val key = BuildConfig.RASM_APP_KEY.ifBlank { prefs().getString("key", "").orEmpty() }
+        if (key.isEmpty()) { askKey { polkaSave(p, value, ok) }; return }
+        Thread {
+            val rc = Polka.save(listOf(p.code), value, key, xodimCode())
+            main.post {
+                when (rc) {
+                    in 200..299 -> { Polka.setLocal(applicationContext, listOf(p.code), value); refresh(); ok() }
+                    -1 -> toast("Internet yo'q — saqlanmadi")
+                    401 -> alert("Ruxsat yo'q", "Eng yangi APK'ni o'rnating.")
+                    403 -> alert("Kirish kodi kerak", "Xodim kodingiz bilan qayta kiring.")
+                    429 -> toast("Juda tez — 1 daqiqa kutib davom eting")
+                    else -> toast("Saqlanmadi (server $rc). Keyinroq urinib ko'ring")
+                }
+            }
+        }.start()
     }
 
     // ---------------------------------------------------------------- sevimlilar
@@ -1788,7 +1983,7 @@ class MainActivity : Activity() {
 
     private fun toggleFavMode() {
         favMode = !favMode
-        if (favMode) { photoHits = null; photoVec = null; catSel = null; noPhotoMode = false }
+        if (favMode) { photoHits = null; photoVec = null; catSel = null; noPhotoMode = false; polkaView = null }
         hideKb(search)
         refresh()
     }
@@ -1850,6 +2045,9 @@ class MainActivity : Activity() {
             labels += "📤 Shu rasmni hamma telefonga o'rgatish"
             actions += { sharePhoto(p) }
         }
+        val locs = Polka.of(p)
+        labels += if (locs.isEmpty()) "📍 Joyini yozish (qaysi polkada)" else "📍 Joyini o'zgartirish (hozir: ${locs.joinToString(", ")})"
+        actions += { polkaEdit(p) }
         labels += "🏷 Kod chiqarish ro'yxatiga qo'shish"
         actions += { kodAddProduct(p) }
         labels += "📸 Rasmini o'rgatish (hamma telefonga)"
@@ -2081,11 +2279,40 @@ class MainActivity : Activity() {
             val list = hits.map { it.first }
             val keep = if (q.isBlank()) null else Search.run(list, q).map { it.key }.toHashSet()
             val res = if (keep == null) list else list.filter { it.key in keep }
-            shown = listOf<Any>("📷 Rasmga eng o'xshashlari: ${res.size} ta   ✕ yopish") + res
+            shown = listOf<Any>("📷 Rasmga eng o'xshashlari" + (photoScopeShown?.let { " ($it-stellajda)" } ?: "") + ": ${res.size} ta   ✕ yopish") + res
             info.text = when {
                 q.isBlank() -> "Ko'p chiqsa, nomini yozing (masalan: gul). To'g'ri tovarni uzoq bosing → ✅ Rasmdagi tovar shu — hamma telefon o'rganadi."
                 res.isEmpty() -> "Rasm natijalari ichida \"${q.trim()}\" yo'q. ✕ yopib, oddiy qidiring."
                 else -> "Rasm natijalari ichida \"${q.trim()}\": ${res.size} ta"
+            }
+            adapter.notifyDataSetChanged()
+            return
+        }
+        polkaAdd?.let { target ->
+            // Joylash: bo'sh qidiruvda — shu qavatdagilar; yozilsa — butun bazadan (qo'shish uchun)
+            val here = all.filter { Polka.matches(it, target) }.sortedBy { it.nameLower }
+            val res = if (q.isBlank()) here else Search.run(all, q)
+            shown = listOf<Any>("📍 $target ga joylash: ${here.size} ta tovar   ☰ menyu") + res
+            info.text = when {
+                q.isBlank() -> "Kod, nom yoki shtrix-kodni yozing yoki 📷 rasm bilan toping → \"📍 $target ga qo'yish\". Qavat tepadan sanaladi."
+                res.isEmpty() -> "Topilmadi: \"${q.trim()}\""
+                else -> "Topildi: ${res.size} ta — kerakligini \"📍 $target ga qo'yish\" bilan qo'shing"
+            }
+            adapter.notifyDataSetChanged()
+            return
+        }
+        polkaView?.let { sel ->
+            val list = if (sel == "?") all.filter { Polka.of(it).isEmpty() && Search.stockRank(it) == 0 }.sortedBy { it.nameLower }
+                else all.filter { Polka.matches(it, sel) }
+                    .sortedWith(compareBy<Product>({ p -> Polka.of(p).filter { if (sel.contains('-')) it == sel else Polka.stellaj(it) == sel }.minOf { Polka.sortKey(it) } }, { it.nameLower }))
+            val res = if (q.isBlank()) list else Search.run(list, q)
+            val title = when { sel == "?" -> "❓ Joyi yozilmagan (do'konda bor)"; sel.contains('-') -> "📍 $sel polka"; else -> "📍 $sel-stellaj (hamma qavatlar)" }
+            shown = listOf<Any>("$title: ${res.size} ta   ✕ yopish") + res
+            info.text = when {
+                list.isEmpty() && sel != "?" -> "Bu yerga hali tovar joylanmagan. 📍 → Polkaga tovar joylash."
+                q.isBlank() -> if (sel == "?") "Tovarni uzoq bosing → 📍 Joyini yozish. Yoki 📍 → Polkaga tovar joylash." else "Ichidan qidirish uchun yozing"
+                res.isEmpty() -> "Topilmadi: \"${q.trim()}\""
+                else -> "Topildi: ${res.size} ta"
             }
             adapter.notifyDataSetChanged()
             return
@@ -2167,6 +2394,7 @@ class MainActivity : Activity() {
             try { Visual.download(applicationContext) } catch (_: Exception) {}
             try { Cats.download(applicationContext) } catch (_: Exception) {}
             try { Cats.downloadOverrides(applicationContext) } catch (_: Exception) {}
+            try { Polka.download(applicationContext) } catch (_: Exception) {}
             main.post {
                 busy = false
                 refreshBtn.text = "🔄"; refreshBtn.isEnabled = true
