@@ -70,7 +70,6 @@ check $U tap "Qidiruv"
 end
 
 step "6. Kategoriya chipi"
-check $U tap "Tozalash"
 check $U tap "🏺 Vazalar"
 $U shot 06-kategoriya-chip
 check $U has "🏺 Vazalar"

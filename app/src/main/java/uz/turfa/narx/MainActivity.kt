@@ -75,6 +75,7 @@ data class Product(
     val name: String, val code: String, val barcode: String,
     val dona: String, val optom: String, val qty: String, val photo: String = "",
     val cat: String = "",   // GitHub'da hisoblangan "aqlli" kategoriya: "Kategoriya|Bo'lim"
+    val photos: List<String> = emptyList(),   // hamma rasmlari: asosiysi + "rasmlar" ustunidagilar
 ) {
     val nameLower = name.lowercase()
     val tokens: Set<String> = Search.tokens(name) + Search.tokens(code) + Search.tokens(barcode)
@@ -295,7 +296,8 @@ object Db {
         var iOptom = idx("optom", "ulgurji", "wholesale", "опт")
         val iBar = idx("shtrix", "barkod", "barcode", "баркод")
         val iQty = idx("qoldiq", "soni", "количество", "qty")
-        val iPhoto = idx("rasm", "photo", "image", "фото")
+        val iPhoto = head.indexOf("rasm").takeIf { it >= 0 } ?: idx("rasm", "photo", "image", "фото")
+        val iPhotos = head.indexOf("rasmlar")
         val iCat = head.indexOf("kategoriya")
 
         val hasHeader = iName >= 0 && iDona >= 0
@@ -315,6 +317,9 @@ object Db {
                 qty = if (iQty >= 0) c.getOrNull(iQty)?.trim().orEmpty() else "",
                 photo = if (iPhoto >= 0) c.getOrNull(iPhoto)?.trim().orEmpty() else "",
                 cat = if (iCat >= 0) c.getOrNull(iCat)?.trim().orEmpty() else "",
+                photos = ((if (iPhoto >= 0) listOf(c.getOrNull(iPhoto)?.trim().orEmpty()) else emptyList()) +
+                    (if (iPhotos >= 0) c.getOrNull(iPhotos).orEmpty().split(' ', '\n', '\t', ',') else emptyList()))
+                    .map { it.trim() }.filter { it.startsWith("http") }.distinct(),
             )
         }
         return out
@@ -786,14 +791,15 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(8) })
 
         val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val photoUrl = myPhoto(p) ?: p.photo
+        val pics = allPhotos(p)
+        val photoUrl = pics.firstOrNull().orEmpty()
         if (photoUrl.isNotBlank()) {
             val iv = ImageView(this).apply {
                 scaleType = ImageView.ScaleType.CENTER_CROP
                 background = box(Color.parseColor("#E9EEF2"), 14)
                 clipToOutline = true
-                setOnClickListener { showPhoto(p) }
-                contentDescription = "Tovar rasmi"
+                setOnClickListener { showPhoto(p, 0) }
+                contentDescription = if (pics.size > 1) "Tovar rasmi, ${pics.size} ta" else "Tovar rasmi"
             }
             Img.load(this, photoUrl, iv)
             head.addView(iv, LinearLayout.LayoutParams(dp(92), dp(92)).apply { rightMargin = dp(12) })
@@ -814,6 +820,26 @@ class MainActivity : Activity() {
             contentDescription = if (fav) "Sevimlilardan olib tashlash" else "Sevimlilarga qo'shish"
         }, LinearLayout.LayoutParams(dp(40), dp(40)))
         card.addView(head)
+        if (pics.size > 1) {
+            // Hamma rasmlari: kichik ko'rinishda, bosilsa kattalashadi
+            val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            pics.forEachIndexed { i, u ->
+                strip.addView(ImageView(this).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    background = box(Color.parseColor("#E9EEF2"), 10); clipToOutline = true
+                    contentDescription = "Rasm ${i + 1}"
+                    setOnClickListener { showPhoto(p, i) }
+                    Img.load(this@MainActivity, u, this)
+                }, LinearLayout.LayoutParams(dp(56), dp(56)).apply { rightMargin = dp(6) })
+            }
+            strip.addView(TextView(this).apply {
+                text = "📷 ${pics.size} ta"; textSize = 13f; setTextColor(MUTED); typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER_VERTICAL; setPadding(dp(4), 0, dp(8), 0)
+            }, LinearLayout.LayoutParams(-2, dp(56)))
+            card.addView(android.widget.HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false; addView(strip)
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
+        }
 
         titleBox.addView(TextView(this).apply {
             text = p.name; textSize = 17f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
@@ -2472,11 +2498,28 @@ class MainActivity : Activity() {
     }
 
     // ---------------------------------------------------------------- umumiy
-    private fun showPhoto(p: Product) {
-        val iv = ImageView(this).apply { adjustViewBounds = true; setBackgroundColor(Color.WHITE) }
-        Img.load(this, myPhoto(p) ?: p.photo, iv, big = true)
-        val d = AlertDialog.Builder(this).setTitle(p.name).setView(iv).setPositiveButton("Yopish", null).create()
-        iv.setOnClickListener { d.dismiss() }
+    private fun showPhoto(p: Product, start: Int = 0) {
+        val pics = allPhotos(p)
+        if (pics.isEmpty()) return
+        var i = start.coerceIn(0, pics.lastIndex)
+        val frame = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.WHITE) }
+        val iv = ImageView(this).apply { adjustViewBounds = true; setBackgroundColor(Color.WHITE); contentDescription = "Tovar rasmi" }
+        frame.addView(iv, LinearLayout.LayoutParams(-1, -2))
+        val nav = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), dp(8), dp(12), dp(4)) }
+        val counter = TextView(this).apply { textSize = 16f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER }
+        fun show() { Img.load(this, pics[i], iv, big = true); counter.text = "${i + 1} / ${pics.size}" }
+        if (pics.size > 1) {
+            nav.addView(pill("◀", INK, CHIP, 20f) { i = (i - 1 + pics.size) % pics.size; show() }.apply { contentDescription = "Oldingi rasm" },
+                LinearLayout.LayoutParams(dp(64), dp(48)))
+            nav.addView(counter, LinearLayout.LayoutParams(0, -2, 1f))
+            nav.addView(pill("▶", INK, CHIP, 20f) { i = (i + 1) % pics.size; show() }.apply { contentDescription = "Keyingi rasm" },
+                LinearLayout.LayoutParams(dp(64), dp(48)))
+            frame.addView(nav)
+            iv.setOnClickListener { i = (i + 1) % pics.size; show() }
+        }
+        show()
+        val d = AlertDialog.Builder(this).setTitle(p.name).setView(frame).setPositiveButton("Yopish", null).create()
+        if (pics.size <= 1) iv.setOnClickListener { d.dismiss() }
         d.show()
     }
 
@@ -2777,14 +2820,18 @@ class MainActivity : Activity() {
                     }
                 } catch (e: Exception) { lastErr = "Internet yo'q yoki server javob bermadi" }
             }
-            sent.lastOrNull()?.let { f ->   // kartada darrov ko'rinsin (baza yangilanguncha)
-                try {
-                    val dir = File(filesDir, "myphoto").apply { mkdirs() }
-                    val out = File(dir, "${p.key.hashCode().toUInt()}.jpg")
+            if (sent.isNotEmpty()) {   // kartada darrov ko'rinsin (baza yangilanguncha) — HAMMA yuklangan rasmlar
+                val dir = File(filesDir, "myphoto").apply { mkdirs() }
+                val paths = ArrayList<String>()
+                for ((n, f) in sent.reversed().withIndex()) try {   // oxirgisi birinchi
+                    val out = File(dir, "${p.key.hashCode().toUInt()}_${System.currentTimeMillis()}_$n.jpg")
                     Visual.bitmap(this, Uri.fromFile(f), 640).let { b -> out.outputStream().use { b.compress(Bitmap.CompressFormat.JPEG, 82, it) } }
-                    getSharedPreferences("myphoto", MODE_PRIVATE).edit().putString(p.key, out.path).apply()
-                    Img.forget(this, "file:" + out.path)
+                    paths += out.path
                 } catch (_: Exception) {}
+                val sp = getSharedPreferences("myphoto", MODE_PRIVATE)
+                val old = (sp.getString(p.key + "#all", null)?.split('\n') ?: listOfNotNull(sp.getString(p.key, null))).filter { File(it).exists() }
+                val all = (paths + old).distinct().take(12)
+                if (all.isNotEmpty()) sp.edit().putString(p.key, all[0]).putString(p.key + "#all", all.joinToString("\n")).apply()
             }
             upKodId?.let { id ->   // 🏷 ro'yxatida ko'rinishi uchun kichik nusxa
                 val dir = kodDir(id).apply { mkdirs() }
@@ -2825,6 +2872,17 @@ class MainActivity : Activity() {
     /** Shu telefonda yuklangan rasm: baza yangilanguncha kartada darrov ko'rinsin. */
     private fun myPhoto(p: Product): String? =
         getSharedPreferences("myphoto", MODE_PRIVATE).getString(p.key, null)?.takeIf { File(it).exists() }?.let { "file:$it" }
+
+    /** Shu telefonda yuklanganlar (yangisi birinchi). */
+    private fun myPhotos(p: Product): List<String> {
+        val sp = getSharedPreferences("myphoto", MODE_PRIVATE)
+        val list = sp.getString(p.key + "#all", null)?.split('\n') ?: listOfNotNull(sp.getString(p.key, null))
+        return list.filter { it.isNotBlank() && File(it).exists() }.map { "file:$it" }
+    }
+
+    /** Tovarning hamma rasmlari: shu telefonda yuklanganlar + bazadagi asosiy va qo'shimchalari. */
+    private fun allPhotos(p: Product): List<String> =
+        (myPhotos(p) + p.photos + listOf(p.photo)).filter { it.isNotBlank() }.distinct()
 
     // ---------------------------------------------------------------- yuklangan rasmlar (egasi uchun)
     private class Rasm(val sku: String, val name: String, val url: String, val at: Long)

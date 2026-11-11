@@ -5,7 +5,7 @@ on:
   push:
     branches: ['dizayn']
 permissions:
-  contents: read
+  contents: write
 jobs:
   ui:
     runs-on: ubuntu-latest
@@ -42,3 +42,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with: { name: ui-shots, path: ui-shots/ }
+      - name: Skrinshotlarni "ui-shots" shoxiga saqlash
+        if: always()
+        run: |
+          cd ui-shots && git init -q && git checkout -q -b ui-shots
+          git config user.name "ui-bot"; git config user.email "ui-bot@users.noreply.github.com"
+          git add -A && git commit -q -m "UI skrinshotlar ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ui-shots
