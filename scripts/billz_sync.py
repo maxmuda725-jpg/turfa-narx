@@ -30,6 +30,11 @@ def main():
         if not batch or len(products) >= (d.get("count") or 0): break
         page += 1
 
+    # Turfa do'konining id si (qoldiq faqat shu do'kon bo'yicha)
+    turfa_id = next((s.get("shop_id") for p in products for s in p.get("shop_prices") or []
+                     if SHOP in (s.get("shop_name") or "").lower() and s.get("shop_id")), None)
+    print("Turfa shop_id:", "topildi" if turfa_id else "TOPILMADI (qoldiq yozilmaydi)")
+
     rows = []
     for p in products:
         prices = p.get("shop_prices") or []
@@ -44,15 +49,21 @@ def main():
                    if num(x.get("wholesale_price")) > 0]
         ph = sorted(p.get("photos") or [], key=lambda x: (not x.get("is_main"), x.get("sequence") or 0))
         cands = [p.get("main_image_url_full"), *[x.get("photo_url") for x in ph], p.get("main_image_url")]
-        photo = next((c for c in cands if c and str(c).startswith("http")), "")
+        urls = list(dict.fromkeys(str(c) for c in cands if c and str(c).startswith("http")))
+        photo = urls[0] if urls else ""
+        extra = " ".join(urls[1:5])   # qo'shimcha rasmlar (rasm orqali qidirish uchun)
         if not photo and any(cands) and not globals().get("_shown"):
             globals()["_shown"] = True
             print("Rasm namunasi (to'liq havola emas):", [c for c in cands if c][:3])
+        qty = ""
+        if turfa_id:
+            qty = str(num(sum(float(m.get("active_measurement_value") or 0)
+                              for m in p.get("shop_measurement_values") or [] if m.get("shop_id") == turfa_id)))
         name = re.sub(r"\s+", " ", p.get("name") or "").strip()
         if not name: continue
         rows.append([name, (p.get("sku") or "").strip(), (p.get("barcode") or "").strip(),
                      str(num(sp.get("retail_price"))),
-                     "-".join(map(str, sorted(set(opt)))), photo])
+                     "-".join(map(str, sorted(set(opt)))), photo, qty, extra])
 
     if len(rows) < 100:
         sys.exit(f"Juda kam mahsulot ({len(rows)}), baza o'zgartirilmadi")
@@ -60,10 +71,11 @@ def main():
     rows.sort(key=lambda r: nat(r[0]))
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";", lineterminator="\n")
-    w.writerow(["nomi", "kod", "shtrix", "dona narx", "optom narx", "rasm"])
+    w.writerow(["nomi", "kod", "shtrix", "dona narx", "optom narx", "rasm", "qoldiq", "rasmlar"])
     w.writerows(rows)
     open("baza/products.csv", "w", encoding="utf-8").write("﻿" + buf.getvalue())
-    print(f"Yozildi: {len(rows)} ta (Billz'da {len(products)} ta), rasmli: {sum(1 for r in rows if r[5])}, narxsiz: {sum(1 for r in rows if r[3] == '0')}")
+    print(f"Yozildi: {len(rows)} ta (Billz'da {len(products)} ta), rasmli: {sum(1 for r in rows if r[5])} (qo'shimcha rasm: {sum(len(r[7].split()) for r in rows)}), narxsiz: {sum(1 for r in rows if r[3] == '0')}, "
+          f"Turfada bor: {sum(1 for r in rows if r[6] not in ('', '0'))}")
 
 if __name__ == "__main__":
     main()

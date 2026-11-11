@@ -17,8 +17,18 @@ jobs:
         run: |
           if [ -z "$BILLZ_SECRET_TOKEN" ]; then echo "BILLZ_SECRET_TOKEN qo'shilmagan"; exit 0; fi
           python3 scripts/billz_sync.py
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Rasm vektorlari (rasm orqali qidirish uchun)
+        continue-on-error: true
+        run: |
+          pip install -q "mediapipe==0.10.14" "numpy<2" pillow
+          curl -fsSL -o embedder.tflite "$EMBED_URL"
+          python3 scripts/embed.py
+        env:
+          EMBED_URL: https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
       - name: Saqlash
         run: |
           git config user.name "baza-bot"; git config user.email "baza-bot@users.noreply.github.com"
-          git add baza/products.csv
+          git add baza/
           git diff --cached --quiet && echo "O'zgarish yo'q" || (git commit -m "Baza Billz'dan yangilandi" && git push)

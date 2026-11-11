@@ -161,12 +161,77 @@ object Search {
     private fun natKey(s: String): String =
         Regex("\\d+").replace(s.lowercase()) { it.value.padStart(8, '0') }
 
+    // ---------------------------------------------------- har xil yozilgan kodlar
+    private val ODD_DASH = Regex("[–—−‐‑_]")
+    // "43 39", "43.39", "43,39" (oldi-ortida chiziqcha yoki raqam bo'lmasa)
+    private val SPACED = Regex("(?<![\\d-])\\d+(?:[ .,]+\\d+)+(?![\\d-])")
+    private val SPACED_SEP = Regex("[ .,]+")
+    private var codeSet: Set<String> = emptySet()
+    private var codeSetOf: List<Product>? = null
+
+    /** Bazadagi barcha raqamli kodlar (43-39, qai-68441, shtrix...). */
+    @Synchronized
+    private fun codes(all: List<Product>): Set<String> {
+        if (codeSetOf !== all) {
+            codeSet = all.flatMapTo(HashSet()) { p -> p.tokens.filter { t -> t.any { it.isDigit() } } }
+            codeSetOf = all
+        }
+        return codeSet
+    }
+
+    /** "43 39" -> "43-39", "43–39" -> "43-39" (faqat shunday kod bazada bo'lsa). */
+    private fun normalize(query: String, codes: Set<String>): String {
+        val q = ODD_DASH.replace(query, "-")
+        return SPACED.replace(q) { m ->
+            val j = m.value.split(SPACED_SEP).joinToString("-")
+            if (j in codes) j else m.value
+        }
+    }
+
+    /**
+     * Bitta so'zning bazadagi variantlari: "4339" -> ["43-39"], "43.39" -> ["43-39"].
+     * Aniq o'zi bazada bo'lsa — faqat o'zi. Hech narsa topilmasa — o'zi.
+     */
+    fun variants(w: String, codes: Set<String>): List<String> {
+        if (w.none { it.isDigit() } || w in codes) return listOf(w)
+        val d = w.replace('.', '-').replace(',', '-')
+        if (d in codes) return listOf(d)
+        if (d.length in 3..9 && d.all { it.isDigit() }) {
+            val n = d.length - 1
+            val res = ArrayList<String>()
+            for (mask in 1 until (1 shl n)) {
+                val sb = StringBuilder()
+                for (i in d.indices) { sb.append(d[i]); if (i < n && (mask shr i) and 1 == 1) sb.append('-') }
+                val c = sb.toString()
+                if (c in codes) res += c
+            }
+            if (res.isNotEmpty()) return res.sortedBy { c -> c.count { it == '-' } }
+        }
+        return listOf(d)
+    }
+
+    /** Qidiruv so'zini bazadagi ko'rinishga keltiradi ("4339" -> "43-39"). */
+    fun canonical(all: List<Product>, query: String): String {
+        val codes = codes(all)
+        return tokens(normalize(query, codes)).joinToString(" ") { variants(it, codes).first() }
+    }
+
+    /** 0 = omborda bor, 1 = noma'lum, 2 = tugagan */
+    fun stockRank(p: Product): Int {
+        val q = p.qty.toDoubleOrNull() ?: return 1
+        return if (q > 0) 0 else 2
+    }
+
     fun run(all: List<Product>, query: String): List<Product> {
-        val words = tokens(query).toList()
-        if (words.isEmpty()) return emptyList()
-        val digitWords = words.filter { w -> w.any { it.isDigit() } }
-        return all.filter { matches(it, words) }
-            .sortedByDescending { p -> digitWords.sumOf { codeHit(p, it) } }   // aniq kodlar tepada
+        val codes = codes(all)
+        val alts = tokens(normalize(query, codes)).map { variants(it, codes) }
+        if (alts.isEmpty()) return emptyList()
+        fun hit(p: Product, w: String) = if (w.any { it.isDigit() }) codeHit(p, w) else if (p.nameLower.contains(w)) 1 else 0
+        return all.filter { p -> alts.all { a -> a.any { hit(p, it) > 0 } } }
+            .sortedWith(compareBy<Product>(
+                { p -> -alts.sumOf { a -> a.maxOf { w -> if (w.any { it.isDigit() }) hit(p, w) else 0 } } },  // aniq kodlar tepada
+                { stockRank(it) },                                                                           // keyin omborda borlar
+            ))
             .take(300)
     }
 }
@@ -328,6 +393,17 @@ class MainActivity : Activity() {
     private var camUri: Uri? = null
     private val REQ_GALLERY = 71
     private val REQ_CAMERA = 72
+    // Rasm orqali qidirish
+    private val REQ_PHOTO_CAM = 73
+    private val REQ_PHOTO_GAL = 74
+    private val REQ_TEACH = 75
+    private var photoHits: List<Pair<Product, Float>>? = null
+    private var photoVec: FloatArray? = null
+    private val photoLearned = HashSet<String>()
+    private var teachFor: Product? = null
+    // Sevimlilar (shu telefonda saqlanadi)
+    private val favs = LinkedHashSet<String>()
+    private var favMode = false
 
     private lateinit var searchScreen: View
     private lateinit var kassaScreen: View
@@ -346,6 +422,8 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         all = Db.load(this)
+        favs += getSharedPreferences("sevimli", MODE_PRIVATE).getStringSet("keys", emptySet()).orEmpty()
+        Thread { Visual.load(applicationContext) }.start()
         val root = FrameLayout(this).apply { setBackgroundColor(BG); fitsSystemWindows = true }
         searchScreen = buildSearch()
         kassaScreen = buildKassa().apply { visibility = View.GONE }
@@ -358,7 +436,12 @@ class MainActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (kassaScreen.visibility == View.VISIBLE) showKassa(false) else super.onBackPressed()
+        when {
+            kassaScreen.visibility == View.VISIBLE -> showKassa(false)
+            photoHits != null -> closePhoto()
+            favMode -> { favMode = false; refresh() }
+            else -> super.onBackPressed()
+        }
     }
 
     // ---------------------------------------------------------------- yordamchilar
@@ -397,6 +480,8 @@ class MainActivity : Activity() {
         val top = topBar()
         top.addView(title("TUR-FA narxlar"), LinearLayout.LayoutParams(0, -2, 1f))
         refreshBtn = pill("🔄 Yangilash", GREEN, Color.WHITE) { update(silent = false) }
+        top.addView(pill("⭐", GREEN, Color.WHITE, 18f) { toggleFavMode() },
+            LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
         top.addView(refreshBtn, LinearLayout.LayoutParams(-2, dp(44)))
         screen.addView(top)
 
@@ -406,7 +491,11 @@ class MainActivity : Activity() {
             background = box(Color.WHITE, 14)
             setPadding(dp(16), dp(14), dp(16), dp(14))
         }
-        screen.addView(search, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(12), dp(12), dp(4)) })
+        val searchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        searchRow.addView(search, LinearLayout.LayoutParams(0, -2, 1f))
+        searchRow.addView(pill("📷", Color.WHITE, GREEN, 22f) { photoMenu() },
+            LinearLayout.LayoutParams(dp(60), dp(56)).apply { leftMargin = dp(8) })
+        screen.addView(searchRow, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(12), dp(12), dp(4)) })
 
         info = TextView(this).apply { textSize = 13f; setTextColor(Color.GRAY); setPadding(dp(16), dp(4), dp(16), dp(4)) }
         screen.addView(info)
@@ -462,6 +551,12 @@ class MainActivity : Activity() {
         }
         val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         head.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
+        val fav = p.key in favs
+        head.addView(TextView(this).apply {
+            text = if (fav) "★" else "☆"; textSize = 28f; gravity = Gravity.CENTER
+            setTextColor(if (fav) Color.parseColor("#F2A900") else Color.parseColor("#BBBBBB"))
+            setOnClickListener { toggleFav(p) }
+        }, LinearLayout.LayoutParams(dp(44), dp(44)).apply { leftMargin = dp(4) })
         card.addView(head)
 
         titleBox.addView(TextView(this).apply {
@@ -472,9 +567,9 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(0, -2, 1f))
         if (p.qty.isNotBlank()) {
             val n = p.qty.toDoubleOrNull()?.toLong() ?: 0
-            val c = if (n > 0) ORANGE else RED
+            val c = if (n > 0) GREEN else RED
             sub.addView(TextView(this).apply {
-                text = if (n > 0) "Qoldiq: ${group(n)} ta" else "Tugagan"
+                text = if (n > 0) "✅ Bor" else "❌ Tugagan"
                 textSize = 13f; setTextColor(c); typeface = Typeface.DEFAULT_BOLD
                 background = box(tint(c, 30), 8); setPadding(dp(8), dp(3), dp(8), dp(3))
             })
@@ -503,9 +598,14 @@ class MainActivity : Activity() {
             pill("＋ Kassaga", Color.WHITE, INK, 15f) {
                 val ci = cart.getOrPut(p.key) { CartItem(p, 0) }
                 ci.count += 1
+                rememberPhoto(p)
                 updateCart(); adapter.notifyDataSetChanged()
             }, LinearLayout.LayoutParams(-2, dp(44)))
         card.addView(addRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+
+        card.setOnLongClickListener { productMenu(p); true }
+
+        if (Search.stockRank(p) == 2) card.alpha = 0.5f   // tugagan — kulrang
 
         val wrap = LinearLayout(this).apply { setPadding(dp(4), dp(5), dp(4), dp(5)) }
         wrap.addView(card, LinearLayout.LayoutParams(-1, -2))
@@ -517,6 +617,14 @@ class MainActivity : Activity() {
             text = t; textSize = 15f; typeface = Typeface.DEFAULT_BOLD
             setTextColor(if (t.startsWith("🔍")) BLUE else INK)
             setPadding(dp(12), dp(14), dp(12), dp(8))
+            if (t.startsWith("⭐")) {
+                background = box(tint(Color.parseColor("#F2A900"), 34), 12)
+                setOnClickListener { favMode = false; refresh() }
+            }
+            if (t.startsWith("📷")) {
+                background = box(tint(GREEN, 22), 12)
+                setOnClickListener { closePhoto() }
+            }
             if (t.startsWith("🔍")) {
                 background = box(tint(BLUE, 22), 12)
                 setOnClickListener { similarOpen = !similarOpen; refresh() }
@@ -845,23 +953,23 @@ class MainActivity : Activity() {
             }.show()
     }
 
-    private fun openGallery() {
+    private fun openGallery(req: Int = REQ_GALLERY) {
         try {
             startActivityForResult(Intent(Intent.ACTION_GET_CONTENT).apply {
                 type = "image/*"; addCategory(Intent.CATEGORY_OPENABLE)
-            }, REQ_GALLERY)
+            }, req)
         } catch (e: Exception) { toast("Galereya ochilmadi") }
     }
 
-    private fun openCamera() {
+    private fun openCamera(req: Int = REQ_CAMERA) {
         try {
-            val f = File(File(cacheDir, "cam").apply { mkdirs() }, "royxat.jpg")
+            val f = File(File(cacheDir, "cam").apply { mkdirs() }, if (req == REQ_CAMERA) "royxat.jpg" else "tovar.jpg")
             val uri = FileProvider.getUriForFile(this, "$packageName.files", f)
             camUri = uri
             startActivityForResult(Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                 putExtra(MediaStore.EXTRA_OUTPUT, uri)
                 addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }, REQ_CAMERA)
+            }, req)
         } catch (e: Exception) { toast("Kamera ochilmadi") }
     }
 
@@ -869,8 +977,97 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK) return
-        val uri = when (requestCode) { REQ_GALLERY -> data?.data; REQ_CAMERA -> camUri; else -> null } ?: return
-        recognize(uri)
+        val uri = when (requestCode) {
+            REQ_GALLERY, REQ_PHOTO_GAL -> data?.data
+            REQ_CAMERA, REQ_PHOTO_CAM, REQ_TEACH -> camUri
+            else -> null
+        } ?: return
+        when (requestCode) {
+            REQ_PHOTO_CAM, REQ_PHOTO_GAL -> photoSearch(uri)
+            REQ_TEACH -> teachFor?.let { teachSave(it, uri) }
+            else -> recognize(uri)
+        }
+    }
+
+    // ---------------------------------------------------------------- rasm orqali qidirish
+    private fun photoMenu() {
+        AlertDialog.Builder(this).setTitle("📷 Tovarni rasm orqali topish")
+            .setItems(arrayOf("📷 Kamera bilan rasmga olish", "🖼 Galereyadan")) { _, w ->
+                if (w == 0) openCamera(REQ_PHOTO_CAM) else openGallery(REQ_PHOTO_GAL)
+            }.show()
+    }
+
+    private fun photoSearch(uri: Uri) {
+        if (!Visual.ready()) {
+            alert("Rasm bazasi yo'q", "Rasm orqali qidirish uchun bazani yuklash kerak. Internetni yoqib 🔄 Yangilash ni bosing.")
+            return
+        }
+        val wait = AlertDialog.Builder(this).setMessage("📷 Rasmga o'xshash tovarlar qidirilmoqda…").setCancelable(false).show()
+        Thread {
+            val res = try {
+                val v = Visual.embed(applicationContext, Visual.bitmap(this, uri))
+                Result.success(v to Visual.search(v, all))
+            } catch (e: Throwable) { Result.failure(e) }
+            main.post {
+                wait.dismiss()
+                res.onSuccess { (v, hits) ->
+                    photoVec = v; photoHits = hits; photoLearned.clear(); favMode = false
+                    hideKb(search)
+                    if (search.text.isNotEmpty()) search.setText("")
+                    refresh()
+                    if (hits.isEmpty()) toast("O'xshash tovar topilmadi")
+                }.onFailure { e ->
+                    alert("Rasmni o'qib bo'lmadi", e.message ?: e.javaClass.simpleName)
+                }
+            }
+        }.start()
+    }
+
+    // ---------------------------------------------------------------- sevimlilar
+    private fun toggleFav(p: Product) {
+        if (!favs.remove(p.key)) { favs += p.key; toast("⭐ Sevimlilarga qo'shildi") }
+        getSharedPreferences("sevimli", MODE_PRIVATE).edit().putStringSet("keys", HashSet(favs)).apply()
+        if (favMode) refresh() else adapter.notifyDataSetChanged()
+    }
+
+    private fun toggleFavMode() {
+        favMode = !favMode
+        if (favMode) { photoHits = null; photoVec = null }
+        hideKb(search)
+        refresh()
+    }
+
+    private fun closePhoto() {
+        photoHits = null; photoVec = null
+        refresh()
+    }
+
+    /** Rasm bo'yicha topilgan tovar kassaga qo'shilsa — telefon shu rasmni eslab qoladi. */
+    private fun rememberPhoto(p: Product) {
+        val v = photoVec ?: return
+        if (photoHits?.any { it.first.key == p.key } != true || !photoLearned.add(p.key)) return
+        Thread { Visual.learn(applicationContext, p, v) }.start()
+    }
+
+    private fun productMenu(p: Product) {
+        val labels = ArrayList<String>()
+        val actions = ArrayList<() -> Unit>()
+        if (photoVec != null && photoHits?.any { it.first.key == p.key } == true && p.key !in photoLearned) {
+            labels += "✅ Rasmdagi tovar shu (eslab qol)"
+            actions += { rememberPhoto(p); toast("✅ Eslab qolindi") }
+        }
+        labels += "📷 Rasmini o'rgatish (kamera)"
+        actions += { teachFor = p; openCamera(REQ_TEACH) }
+        AlertDialog.Builder(this).setTitle(p.name)
+            .setItems(labels.toTypedArray()) { _, i -> actions[i]() }.show()
+    }
+
+    private fun teachSave(p: Product, uri: Uri) {
+        Thread {
+            val ok = try { Visual.learn(applicationContext, p, Visual.embed(applicationContext, Visual.bitmap(this, uri))); true }
+                catch (e: Throwable) { false }
+            main.post { toast(if (ok) "✅ Rasm eslab qolindi: ${p.name}" else "Rasmni o'qib bo'lmadi") }
+        }.start()
     }
 
     private fun aiKey() = getSharedPreferences("kassa", MODE_PRIVATE).getString("gemini", "").orEmpty()
@@ -1076,8 +1273,36 @@ class MainActivity : Activity() {
     private fun refresh() {
         val q = search.text.toString()
         if (q != lastQuery) { similarOpen = false; lastQuery = q }
+        photoHits?.let { hits ->
+            // Rasm natijalari ichidan so'z bilan qisqartirish ("gul", "vaza"), o'xshashlik tartibi saqlanadi
+            val list = hits.map { it.first }
+            val keep = if (q.isBlank()) null else Search.run(list, q).map { it.key }.toHashSet()
+            val res = if (keep == null) list else list.filter { it.key in keep }
+            shown = listOf<Any>("📷 Rasmga eng o'xshashlari: ${res.size} ta   ✕ yopish") + res
+            info.text = when {
+                q.isBlank() -> "Ko'p chiqsa, nomini yozing (masalan: gul). To'g'ri tovarni \"＋ Kassaga\" bosing — telefon eslab qoladi."
+                res.isEmpty() -> "Rasm natijalari ichida \"${q.trim()}\" yo'q. ✕ yopib, oddiy qidiring."
+                else -> "Rasm natijalari ichida \"${q.trim()}\": ${res.size} ta"
+            }
+            adapter.notifyDataSetChanged()
+            return
+        }
+        if (favMode) {
+            val byKey = all.associateBy { it.key }
+            val list = favs.mapNotNull { byKey[it] }.reversed()   // oxirgi qo'shilgani tepada
+            val res = if (q.isBlank()) list else Search.run(list, q)
+            shown = listOf<Any>("⭐ Sevimlilar: ${res.size} ta   ✕ yopish") + res
+            info.text = when {
+                list.isEmpty() -> "Sevimli tovar yo'q. Tovar yonidagi ☆ belgisini bosing."
+                q.isBlank() -> "Sevimlilar ichidan qidirish uchun yozing"
+                res.isEmpty() -> "Sevimlilar ichida topilmadi: \"${q.trim()}\""
+                else -> "Sevimlilar ichida topildi: ${res.size} ta"
+            }
+            adapter.notifyDataSetChanged()
+            return
+        }
         val exact = Search.run(all, q)
-        val (ser, sim) = if (q.isBlank()) "" to emptyList<Product>() else Search.similar(all, q, exact)
+        val (ser, sim) = if (q.isBlank()) "" to emptyList<Product>() else Search.similar(all, Search.canonical(all, q), exact)
         val open = similarOpen || exact.isEmpty()
         val rows = ArrayList<Any>()
         if (exact.isNotEmpty() && sim.isNotEmpty()) rows += "🎯 Topildi: ${exact.size} ta"
@@ -1108,6 +1333,7 @@ class MainActivity : Activity() {
         refreshBtn.text = "⏳ Yuklanmoqda"; refreshBtn.isEnabled = false
         Thread {
             val res = try { Result.success(Db.download(this)) } catch (e: Exception) { Result.failure(e) }
+            try { Visual.download(applicationContext) } catch (_: Exception) {}
             main.post {
                 busy = false
                 refreshBtn.text = "🔄 Yangilash"; refreshBtn.isEnabled = true
