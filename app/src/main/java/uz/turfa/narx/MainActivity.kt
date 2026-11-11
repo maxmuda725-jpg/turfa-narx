@@ -463,7 +463,7 @@ class MainActivity : Activity() {
         root.addView(kassaScreen, -1, -1)
         setContentView(root)
         refresh(); updateCart()
-        askPin(SELLER_PIN, "Do'konchi PIN-kodi") { update(silent = true); checkAppUpdate(silent = true) }
+        login { update(silent = true); checkAppUpdate(silent = true) }
     }
 
     @Deprecated("Deprecated in Java")
@@ -512,8 +512,8 @@ class MainActivity : Activity() {
         val screen = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
         val top = topBar()
-        top.addView(title("TUR-FA narxlar"), LinearLayout.LayoutParams(0, -2, 1f))
-        refreshBtn = pill("🔄", GREEN, Color.WHITE, 18f) { update(silent = false); checkAppUpdate(silent = true) }
+        top.addView(title("TUR-FA narxlar").apply { setOnClickListener { if (isOwner()) ownerMenu() } }, LinearLayout.LayoutParams(0, -2, 1f))
+        refreshBtn = pill("🔄", GREEN, Color.WHITE, 18f) { update(silent = false); checkAppUpdate(silent = true); verifyAccess() }
             .apply { setOnLongClickListener { checkAppUpdate(silent = false); true } }
         top.addView(pill("🏷", GREEN, Color.WHITE, 18f) { kodList() },
             LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
@@ -894,6 +894,7 @@ class MainActivity : Activity() {
                 c.connectTimeout = 15000; c.readTimeout = 120000
                 c.setRequestProperty("Content-Type", "application/json")
                 c.setRequestProperty("x-app-key", key)
+                c.setRequestProperty("x-xodim", xodimCode())
                 c.outputStream.use { it.write(body.toByteArray()) }
                 val rc = c.responseCode
                 val t = (if (rc in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.readText().orEmpty()
@@ -1205,10 +1206,11 @@ class MainActivity : Activity() {
                 if (list.isEmpty()) { toast("Ro'yxat bo'sh"); kodList() } else kodSend(list)
             }
             .setNegativeButton("⋯ Boshqa") { _, _ ->
-                AlertDialog.Builder(this).setItems(arrayOf("📥 Kelgan ro'yxatlar (sotuvchilardan)", "📋 Ro'yxatni nusxalash (matn)",
+                val ownerItems = if (isOwner()) arrayOf("📥 Kelgan ro'yxatlar (sotuvchilardan)") else arrayOf("ℹ️ Kirgan: ${myName()}")
+                AlertDialog.Builder(this).setItems(ownerItems + arrayOf("📋 Ro'yxatni nusxalash (matn)",
                     "🗑 Ro'yxatni tozalash", "👤 Ismni o'zgartirish (${myName().ifBlank { "kiritilmagan" }})")) { _, w ->
                     when (w) {
-                        0 -> royxatlar()
+                        0 -> if (isOwner()) royxatlar() else kodList()
                         1 -> {
                             val text = list.joinToString("\n") { "${it.code} — ${it.qty} ta" + if (it.name.isNotBlank()) " (${it.name})" else "" }
                             (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
@@ -1228,8 +1230,175 @@ class MainActivity : Activity() {
             .show()
     }
 
+    // ---------------------------------------------------------------- xodimlar: shaxsiy kirish kodi
+    private fun xprefs() = getSharedPreferences("xodim", MODE_PRIVATE)
+    private fun xodimCode() = xprefs().getString("code", "").orEmpty()
+    private fun isOwner() = xprefs().getBoolean("owner", false)
+    private val OFFLINE_DAYS = 3
+
+    /** POST /api/kassa/xodim -> (http kod, javob) */
+    private fun xodimApi(body: org.json.JSONObject, code: String = xodimCode()): Pair<Int, org.json.JSONObject?> = try {
+        val c = URL("$KASSA_API/api/kassa/xodim").openConnection() as HttpURLConnection
+        c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 15000; c.readTimeout = 30000
+        c.setRequestProperty("Content-Type", "application/json")
+        c.setRequestProperty("x-app-key", appKey())
+        c.setRequestProperty("x-xodim", code)
+        c.outputStream.use { it.write(body.toString().toByteArray()) }
+        val rc = c.responseCode
+        val t = (if (rc in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.readText().orEmpty()
+        c.disconnect(); rc to (try { org.json.JSONObject(t) } catch (e: Exception) { null })
+    } catch (e: Exception) { -1 to null }
+
+    private fun login(then: () -> Unit) {
+        if (xodimCode().isNotEmpty()) { then(); verifyAccess(); return }
+        askCode(then)
+    }
+
+    private fun askCode(then: () -> Unit) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            textSize = 24f; gravity = Gravity.CENTER; hint = "0000-0000"
+        }
+        val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+        val d = AlertDialog.Builder(this).setTitle("🔑 Kirish kodi")
+            .setMessage("Do'kon egasidan olingan shaxsiy kodingizni kiriting.")
+            .setView(wrap).setCancelable(false)
+            .setPositiveButton("Kirish", null)
+            .setNegativeButton("Chiqish") { _, _ -> finish() }
+            .create()
+        d.setOnShowListener {
+            d.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val code = input.text.toString().filter { it.isDigit() }
+                if (code.length < 6) { input.error = "Kod to'liq emas"; return@setOnClickListener }
+                d.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                Thread {
+                    val (rc, j) = xodimApi(org.json.JSONObject().put("op", "login"), code)
+                    main.post {
+                        d.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                        when {
+                            rc in 200..299 && j?.optBoolean("ok") == true -> {
+                                xprefs().edit().putString("code", code).putString("name", j.optString("name"))
+                                    .putBoolean("owner", j.optBoolean("owner")).putLong("ok", System.currentTimeMillis()).apply()
+                                d.dismiss(); toast("👋 Xush kelibsiz, ${j.optString("name")}"); then()
+                            }
+                            rc == -1 -> input.error = "Internet yo'q. Birinchi kirish uchun internet kerak"
+                            else -> { input.text.clear(); input.error = j?.optString("error")?.ifBlank { null } ?: "Kod noto'g'ri" }
+                        }
+                    }
+                }.start()
+            }
+        }
+        d.show()
+    }
+
+    /** Fonda tekshiradi: bloklangan bo'lsa qulflaydi; 3 kundan ortiq internetsiz bo'lsa — internet so'raydi. */
+    private fun verifyAccess() {
+        val code = xodimCode()
+        if (code.isEmpty()) return
+        Thread {
+            val (rc, j) = xodimApi(org.json.JSONObject().put("op", "check"), code)
+            main.post {
+                when {
+                    rc in 200..299 && j?.optBoolean("ok") == true -> xprefs().edit().putString("name", j.optString("name"))
+                        .putBoolean("owner", j.optBoolean("owner")).putLong("ok", System.currentTimeMillis()).apply()
+                    rc == 403 -> lockOut("🚫 Kirish bekor qilingan", "Sizning kirish kodingiz bloklangan yoki o'chirilgan. Do'kon egasiga murojaat qiling.")
+                    rc == -1 && System.currentTimeMillis() - xprefs().getLong("ok", 0) > OFFLINE_DAYS * 86_400_000L ->
+                        lockOut("🌐 Internet kerak", "Ilova $OFFLINE_DAYS kundan beri tekshirilmadi. Internetni yoqib, qayta urinib ko'ring.", keepCode = true)
+                }
+            }
+        }.start()
+    }
+
+    private fun lockOut(t: String, m: String, keepCode: Boolean = false) {
+        if (!keepCode) xprefs().edit().clear().apply()
+        cart.clear(); updateCart()
+        AlertDialog.Builder(this).setTitle(t).setMessage(m).setCancelable(false)
+            .setPositiveButton(if (keepCode) "Qayta tekshirish" else "Boshqa kod kiritish") { _, _ ->
+                if (keepCode) verifyAccess() else askCode { update(silent = true) }
+            }
+            .setNegativeButton("Chiqish") { _, _ -> finish() }.show()
+    }
+
+    // ---------------------------------------------------------------- egasi: xodimlar
+    private fun ownerMenu() {
+        AlertDialog.Builder(this).setTitle("👑 Egasi")
+            .setItems(arrayOf("👥 Xodimlar (kodlar, bloklash)", "📥 Kelgan ro'yxatlar", "🖼 Yuklangan rasmlar")) { _, w ->
+                when (w) { 0 -> xodimList(); 1 -> royxatlar(); else -> rasmlarList() }
+            }.show()
+    }
+
+    private fun showCode(name: String, code: String) {
+        val pretty = code.chunked(4).joinToString("-")
+        AlertDialog.Builder(this).setTitle("🔑 $name uchun kirish kodi")
+            .setMessage("\n$pretty\n\nBu kodni xodimga bering. Kod qayta ko'rsatilmaydi (kerak bo'lsa \"Yangi kod\" berasiz).")
+            .setPositiveButton("📋 Nusxalash") { _, _ ->
+                (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                    .setPrimaryClip(android.content.ClipData.newPlainText("kod", pretty))
+                toast("📋 Nusxalandi"); xodimList()
+            }
+            .setNegativeButton("Yopish") { _, _ -> xodimList() }.show()
+    }
+
+    private fun xodimDo(body: org.json.JSONObject, done: (org.json.JSONObject) -> Unit) {
+        val wait = AlertDialog.Builder(this).setMessage("⏳").setCancelable(false).show()
+        Thread {
+            val (rc, j) = xodimApi(body)
+            main.post {
+                wait.dismiss()
+                if (rc in 200..299 && j?.optBoolean("ok") == true) done(j)
+                else alert("Bajarilmadi", if (rc == -1) "Internet yo'q." else j?.optString("error")?.ifBlank { null } ?: "Server xatosi ($rc)")
+            }
+        }.start()
+    }
+
+    private fun xodimList() {
+        xodimDo(org.json.JSONObject().put("op", "list")) { j ->
+            val arr = j.optJSONArray("items") ?: org.json.JSONArray()
+            val items = (0 until arr.length()).map { arr.getJSONObject(it) }
+            val labels = items.map { (if (it.optBoolean("active")) "✅ " else "🚫 ") + it.optString("name") + if (it.optBoolean("active")) "" else "  (bloklangan)" }
+            AlertDialog.Builder(this).setTitle("👥 Xodimlar: ${items.count { it.optBoolean("active") }} faol / ${items.size}")
+                .setItems(labels.toTypedArray()) { _, i -> xodimMenu(items[i]) }
+                .setPositiveButton("➕ Xodim qo'shish") { _, _ -> xodimAdd() }
+                .setNegativeButton("Yopish", null).show()
+        }
+    }
+
+    private fun xodimAdd() {
+        val input = EditText(this).apply { hint = "Ismi, masalan: Bekzod"; isSingleLine = true; textSize = 20f }
+        val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+        AlertDialog.Builder(this).setTitle("➕ Yangi xodim").setView(wrap)
+            .setPositiveButton("Kod berish") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isEmpty()) { toast("Ismni yozing"); xodimAdd(); return@setPositiveButton }
+                xodimDo(org.json.JSONObject().put("op", "add").put("name", name)) { j -> showCode(name, j.optString("code")) }
+            }
+            .setNegativeButton("Bekor") { _, _ -> xodimList() }.show()
+        input.requestFocus()
+    }
+
+    private fun xodimMenu(x: org.json.JSONObject) {
+        val name = x.optString("name"); val id = x.optString("id"); val active = x.optBoolean("active")
+        AlertDialog.Builder(this).setTitle((if (active) "✅ " else "🚫 ") + name)
+            .setItems(arrayOf(if (active) "🚫 Bloklash (ilovasi qulflanadi)" else "✅ Qayta faollashtirish", "🔁 Yangi kod berish", "🗑 O'chirish")) { _, w ->
+                when (w) {
+                    0 -> xodimDo(org.json.JSONObject().put("op", if (active) "block" else "unblock").put("id", id)) {
+                        toast(if (active) "🚫 $name bloklandi" else "✅ $name faollashtirildi"); xodimList()
+                    }
+                    1 -> xodimDo(org.json.JSONObject().put("op", "reset").put("id", id)) { j -> showCode(name, j.optString("code")) }
+                    else -> AlertDialog.Builder(this).setMessage("$name o'chirilsinmi? Ilovasi qulflanadi.")
+                        .setPositiveButton("O'chirish") { _, _ ->
+                            xodimDo(org.json.JSONObject().put("op", "remove").put("id", id)) { toast("🗑 $name o'chirildi"); xodimList() }
+                        }
+                        .setNegativeButton("Yo'q") { _, _ -> xodimList() }.show()
+                }
+            }
+            .setNegativeButton("Orqaga") { _, _ -> xodimList() }.show()
+    }
+
     // ---------------------------------------------------------------- ro'yxatni egasiga yuborish
-    private fun myName() = getSharedPreferences("kassa", MODE_PRIVATE).getString("ism", "").orEmpty()
+    private fun myName() = xprefs().getString("name", "").orEmpty().ifBlank {
+        getSharedPreferences("kassa", MODE_PRIVATE).getString("ism", "").orEmpty()
+    }
 
     private fun askName(then: () -> Unit) {
         val input = EditText(this).apply { hint = "Ismingiz, masalan: Bekzod"; isSingleLine = true; textSize = 20f; setText(myName()) }
@@ -1253,6 +1422,7 @@ class MainActivity : Activity() {
         val c = URL("$KASSA_API/api/kassa/kod-royxat").openConnection() as HttpURLConnection
         c.requestMethod = method; c.connectTimeout = 15000; c.readTimeout = 30000
         c.setRequestProperty("x-app-key", appKey())
+        c.setRequestProperty("x-xodim", xodimCode())
         if (json != null) {
             c.doOutput = true; c.setRequestProperty("Content-Type", "application/json")
             c.outputStream.use { it.write(json.toByteArray()) }
@@ -1558,6 +1728,7 @@ class MainActivity : Activity() {
                 c.connectTimeout = 15000; c.readTimeout = 30000
                 c.setRequestProperty("Content-Type", "application/json")
                 c.setRequestProperty("x-app-key", key)
+                c.setRequestProperty("x-xodim", xodimCode())
                 val skus = org.json.JSONArray().apply { put(p.code); more.forEach { put(it.code) } }
                 c.outputStream.use { it.write(org.json.JSONObject().put("skus", skus).put("value", value ?: org.json.JSONObject.NULL).toString().toByteArray()) }
                 val rc = c.responseCode; c.disconnect(); rc
@@ -2090,6 +2261,7 @@ class MainActivity : Activity() {
                     c.connectTimeout = 15000; c.readTimeout = 60000
                     c.setRequestProperty("Content-Type", "image/jpeg")
                     c.setRequestProperty("x-app-key", key)
+                c.setRequestProperty("x-xodim", xodimCode())
                     c.setRequestProperty("x-sku", java.net.URLEncoder.encode(p.code.ifBlank { p.name }, "UTF-8"))
                     c.outputStream.use { it.write(bytes) }
                     val rc = c.responseCode
@@ -2225,8 +2397,8 @@ class MainActivity : Activity() {
 
     private fun rasmMenu(sku: String, p: Product?, rs: List<Rasm>, after: (Boolean) -> Unit) {
         AlertDialog.Builder(this).setTitle((p?.name ?: sku) + " · $sku")
-            .setItems(arrayOf("📤 Rasmlarni ulashish / saqlash (${rs.size} ta)", "📋 Kodni nusxalash",
-                "✅ Billz'ga qo'shildi", "🗑 Rasmlarni o'chirish")) { _, w ->
+            .setItems(arrayOf("📤 Rasmlarni ulashish / saqlash (${rs.size} ta)", "📋 Kodni nusxalash") +
+                (if (isOwner()) arrayOf("✅ Billz'ga qo'shildi", "🗑 Rasmlarni o'chirish") else emptyArray())) { _, w ->
                 when (w) {
                     0 -> shareRasmlar(rs)
                     1 -> {
@@ -2278,6 +2450,7 @@ class MainActivity : Activity() {
                 c.connectTimeout = 15000; c.readTimeout = 30000
                 c.setRequestProperty("Content-Type", "application/json")
                 c.setRequestProperty("x-app-key", key)
+                c.setRequestProperty("x-xodim", xodimCode())
                 c.outputStream.use { it.write(org.json.JSONObject().put("name", r.name).put("done", true).put("remove", remove).toString().toByteArray()) }
                 code = c.responseCode; c.disconnect()
                 if (code in 200..299) ok++ else if (code == 401) break

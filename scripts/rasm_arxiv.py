@@ -92,7 +92,7 @@ def main():
     import hashlib
     app_key = hashlib.sha256(("turfa-app:" + key).encode()).hexdigest()
     st, _ = http("POST", f"{SERVER}/api/kassa/rasm-belgi", {"name": "tekshiruv", "done": True}, {"x-app-key": app_key})
-    print("Ilova kaliti:", {400: "to'g'ri ✅", 401: "NOTO'G'RI ❌"}.get(st, f"javob {st}"))
+    print("Ilova kaliti:", {400: "to'g'ri ✅", 403: "to'g'ri ✅ (o'chirish faqat egasiga)", 401: "NOTO'G'RI ❌"}.get(st, f"javob {st}"))
     st, r = http("POST", f"{SERVER}/api/kassa/xodim", {"op": "check"}, {"x-app-key": app_key, "x-xodim": "000000"})
     print("Xodim tekshiruvi:", "ishlayapti ✅ (begona kod rad etildi)" if st == 403 else f"javob {st} ❌")
     rows = read_csv()
