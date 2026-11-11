@@ -1,0 +1,46 @@
+# TUR-FA ilovasidagi kategoriyalar.
+# Har qator:  Kategoriya nomi | kalit so'zlar (vergul bilan)
+# Bo'lim (ichki kategoriya) qatori 2 ta bo'sh joy bilan boshlanadi.
+# Tovar nomida kalit so'z bo'lsa, o'sha kategoriyaga tushadi. Tepadagisi ustun.
+# 4 harfdan uzun kalit so'z so'z boshiga ham mos keladi (svetil -> svetilnik).
+# Bo'limga tushmagan tovar "Boshqa ..." bo'limiga tushadi.
+# Bu faylni GitHub'da o'zgartirsangiz, ilovada 🔄 Yangilash bosilganda yangilanadi.
+
+🏺 Vazalar | vaza, vazalar, ваза
+  Shisha vaza | shisha, shishali, steklo, steklaniy, stekl, crystal, kristal, xrustal
+  Keramika vaza | keramika, keramik, ker
+  Chinni vaza | chinni, farfor
+  Temir vaza | temir, metal, metall, setka
+  Yog'och vaza | yogoch, taxta
+  Tilla vaza | tilla, gold
+
+🗿 Statuetkalar | statuetka, statuetkalar, figurka, maket, mushuk, kapalak
+🕰 Soatlar | soat, soatlar, budilnik, chasi
+  Devor soat | devor, napolni
+  Stol soat | nastolni, stol, elektron
+  Qum soat | qum
+🕯 Shamlar | sham, shamlar, shamdon, patsvechik, podsvechnik, shagam, hidli, aroma, fonus
+  Shamdon | shamdon, patsvechik, podsvechnik
+  Hidli sham | hidli, shagam, aroma
+💡 Svetilniklar | svetil, svitel, svitil, svet, svetilknik, svt, nochnik
+  Bolalar svetilnik | detski, detskiy
+🥂 Bakal va idishlar | bakal, sheykr, sheyker, shaker, pasuda, posuda, lanj, lanch, chashka, kruzhka, krujka, piyola, choynak, idish, likopcha, termos
+  Bakal | bakal
+  Termos | termos
+💎 Shkatulkalar | shkatulka, shkatulkalar
+🗄 Organayzerlar | organayzer, organaizer, organizer
+🪞 Oynalar | oyna, oynacha, zerkalo
+🖼 Rasm va ramkalar | ramka, ram, kartina, fotoramka
+💨 Uvlajnitel va diffuzorlar | uvlajnitel, uvlajnitell, ovlajnitel, aromadiffuzor, defuzor, diffuzor, osvejitel
+🎈 Folga va sharlar | folga, falga, shar, sharlar, ballons, babls, ballon
+💐 Gullar | gul, gullar, atirgul, tuvak, daraxt, buket, arxideya, orxideya, suniy, bansay, palma, gazon
+  Tuvakdagi gul | tuvak
+  Gul daraxt | daraxt
+🧸 O'yinchoqlar | oyinchoq, myaxkiy, ayiq, ayiqcha, disney, kukla
+🎁 Karobka va paketlar | karobka, korobka, paket, qop, upakovka
+🌍 Globuslar | globus
+🧺 Savatlar | savat, korzinka
+🎉 Bayram buyumlari | xlopushka, ferverk, feyerverk, grilyand, girlyand, heppy, happy, topper, lenta, pero, konfetti
+👜 Sumkalar | sumka, barsetka, futlyar, koshelek
+🎲 Suvenirlar | shaxmat, magnit, blaknot, bloknot, tasbex, brilog, brelok, ruchka
+✨ Dekor | dekor, décor, kema, akvarium, kamin, fantan, gramafon

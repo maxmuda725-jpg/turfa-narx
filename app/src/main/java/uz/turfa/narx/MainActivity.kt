@@ -404,6 +404,8 @@ class MainActivity : Activity() {
     // Sevimlilar (shu telefonda saqlanadi)
     private val favs = LinkedHashSet<String>()
     private var favMode = false
+    // Kategoriya: (kategoriya, bo'lim yoki null = hammasi)
+    private var catSel: Pair<String, String?>? = null
 
     private lateinit var searchScreen: View
     private lateinit var kassaScreen: View
@@ -424,6 +426,7 @@ class MainActivity : Activity() {
         all = Db.load(this)
         favs += getSharedPreferences("sevimli", MODE_PRIVATE).getStringSet("keys", emptySet()).orEmpty()
         Thread { Visual.load(applicationContext) }.start()
+        Cats.load(this)
         val root = FrameLayout(this).apply { setBackgroundColor(BG); fitsSystemWindows = true }
         searchScreen = buildSearch()
         kassaScreen = buildKassa().apply { visibility = View.GONE }
@@ -440,6 +443,7 @@ class MainActivity : Activity() {
             kassaScreen.visibility == View.VISIBLE -> showKassa(false)
             photoHits != null -> closePhoto()
             favMode -> { favMode = false; refresh() }
+            catSel != null -> { catSel = null; refresh() }
             else -> super.onBackPressed()
         }
     }
@@ -479,7 +483,9 @@ class MainActivity : Activity() {
 
         val top = topBar()
         top.addView(title("TUR-FA narxlar"), LinearLayout.LayoutParams(0, -2, 1f))
-        refreshBtn = pill("🔄 Yangilash", GREEN, Color.WHITE) { update(silent = false) }
+        refreshBtn = pill("🔄", GREEN, Color.WHITE, 18f) { update(silent = false) }
+        top.addView(pill("🗂", GREEN, Color.WHITE, 18f) { catMenu() },
+            LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
         top.addView(pill("⭐", GREEN, Color.WHITE, 18f) { toggleFavMode() },
             LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
         top.addView(refreshBtn, LinearLayout.LayoutParams(-2, dp(44)))
@@ -599,13 +605,14 @@ class MainActivity : Activity() {
                 val ci = cart.getOrPut(p.key) { CartItem(p, 0) }
                 ci.count += 1
                 rememberPhoto(p)
+                if (Search.stockRank(p) == 2 && ci.count == 1L) toast("Bazada tugagan, lekin kassaga qo'shildi")
                 updateCart(); adapter.notifyDataSetChanged()
             }, LinearLayout.LayoutParams(-2, dp(44)))
         card.addView(addRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
 
         card.setOnLongClickListener { productMenu(p); true }
 
-        if (Search.stockRank(p) == 2) card.alpha = 0.5f   // tugagan — kulrang
+        if (Search.stockRank(p) == 2) card.background = box(Color.parseColor("#E6E6E6"), 14)   // tugagan — kulrang (kassaga baribir qo'shiladi)
 
         val wrap = LinearLayout(this).apply { setPadding(dp(4), dp(5), dp(4), dp(5)) }
         wrap.addView(card, LinearLayout.LayoutParams(-1, -2))
@@ -617,6 +624,10 @@ class MainActivity : Activity() {
             text = t; textSize = 15f; typeface = Typeface.DEFAULT_BOLD
             setTextColor(if (t.startsWith("🔍")) BLUE else INK)
             setPadding(dp(12), dp(14), dp(12), dp(8))
+            if (t.startsWith("🗂")) {
+                background = box(tint(BLUE, 22), 12)
+                setOnClickListener { catSel = null; refresh() }
+            }
             if (t.startsWith("⭐")) {
                 background = box(tint(Color.parseColor("#F2A900"), 34), 12)
                 setOnClickListener { favMode = false; refresh() }
@@ -855,19 +866,34 @@ class MainActivity : Activity() {
                     code == -1 -> alert("Internet yo'q", "Billz'ga ulanib bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.")
                     code == 401 -> { prefs().edit().remove("key").apply(); alert("Kalit noto'g'ri", "Ulanish kaliti noto'g'ri. Qayta bosib, to'g'ri kalitni kiriting.") }
                     j?.optBoolean("ok") == true -> {
-                        val nf = j.optJSONArray("not_found")?.length() ?: 0
-                        val fl = j.optJSONArray("failed")?.length() ?: 0
+                        val bySku = items.associate { it.p.code.ifBlank { it.p.barcode.ifBlank { it.p.name } } to it.p.name }
+                        val nf = j.optJSONArray("not_found")
+                        val fl = j.optJSONArray("failed")
                         val msg = buildString {
                             append("Turfa kassasida qoralama tayyor.\nBillz'da: Отложенные чеки.\n\n")
                             append("Qo'shildi: ${j.optInt("added")} xil tovar")
-                            if (nf > 0) append("\n❓ Billz'da topilmadi: $nf ta")
-                            if (fl > 0) append("\n⚠️ Qo'shilmadi: $fl ta")
+                            if (nf != null && nf.length() > 0) {
+                                append("\n\n❓ Billz'da topilmadi: ${nf.length()} ta")
+                                for (i in 0 until nf.length()) { val k = nf.optString(i); append("\n• ${bySku[k] ?: k}") }
+                            }
+                            if (fl != null && fl.length() > 0) {
+                                append("\n\n⚠️ Qo'shilmadi: ${fl.length()} ta (kassir qo'lda qo'shsin)")
+                                for (i in 0 until fl.length()) {
+                                    val o = fl.optJSONObject(i) ?: continue
+                                    val k = o.optString("sku")
+                                    append("\n• ${bySku[k] ?: k} — ${o.optString("error")}")
+                                }
+                            }
                         }
                         AlertDialog.Builder(this).setTitle("✅ Billz'ga yuborildi").setMessage(msg)
                             .setPositiveButton("Kassani tozalash") { _, _ -> cart.clear(); updateCart() }
                             .setNegativeButton("Qoldirish", null).show()
                     }
-                    else -> alert("Yuborilmadi", j?.optString("error")?.ifBlank { null } ?: "Server xatosi ($code). Keyinroq urinib ko'ring.")
+                    else -> {
+                        val err = j?.optString("error")?.ifBlank { null } ?: "Server xatosi ($code). Keyinroq urinib ko'ring."
+                        val hint = if (err.contains("qo'shilmadi")) "\n\nEhtimol bu tovarlar Billz'da Turfa omborida yo'q (tugagan). Billz sozlamalarida minusga sotishga ruxsat bo'lmasa, Billz qabul qilmaydi. Kassir tovarni Billz'ning o'zida qo'shsin." else ""
+                        alert("Yuborilmadi", err + hint)
+                    }
                 }
             }
         }.start()
@@ -1011,7 +1037,7 @@ class MainActivity : Activity() {
             main.post {
                 wait.dismiss()
                 res.onSuccess { (v, hits) ->
-                    photoVec = v; photoHits = hits; photoLearned.clear(); favMode = false
+                    photoVec = v; photoHits = hits; photoLearned.clear(); favMode = false; catSel = null
                     hideKb(search)
                     if (search.text.isNotEmpty()) search.setText("")
                     refresh()
@@ -1023,6 +1049,35 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    // ---------------------------------------------------------------- kategoriyalar
+    private fun catMenu() {
+        val groups = all.groupBy { Cats.of(it) }
+        fun count(c: String, sub: String? = null) =
+            groups.entries.sumOf { (k, v) -> if (k.first == c && (sub == null || k.second == sub)) v.size else 0 }
+        val order = Cats.order().filter { count(it.first) > 0 }
+        if (order.isEmpty()) { toast("Kategoriyalar yuklanmagan. 🔄 ni bosing"); return }
+        AlertDialog.Builder(this).setTitle("🗂 Kategoriyalar")
+            .setItems(order.map { "${it.first}  (${count(it.first)})" }.toTypedArray()) { _, i ->
+                val (c, subs) = order[i]
+                val present = subs.filter { count(c, it) > 0 }
+                if (present.isEmpty()) openCat(c, null)
+                else {
+                    val labels = listOf("Hammasi  (${count(c)})") + present.map { "$it  (${count(c, it)})" }
+                    AlertDialog.Builder(this).setTitle(c)
+                        .setItems(labels.toTypedArray()) { _, j -> openCat(c, if (j == 0) null else present[j - 1]) }
+                        .show()
+                }
+            }.show()
+    }
+
+    private fun openCat(c: String, sub: String?) {
+        catSel = c to sub
+        favMode = false; photoHits = null; photoVec = null
+        hideKb(search)
+        if (search.text.isNotEmpty()) search.setText("")
+        refresh()
+    }
+
     // ---------------------------------------------------------------- sevimlilar
     private fun toggleFav(p: Product) {
         if (!favs.remove(p.key)) { favs += p.key; toast("⭐ Sevimlilarga qo'shildi") }
@@ -1032,7 +1087,7 @@ class MainActivity : Activity() {
 
     private fun toggleFavMode() {
         favMode = !favMode
-        if (favMode) { photoHits = null; photoVec = null }
+        if (favMode) { photoHits = null; photoVec = null; catSel = null }
         hideKb(search)
         refresh()
     }
@@ -1287,6 +1342,20 @@ class MainActivity : Activity() {
             adapter.notifyDataSetChanged()
             return
         }
+        catSel?.let { (c, sub) ->
+            val list = all.filter { p -> Cats.of(p).let { it.first == c && (sub == null || it.second == sub) } }
+                .sortedWith(compareBy<Product>({ Search.stockRank(it) }, { it.nameLower }))
+            val res = if (q.isBlank()) list else Search.run(list, q)
+            val title = if (sub == null) c else "$c › $sub"
+            shown = listOf<Any>("🗂 $title: ${res.size} ta   ✕ yopish") + res
+            info.text = when {
+                q.isBlank() -> "Kategoriya ichidan qidirish uchun yozing"
+                res.isEmpty() -> "Bu kategoriyada topilmadi: \"${q.trim()}\""
+                else -> "Kategoriya ichida topildi: ${res.size} ta"
+            }
+            adapter.notifyDataSetChanged()
+            return
+        }
         if (favMode) {
             val byKey = all.associateBy { it.key }
             val list = favs.mapNotNull { byKey[it] }.reversed()   // oxirgi qo'shilgani tepada
@@ -1330,13 +1399,14 @@ class MainActivity : Activity() {
     private fun update(silent: Boolean) {
         if (busy) return
         busy = true
-        refreshBtn.text = "⏳ Yuklanmoqda"; refreshBtn.isEnabled = false
+        refreshBtn.text = "⏳"; refreshBtn.isEnabled = false
         Thread {
             val res = try { Result.success(Db.download(this)) } catch (e: Exception) { Result.failure(e) }
             try { Visual.download(applicationContext) } catch (_: Exception) {}
+            try { Cats.download(applicationContext) } catch (_: Exception) {}
             main.post {
                 busy = false
-                refreshBtn.text = "🔄 Yangilash"; refreshBtn.isEnabled = true
+                refreshBtn.text = "🔄"; refreshBtn.isEnabled = true
                 res.onSuccess {
                     all = Db.load(this); codeIndex = null
                     // Kassadagi mahsulotlar yangi narxga o'tadi
