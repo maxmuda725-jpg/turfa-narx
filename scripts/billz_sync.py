@@ -71,6 +71,8 @@ def main():
     for n, c in cc.most_common(40): print(f"  {c:5d}  {n or '(yo`q)'}")
 
     upl = uploaded_photos()
+    skus = {(p.get("sku") or "").strip() for p in products}
+    upl_codes = {k.lower(): v for k, v in upl.items() if k not in skus}   # bazada SKU emas — do'kon kodi
     rows = []
     for p in products:
         prices = p.get("shop_prices") or []
@@ -86,7 +88,12 @@ def main():
         ph = sorted(p.get("photos") or [], key=lambda x: (not x.get("is_main"), x.get("sequence") or 0))
         cands = [p.get("main_image_url_full"), *[x.get("photo_url") for x in ph], p.get("main_image_url")]
         urls = list(dict.fromkeys(str(c) for c in cands if c and str(c).startswith("http")))[:5]
-        urls += [u for u in upl.get((p.get("sku") or "").strip(), []) if u not in urls][-6:]   # ilovadan yuklanganlar
+        # ilovadan yuklanganlar: Billz SKU bo'yicha, yoki "🏷 Kod chiqarish"da yozilgan do'kon kodi (43-39) bo'yicha
+        mine = list(upl.get((p.get("sku") or "").strip(), []))
+        for t in set(re.split(r"[\s,;/|()\[\]{}\"']+", (p.get("name") or "").lower())):
+            if any(ch.isdigit() for ch in t) and t in upl_codes:
+                mine += upl_codes[t]
+        urls += [u for u in mine if u not in urls][-6:]
         photo = urls[0] if urls else ""
         extra = " ".join(urls[1:11])   # qo'shimcha rasmlar (rasm orqali qidirish uchun)
         if not photo and any(cands) and not globals().get("_shown"):

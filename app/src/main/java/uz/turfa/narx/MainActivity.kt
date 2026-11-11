@@ -406,6 +406,7 @@ class MainActivity : Activity() {
     private val REQ_UP_GAL = 77
     private var upProduct: Product? = null
     private var upPending: File? = null
+    private var upDone: ((Int) -> Unit)? = null   // kod ro'yxatidan kelinganda: yuklangach shu chaqiriladi
     private val upFiles = ArrayList<File>()
     // Sevimlilar (shu telefonda saqlanadi)
     private val favs = LinkedHashSet<String>()
@@ -495,6 +496,8 @@ class MainActivity : Activity() {
         top.addView(title("TUR-FA narxlar"), LinearLayout.LayoutParams(0, -2, 1f))
         refreshBtn = pill("🔄", GREEN, Color.WHITE, 18f) { update(silent = false); checkAppUpdate(silent = true) }
             .apply { setOnLongClickListener { checkAppUpdate(silent = false); true } }
+        top.addView(pill("🏷", GREEN, Color.WHITE, 18f) { kodList() },
+            LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
         top.addView(pill("🗂", GREEN, Color.WHITE, 18f) { catMenu() },
             LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(6) })
         top.addView(pill("⭐", GREEN, Color.WHITE, 18f) { toggleFavMode() },
@@ -1095,6 +1098,129 @@ class MainActivity : Activity() {
             }.show()
     }
 
+    // ---------------------------------------------------------------- 🏷 kod chiqarish ro'yxati (shu telefonda)
+    private class KodItem(val code: String, var name: String, val sku: String, var qty: Long, var photos: Int)
+
+    private fun kodLoad(): MutableList<KodItem> {
+        val out = ArrayList<KodItem>()
+        try {
+            val a = org.json.JSONArray(getSharedPreferences("kod", MODE_PRIVATE).getString("list", "[]"))
+            for (i in 0 until a.length()) a.getJSONObject(i).let {
+                out += KodItem(it.optString("code"), it.optString("name"), it.optString("sku"), it.optLong("qty", 1), it.optInt("photos"))
+            }
+        } catch (_: Exception) {}
+        return out
+    }
+
+    private fun kodSave(list: List<KodItem>) {
+        val a = org.json.JSONArray()
+        for (k in list) a.put(org.json.JSONObject().put("code", k.code).put("name", k.name).put("sku", k.sku).put("qty", k.qty).put("photos", k.photos))
+        getSharedPreferences("kod", MODE_PRIVATE).edit().putString("list", a.toString()).apply()
+    }
+
+    private fun kodList() {
+        val list = kodLoad()
+        val total = list.sumOf { it.qty }
+        val labels = ArrayList<String>()
+        labels += "➕ Kod qo'shish"
+        for (k in list) labels += "${k.code} — ${group(k.qty)} ta" + (if (k.photos > 0) "  📷${k.photos}" else "") +
+            "\n   " + (k.name.ifBlank { "bazada yo'q" })
+        if (list.isNotEmpty()) { labels += "📋 Ro'yxatni nusxalash (matn)"; labels += "🗑 Ro'yxatni tozalash" }
+        AlertDialog.Builder(this).setTitle("🏷 Kod chiqarish: ${list.size} ta kod, ${group(total)} ta")
+            .setItems(labels.toTypedArray()) { _, i ->
+                when {
+                    i == 0 -> kodAdd()
+                    i <= list.size -> kodItemMenu(list, i - 1)
+                    i == list.size + 1 -> {
+                        val text = list.joinToString("\n") { "${it.code} — ${it.qty} ta" + if (it.name.isNotBlank()) " (${it.name})" else "" }
+                        (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                            .setPrimaryClip(android.content.ClipData.newPlainText("kodlar", text))
+                        toast("📋 Nusxalandi: ${list.size} ta kod"); kodList()
+                    }
+                    else -> AlertDialog.Builder(this).setMessage("Ro'yxat tozalansinmi? (${list.size} ta kod)\nRasmlar o'chmaydi.")
+                        .setPositiveButton("Tozalash") { _, _ -> kodSave(emptyList()); toast("🗑 Tozalandi") }
+                        .setNegativeButton("Yo'q") { _, _ -> kodList() }.show()
+                }
+            }
+            .setNegativeButton("Yopish", null).show()
+    }
+
+    private fun kodAdd() {
+        val code = EditText(this).apply {
+            hint = "Kod: 43-39"; isSingleLine = true; textSize = 20f
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        val qty = EditText(this).apply { hint = "Soni"; inputType = InputType.TYPE_CLASS_NUMBER; textSize = 20f; setText("1") }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(8), dp(24), 0)
+            addView(code, -1, -2); addView(qty, -1, -2)
+        }
+        AlertDialog.Builder(this).setTitle("🏷 Kod va soni").setView(box)
+            .setPositiveButton("Saqlash") { _, _ ->
+                val c = code.text.toString().trim()
+                val n = qty.text.toString().toLongOrNull()?.takeIf { it > 0 } ?: 1
+                if (c.isEmpty()) { toast("Kodni yozing"); kodAdd(); return@setPositiveButton }
+                // Bazadan aniq kod bo'yicha (4339 -> 43-39 ham)
+                val canon = Search.canonical(all, c)
+                val found = Search.run(all, c).filter { p -> p.tokens.contains(canon.lowercase()) || p.code.equals(c, true) }
+                    .ifEmpty { Search.run(all, c) }.take(20)
+                fun save(p: Product?) {
+                    val list = kodLoad()
+                    val shown = if (canon.isNotBlank()) canon else c
+                    list += KodItem(shown, p?.name.orEmpty(), p?.code.orEmpty(), n, 0)
+                    kodSave(list)
+                    AlertDialog.Builder(this).setTitle("✅ Saqlandi: $shown — $n ta")
+                        .setItems(arrayOf("📷 Hozir rasmga olish", "➕ Yana kod qo'shish", "🏷 Ro'yxatni ko'rish")) { _, w ->
+                            when (w) { 0 -> kodPhoto(list.size - 1); 1 -> kodAdd(); else -> kodList() }
+                        }.show()
+                }
+                when {
+                    found.size == 1 -> save(found[0])
+                    found.isEmpty() -> save(null)
+                    else -> AlertDialog.Builder(this).setTitle("Qaysi tovar? ($c)")
+                        .setItems((found.map { "${it.name}\n${it.code}" } + "Bazada yo'q — faqat kod").toTypedArray()) { _, i ->
+                            save(found.getOrNull(i))
+                        }.show()
+                }
+            }
+            .setNegativeButton("Bekor") { _, _ -> kodList() }.show()
+        code.requestFocus()
+    }
+
+    private fun kodItemMenu(list: MutableList<KodItem>, i: Int) {
+        val k = list[i]
+        AlertDialog.Builder(this).setTitle("${k.code} — ${group(k.qty)} ta" + if (k.name.isNotBlank()) "\n${k.name}" else "")
+            .setItems(arrayOf("📷 Rasmga olish (hamma telefonga)", "✏️ Sonini o'zgartirish", "❌ Ro'yxatdan olib tashlash")) { _, w ->
+                when (w) {
+                    0 -> kodPhoto(i)
+                    1 -> {
+                        val input = EditText(this).apply { inputType = InputType.TYPE_CLASS_NUMBER; textSize = 24f; setText(k.qty.toString()); selectAll() }
+                        val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+                        AlertDialog.Builder(this).setTitle("Soni: ${k.code}").setView(wrap)
+                            .setPositiveButton("OK") { _, _ ->
+                                input.text.toString().toLongOrNull()?.takeIf { it > 0 }?.let { k.qty = it; kodSave(list) }
+                                kodList()
+                            }.setNegativeButton("Bekor") { _, _ -> kodList() }.show()
+                    }
+                    else -> { list.removeAt(i); kodSave(list); kodList() }
+                }
+            }
+            .setNegativeButton("Orqaga") { _, _ -> kodList() }.show()
+    }
+
+    /** Ro'yxatdagi kod uchun rasm: bazadagi tovarga, bo'lmasa kodning o'ziga yuklanadi. */
+    private fun kodPhoto(i: Int) {
+        val k = kodLoad().getOrNull(i) ?: return
+        val p = (if (k.sku.isNotBlank()) all.firstOrNull { it.code == k.sku } else null)
+            ?: Product(name = k.name.ifBlank { "Yangi kod ${k.code}" }, code = k.sku.ifBlank { k.code }, barcode = "", dona = "", optom = "", qty = "")
+        upDone = { n ->
+            val list = kodLoad()
+            list.getOrNull(i)?.let { it.photos += n; kodSave(list) }
+            kodList()
+        }
+        uploadFor(p)
+    }
+
     // ---------------------------------------------------------------- kategoriyani qo'lda almashtirish
     private fun changeCat(p: Product) {
         if (p.code.isBlank()) { toast("Bu tovarning kodi yo'q"); return }
@@ -1574,7 +1700,10 @@ class MainActivity : Activity() {
                     else -> { upFiles.clear(); uploadDialog() }
                 }
             }
-            .setNegativeButton("Bekor") { _, _ -> upFiles.clear(); upProduct = null }
+            .setNegativeButton("Bekor") { _, _ ->
+                upFiles.clear(); upProduct = null
+                val back = upDone; upDone = null; back?.invoke(0)
+            }
             .show()
     }
 
@@ -1676,7 +1805,11 @@ class MainActivity : Activity() {
                     if (ok > 0) append("\n\nBu telefonda darrov ishlaydi. Boshqa telefonlarda taxminan 1 soatda (🔄 bosilganda) ko'rinadi.")
                 }
                 AlertDialog.Builder(this).setTitle(if (ok == files.size) "✅ Tayyor" else "Yuklash").setMessage(msg)
-                    .setPositiveButton("Boshqa tovar") { _, _ -> upProduct = null; upFiles.clear(); uploadStart() }
+                    .setPositiveButton(if (upDone != null) "🏷 Ro'yxatga qaytish" else "Boshqa tovar") { _, _ ->
+                        upProduct = null; upFiles.clear()
+                        val back = upDone; upDone = null
+                        if (back != null) back(ok) else uploadStart()
+                    }
                     .setNegativeButton(if (upFiles.isEmpty()) "Yopish" else "Qayta urinish") { _, _ ->
                         if (upFiles.isEmpty()) upProduct = null else uploadDialog()
                     }.show()
