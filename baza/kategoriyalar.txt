@@ -3,10 +3,12 @@
 # Bo'lim (ichki kategoriya) qatori 2 ta bo'sh joy bilan boshlanadi.
 # Tovar nomida kalit so'z bo'lsa, o'sha kategoriyaga tushadi. Tepadagisi ustun.
 # 4 harfdan uzun kalit so'z so'z boshiga ham mos keladi (svetil -> svetilnik).
-# Bo'limga tushmagan tovar "Boshqa ..." bo'limiga tushadi.
+# ~ bilan boshlangan kalit so'z "kuchsiz": faqat boshqa hech qaysi kategoriyaning
+#   oddiy kalit so'zi topilmasa ishlaydi (masalan "~ot": "Ot soat" -> Soatlar, "Ot 50-25" -> Statuetkalar).
+# Bo'limga tushmagan tovar "Boshqalar" bo'limiga tushadi.
 # Bu faylni GitHub'da o'zgartirsangiz, ilovada 🔄 Yangilash bosilganda yangilanadi.
 
-🏺 Vazalar | vaza, vazalar, ваза
+🏺 Vazalar | vaza, vazalar, ваза, guldon, ~keramika, ~chinni
   Shisha vaza | shisha, shishali, steklo, steklaniy, stekl, crystal, kristal, xrustal
   Keramika vaza | keramika, keramik, ker
   Chinni vaza | chinni, farfor
@@ -14,45 +16,83 @@
   Yog'och vaza | yogoch, taxta
   Tilla vaza | tilla, gold
 
-🔐 Seyflar | seyf, seyflar, сейф
-  Bolalar seyf | detski, detskiy
+🔐 Seyflar | seyf, seyflar, sef, сейф
+  Bolalar seyf | detski, detskiy, detiski
   Kitob seyf | kitob
   Temir seyf | temir
-🗿 Statuetkalar | statuetka, statuetkalar, figurka, maket, mushuk, kapalak
-🕰 Soatlar | soat, soatlar, budilnik, chasi
-  Devor soat | devor, napolni
+🐷 Kapilkalar | kapilka, kopilka, kpailka, копилка
+🗿 Statuetkalar | statuetka, statuetkalar, figurka, maket, xaykal, xaykalcha, haykal, ~mushuk, ~kapalak, ~kapalek, ~ot, ~otlar, ~sher, ~yolbars, ~maymun, ~ilon, ~fil, ~tuya, ~kabutar, ~qush, ~tovus, ~flamengo, ~flamingo, ~buqa, ~quyon, ~aravacha, ~motosikl, ~velosiped, ~samalyot, ~samolyot, ~vertalyot, ~moshina, ~bino, ~minora, ~burj, ~odamcha, ~odamchalar, ~askar, ~femida, ~napalyon, ~kosmonavt, ~kasmanaft, ~yakkashox, ~baliq, ~riba, ~panda, ~ekskovator, ~qozichoq, ~jirafa, ~leopard
+🕰 Soatlar | soat, soatlar, budilnik, chasi, mayatnik, fajr, fajir, alfajr, zuhr
+  Azon soat | fajr, fajir, alfajr, zuhr, azon, salah
+  Devor soat | devor, devoriy, napolni
   Stol soat | nastolni, stol, elektron
   Qum soat | qum
-🕯 Shamlar | sham, shamlar, shamdon, patsvechik, podsvechnik, shagam, hidli, aroma, fonus
-  Shamdon | shamdon, patsvechik, podsvechnik
+🕌 Islomiy buyumlar | islomiy, joynamoz, quron, kuron, tasbeh, tasbex, itasbeh, zikr, izikr, zikring, iqibla, qibla, misvok, duolar, duo, sajda, namoz, ~umra, lavh, lavhx, sedana, mushk, zamzam, xusnixat, sahoba, sahobiy, paygambar, paygambarlar, chaxoryorlar, olloh, allah, muxammad, muhammad, oyatlik, ~oyat, ~kitob, ~kitobcha, ~kaba, ~makka, ~madina
+  Joynamoz | joynamoz, sajda, namoz, umra
+  Qur'on va kitoblar | quron, kuron, kitob, kitobcha, duolar, sahoba, sahobiy, paygambar, paygambarlar, xusnixat, islomiy
+  Tasbeh va zikr | tasbeh, tasbex, itasbeh, zikr, izikr, zikring
+  Lavh va oyatlar | lavh, lavhx, oyat, oyatlik, olloh, allah, muxammad, muhammad, kaba, makka, madina
+🕯 Shamlar | sham, shamlar, shamdon, patsvechik, potsvechnik, potsvechni, podsvechnik, podsvetchik, shagam, hidli, aroma, fonus, candles, candless, candle
+  Tort shami | party, tort, raqam, nomer, raketa
+  Shamdon | shamdon, patsvechik, potsvechnik, potsvechni, podsvechnik, podsvetchik
+  LED sham | led, batare, elektron, candles, candless, candle
   Hidli sham | hidli, shagam, aroma
-💡 Svetilniklar | svetil, svitel, svitil, svet, svetilknik, svt, nochnik
-  Bolalar svetilnik | detski, detskiy
-🥂 Bakal va idishlar | bakal, sheykr, sheyker, shaker, pasuda, posuda, lanj, lanch, chashka, kruzhka, krujka, piyola, choynak, idish, likopcha, termos
-  Bakal | bakal
+💡 Svetilniklar | svetil, svitel, svitil, svet, svetilknik, svetelnik, svt, nochnik, nachnik, lampa, lamp, selekon, selelkon, proyektor, ~chiroq, ~led, ~disko, ~disco
+  Bolalar svetilnik | detski, detskiy, detskie
+  Stol lampa | lampa, lamp, nastolni, nastolniy, stol
+🥂 Bakal va idishlar | bakal, bokal, bakl, sheykr, sheyker, shaker, pasuda, posuda, lanj, lanch, lunch, chashka, kruzhka, krujka, piyola, choynak, idish, likopcha, termos, tarelka, tovoq, kosa, stakan, kampotnitsa, chachala, piknik, ~salfetnitsa, ~blender, ~bonka
+  Bakal | bakal, bokal, bakl
   Termos | termos
-💎 Shkatulkalar | shkatulka, shkatulkalar
-🗄 Organayzerlar | organayzer, organaizer, organizer
+  Sheyker | sheykr, sheyker, shaker
+  Lanch box | lanj, lanch, lunch
+  Tarelka va tovoq | tarelka, tovoq, kosa, likopcha
+  Piknik nabor | piknik
+💎 Shkatulkalar | shkatulka, shkatulkalar, skatulka, shaktulka, shakt
+🗄 Organayzerlar | organayzer, organaizer, organizer, organyzer, organezir, ogranayzer, ~ofis, ~offis, ~offic
   Kiyim organayzer | kiyim, odejda
-  Erkaklar organayzer | muj, mujskoy, mujskoy, erkak, erkaklar
+  Erkaklar organayzer | muj, mujskoy, erkak, erkaklar
   Ayollar organayzer | jenski, jenskiy, ayol, ayollar, qizlar
   Bolalar organayzer | detskiy, detski, yosh, bolalar
   Kosmetika organayzer | kosmetika, kosmetik
-  Qalamdon / ofis | qalamdon, ofis, offis
+  Qalamdon / ofis | qalamdon, ofis, offis, offic
   Velosiped organayzer | velik, velo, velosiped
   English Home | english
 🪞 Oynalar | oyna, oynacha, zerkalo
-🖼 Rasm va ramkalar | ramka, ram, kartina, fotoramka
-💨 Uvlajnitel va diffuzorlar | uvlajnitel, uvlajnitell, ovlajnitel, aromadiffuzor, defuzor, diffuzor, osvejitel
-🎈 Folga va sharlar | folga, falga, shar, sharlar, ballons, babls, ballon
-💐 Gullar | gul, gullar, atirgul, tuvak, daraxt, buket, arxideya, orxideya, suniy, bansay, palma, gazon
+🖼 Rasm va ramkalar | ramka, ram, kartina, kartinka, kartna, fotoramka, baget, akrel, akril, laminat, laminar, xitich, ~hitech, ~xitech, ~haytec
+💨 Uvlajnitel va diffuzorlar | uvlajnitel, uvlajnitell, ovlajnitel, aromadiffuzor, defuzor, diffuzor, diffuser, difusser, osvejitel, osvijitel, asvijitel
+  Avto osvijitel | moshina, moshinaga, moshinalarga, mashina, mashinaga, car, velik
+  Uvlajnitel | uvlajnitel, uvlajnitell, ovlajnitel
+  Diffuzor | aromadiffuzor, defuzor, diffuzor, diffuser, difusser
+  Osvijitel | osvejitel, osvijitel, asvijitel
+🐠 Akvariumlar | akvarium, akvarum, аквариум
+🎈 Folga va sharlar | folga, falga, shar, sharlar, ballons, babls, ballon, balon, geliy, dyum, dyumli, inch, son, ~nasos
+💐 Gullar | gul, gullar, atirgul, tuvak, daraxt, daraht, buket, arxideya, orxideya, suniy, bansay, bonsay, palma, gazon, kaktus, lola, lilya, liliya, xrizantem, gartenza, magnoliya, sakura, lavanda, efkalif, chim, moh, somon, reshotka, vetka, vetkali, novda, barg, bargli, bargi, ~pat, ~zelen, ~meva, ~mevalar, ~olma, ~anor, ~limon, ~qulupnay, ~qulpunay, ~shaftoli, ~mandarin, ~tarvuz, ~qovun, ~sabzavot, ~karam, ~oshqovoq, ~bugdoy, ~tomir, ~soil
   Tuvakdagi gul | tuvak
-  Gul daraxt | daraxt
-🧸 O'yinchoqlar | oyinchoq, myaxkiy, ayiq, ayiqcha, disney, kukla
-🎁 Karobka va paketlar | karobka, korobka, paket, qop, upakovka
+  Gul daraxt | daraxt, daraht, bansay, bonsay, palma
+  Barg va ko'kat | barg, bargli, bargi, chim, moh, gazon, somon, bugdoy, tomir, reshotka
+  Sun'iy meva | meva, mevalar, olma, anor, limon, qulupnay, qulpunay, shaftoli, mandarin, tarvuz, qovun, sabzavot, oshqovoq
+🧸 O'yinchoqlar | oyinchoq, uyinchoq, oyincho, uynchoq, igrushka, myaxkiy, myaxki, myakxiy, yumshoq, ayiq, ayiqcha, disney, kukla, labubu, kuromi, kapibara, kapybara, dinazavr, dinozavr, purjina, kubik, ~stich, ~multik, ~itcha, ~urdak, ~ordak
+🎁 Karobka va paketlar | karobka, korobka, paket, qop, upakovka, ip, iplar, iplik
 🌍 Globuslar | globus
-🧺 Savatlar | savat, korzinka
-🎉 Bayram buyumlari | xlopushka, ferverk, feyerverk, grilyand, girlyand, heppy, happy, topper, lenta, pero, konfetti
-👜 Sumkalar | sumka, barsetka, futlyar, koshelek
-🎲 Suvenirlar | shaxmat, magnit, blaknot, bloknot, tasbex, brilog, brelok, ruchka
-✨ Dekor | dekor, décor, kema, akvarium, kamin, fantan, gramafon
+🧺 Savatlar | savat, savatcha, korzinka
+🎉 Bayram buyumlari | xlopushka, xlopsuhka, xlopuska, ferverk, feyerverk, fervet, grilyand, girlyand, grlyand, grliyand, grlyan, garland, heppy, happy, birthday, topper, lenta, konfetti, party, banner, flags, karona, korona, ponpon, lipistok, tugilgan, tugulgan, qorbobo, hayit, muborak, gendr, fantan, tutun, aparat, oparat, kupik, babil, dojdik, fosfor, ~shapka, ~raqam, ~yil
+  Effekt apparatlar | aparat, oparat, fantan, tutun, kupik, babil, dojdik, fervet
+  Girlyandlar | grilyand, girlyand, grlyand, grliyand, grlyan, garland
+  Xlopushka va feyerverk | xlopushka, xlopsuhka, xlopuska, ferverk, feyerverk, konfetti
+  Topper | topper
+  Happy Birthday | happy, heppy, birthday, tugilgan, tugulgan
+  Lenta | lenta
+🥤 Ichimliklar | cola, coca, pepsi, fanta, sprite, family, flavis, flash, moxito, mojito, adrenalin, gorilla, chernogolovka, elevia, endless, tea, fire, energy, drink
+👜 Sumkalar | sumka, barsetka, futlyar, futlar, fut, koshelek
+✨ Dekor | dekor, décor, decor, dekorativ, dekorativni, dekorative, kamin, pechka, gramafon, grammafon, kema, parda, ~gitara
+  Kamin | kamin, pechka
+  Gramafon | gramafon, grammafon
+  Kema | kema
+  Parda | parda
+🎲 Suvenirlar | shaxmat, shahmat, magnit, blaknot, bloknot, kundalik, pero, brilog, brilok, brelok, ruchka, suviner, suvenir, suvinir, suvimer, suvinerlar, antistress, antistres, kubok, qilich, qilinch, samuray, zulfiqor, gerb, ~mobil, ~mobilniy, ~ballans, ~balans, ~butsa, ~tanga, ~dollr, ~bolta, ~qulqop
+  Brelok | brilog, brilok, brelok
+  Magnit | magnit
+  Bloknot va ruchka | blaknot, bloknot, ruchka, kundalik, pero
+  Shaxmat | shaxmat, shahmat
+  Qilich | qilich, qilinch, samuray, zulfiqor
+🎧 Gadjetlar | kalonka, kolonka, gadjet, powerbank, fleshka, ventilyator, ventlyatr, ~telefon

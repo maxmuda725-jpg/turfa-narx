@@ -1,7 +1,7 @@
 """Har tovarga "aqlli" kategoriya: baza/products.csv ga "kategoriya" ustuni ("Kategoriya|Bo'lim").
 
 Tartib (birinchi topilgani):
- 1. Kalit so'z (baza/kategoriyalar.txt) — bo'lim aniq bo'lsa
+ 1. Kalit so'z (baza/kategoriyalar.txt): avval oddiy, keyin kuchsiz (~) — bo'lim aniq bo'lsa
  2. Seriya: bir seriyadagi (43-39 -> "43") boshqa tovarlarning ko'pchiligi qaysi bo'limda bo'lsa (sinovda ~97%)
  3. Rasm: eng o'xshash rasmli tovarning bo'limi (o'xshashlik >= 0.70, sinovda ~97%)
  4. Kategoriyasiz tovar ham seriyasi/rasmi orqali kategoriya oladi
@@ -24,10 +24,12 @@ def load_cats():
             continue
         name, kws = t.split("|", 1)
         kws = [APOS.sub("", k.strip().lower()) for k in kws.split(",") if k.strip()]
+        strong = [k for k in kws if not k.startswith("~")]
+        weak = [k[1:] for k in kws if k.startswith("~") and len(k) > 1]
         if line[:1] in (" ", "\t"):
-            if cats: cats[-1][2].append((name.strip(), kws))
+            if cats: cats[-1][3].append((name.strip(), strong + weak))
         else:
-            cats.append((name.strip(), kws, []))
+            cats.append((name.strip(), strong, weak, []))
     return cats
 
 
@@ -37,13 +39,15 @@ def hit(ws, kws):
 
 def auto(cats, name):
     ws = WORD.findall(APOS.sub("", name.lower()))
-    for c, kws, subs in cats:
-        if hit(ws, kws):
-            if not subs:
-                return c, None, True
-            sub = next((sn for sn, sk in subs if hit(ws, sk)), None)
-            return c, (sub or OTHER_SUB), sub is not None
-    return OTHER, None, False
+    # avval oddiy kalit so'zlar, hech biri topilmasa — kuchsiz (~) kalit so'zlar
+    for weak in (False, True):
+        for c, strong, wk, subs in cats:
+            if hit(ws, wk if weak else strong):
+                if not subs:
+                    return c, None, True, weak
+                sub = next((sn for sn, sk in subs if hit(ws, sk)), None)
+                return c, (sub or OTHER_SUB), sub is not None, weak
+    return OTHER, None, False, False
 
 
 def series(name):
@@ -90,10 +94,10 @@ def main():
             r.append("")
 
     cats = load_cats()
-    cat, sub, sure = [], [], []
+    cat, sub, sure, weak = [], [], [], []
     for r in body:
-        c, s, ok = auto(cats, r[iN])
-        cat.append(c); sub.append(s); sure.append(ok)
+        c, s, ok, wk = auto(cats, r[iN])
+        cat.append(c); sub.append(s); sure.append(ok); weak.append(wk)
     stats = collections.Counter()
 
     # 2) seriya: bo'lim (shu kategoriya ichida) va kategoriya (kategoriyasizlar uchun)
@@ -106,13 +110,14 @@ def main():
     for i, s in enumerate(ser):
         if not s:
             continue
-        if cat[i] == OTHER:
-            mates = [cat[j] for j in by_s[s] if j != i and cat[j] != OTHER]
+        # kategoriyasiz yoki faqat kuchsiz (~) so'z bilan topilgan — seriya ko'pchiligi ustun
+        if cat[i] == OTHER or weak[i]:
+            mates = [cat[j] for j in by_s[s] if j != i and cat[j] != OTHER and not weak[j]]
             if len(mates) >= 3:
                 top, n = collections.Counter(mates).most_common(1)[0]
-                if n / len(mates) >= 0.8:
-                    cat[i] = top; stats["seriya: kategoriya"] += 1
-                    c, s2, ok = next(((c, OTHER_SUB if subs else None, False) for c, kws, subs in cats if c == top), (top, None, False))
+                if n / len(mates) >= 0.8 and top != cat[i]:
+                    cat[i] = top; weak[i] = False; sure[i] = False; stats["seriya: kategoriya"] += 1
+                    c, s2, ok = next(((c, OTHER_SUB if subs else None, False) for c, _st, _wk, subs in cats if c == top), (top, None, False))
                     sub[i] = s2
         if sub[i] == OTHER_SUB:
             mates = [sub[j] for j in by_cs[(cat[i], s)] if j != i and sure[j] and sub[j] not in (None, OTHER_SUB)]
@@ -130,7 +135,7 @@ def main():
         S = V @ V.T
         np.fill_diagonal(S, -1)
         for a, i in enumerate(vi):
-            if i is None or not (cat[i] == OTHER or sub[i] == OTHER_SUB):
+            if i is None or not (cat[i] == OTHER or weak[i] or sub[i] == OTHER_SUB):
                 continue
             for b in np.argsort(-S[a])[:5]:
                 j = vi[b]
@@ -138,8 +143,12 @@ def main():
                     break
                 if j is None or j == i:
                     continue
-                if cat[i] == OTHER and cat[j] != OTHER:
+                if (cat[i] == OTHER or weak[i]) and cat[j] != OTHER and not weak[j]:
+                    if cat[i] == cat[j]:
+                        weak[i] = False
+                        continue
                     cat[i], sub[i] = cat[j], (sub[j] if sure[j] else (OTHER_SUB if sub[j] else None))
+                    weak[i] = False; sure[i] = False
                     stats["rasm: kategoriya"] += 1
                     break
                 if cat[i] == cat[j] and sure[j] and sub[j] not in (None, OTHER_SUB) and sub[i] == OTHER_SUB:

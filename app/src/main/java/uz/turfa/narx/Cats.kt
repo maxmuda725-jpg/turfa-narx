@@ -16,7 +16,8 @@ object Cats {
     const val OTHER_SUB = "Boshqalar"
 
     class Sub(val name: String, val kws: List<String>)
-    class Cat(val name: String, val kws: List<String>, val subs: List<Sub>)
+    /** kws — oddiy kalit so'zlar, weak — "~" bilan yozilganlar (faqat oddiylari topilmasa ishlaydi). */
+    class Cat(val name: String, val kws: List<String>, val weak: List<String>, val subs: List<Sub>)
 
     @Volatile var cats: List<Cat> = emptyList()
         private set
@@ -62,7 +63,8 @@ object Cats {
     @Synchronized
     fun auto(p: Product): Pair<String, String?> = cache.getOrPut(p.name) {
         val ws = words(p.name)
-        val c = cats.firstOrNull { any(ws, it.kws) } ?: return@getOrPut OTHER to null
+        val c = cats.firstOrNull { any(ws, it.kws) } ?: cats.firstOrNull { any(ws, it.weak) }
+            ?: return@getOrPut OTHER to null
         if (c.subs.isEmpty()) c.name to null
         else c.name to (c.subs.firstOrNull { any(ws, it.kws) }?.name ?: OTHER_SUB)
     }
@@ -78,14 +80,17 @@ object Cats {
         val out = ArrayList<Cat>()
         val subs = ArrayList<Sub>()
         var cur: Pair<String, List<String>>? = null
-        fun flush() { cur?.let { out += Cat(it.first, it.second, subs.toList()) }; subs.clear() }
+        fun flush() {
+            cur?.let { (n, k) -> out += Cat(n, k.filterNot { it.startsWith("~") }, k.filter { it.startsWith("~") }.map { it.drop(1) }.filter { it.isNotEmpty() }, subs.toList()) }
+            subs.clear()
+        }
         for (line in text.removePrefix("﻿").lines()) {
             val t = line.trim()
             if (t.isEmpty() || t.startsWith("#") || !t.contains('|')) continue
             val name = t.substringBefore('|').trim()
             val kws = t.substringAfter('|').split(',')
                 .map { APOS.replace(it.trim().lowercase(), "") }.filter { it.isNotEmpty() }
-            if (line.startsWith(" ") || line.startsWith("\t")) { if (cur != null) subs += Sub(name, kws) }
+            if (line.startsWith(" ") || line.startsWith("\t")) { if (cur != null) subs += Sub(name, kws.map { it.removePrefix("~") }) }
             else { flush(); cur = name to kws }
         }
         flush()
