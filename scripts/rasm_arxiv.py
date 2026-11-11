@@ -5,7 +5,7 @@ Har soat (baza.yml): 1) navbatni olish  2) har rasmni "rasmlar-N" relizga yuklas
 O'chirilgan rasmlar (x belgisi) GitHub'dan ham o'chiriladi.
 Kerak: RASM_KEY (GitHub secret), GITHUB_TOKEN, GITHUB_REPOSITORY.
 """
-import json, os, subprocess, sys, urllib.parse, urllib.request, urllib.error
+import json, os, re, subprocess, sys, urllib.parse, urllib.request, urllib.error
 
 SERVER = os.environ.get("KASSA_API", "https://do-kon-savdo-yordamchisi.lovable.app")
 REPO = os.environ.get("GITHUB_REPOSITORY", "maxmuda725-jpg/turfa-narx")
@@ -55,7 +55,7 @@ def write_csv(rows):
 def target_release():
     """Bo'sh joyi bor 'rasmlar-N' reliz (APK relizlariga tegmaydi, 'latest' bo'lmaydi)."""
     st, rels = gh("GET", f"/repos/{REPO}/releases?per_page=100")
-    mine = sorted([r for r in rels if str(r.get("tag_name", "")).startswith("rasmlar-")],
+    mine = sorted([r for r in rels if re.fullmatch(r"rasmlar-\d+", str(r.get("tag_name", "")))],
                   key=lambda r: int(r["tag_name"].split("-")[1]))
     for r in mine:
         st, assets = gh("GET", f"/repos/{REPO}/releases/{r['id']}/assets?per_page=100&page=10")
@@ -146,7 +146,7 @@ def main():
 def find_asset(name):
     st, rels = gh("GET", f"/repos/{REPO}/releases?per_page=100")
     for r in rels:
-        if not str(r.get("tag_name", "")).startswith("rasmlar-"):
+        if not re.fullmatch(r"rasmlar-\d+", str(r.get("tag_name", ""))):
             continue
         for page in range(1, 11):
             st, assets = gh("GET", f"/repos/{REPO}/releases/{r['id']}/assets?per_page=100&page={page}")
