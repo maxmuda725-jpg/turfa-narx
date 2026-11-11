@@ -775,7 +775,7 @@ class MainActivity : Activity() {
     private var homeStatsVal = 0 to 0
     private fun homeStats(): Pair<Int, Int> {
         if (homeStatsKey !== all) {
-            homeStatsVal = all.count { it.photo.isBlank() && Search.stockRank(it) == 0 } to all.mapTo(HashSet()) { Cats.of(it).first }.size
+            homeStatsVal = all.count { it.photo.isBlank() } to all.mapTo(HashSet()) { Cats.of(it).first }.size
             homeStatsKey = all
         }
         return homeStatsVal
