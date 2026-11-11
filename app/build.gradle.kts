@@ -14,7 +14,10 @@ android {
         versionCode = run
         versionName = "1.$run"
         // Faqat telefon protsessorlari: APK kichikroq bo'ladi
-        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+            if (System.getenv("UI_TEST") == "1") abiFilters += "x86_64"   // faqat virtual telefonda sinash uchun
+        }
         // Rasm yuklash kaliti: GitHub Actions'da RASM_KEY secret'dan hosil qilinadi, kodda saqlanmaydi
         buildConfigField("String", "RASM_APP_KEY", "\"${System.getenv("RASM_APP_KEY") ?: ""}\"")
     }

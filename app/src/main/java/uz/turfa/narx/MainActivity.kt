@@ -464,12 +464,16 @@ class MainActivity : Activity() {
         Cats.load(this)
         Cats.loadOverrides(this)
         Polka.load(this)
-        val root = FrameLayout(this).apply { setBackgroundColor(BG); fitsSystemWindows = true }
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(BG); fitsSystemWindows = true }
+        val content = FrameLayout(this)
         searchScreen = buildSearch()
         kassaScreen = buildKassa().apply { visibility = View.GONE }
-        root.addView(searchScreen, -1, -1)
-        root.addView(kassaScreen, -1, -1)
+        content.addView(searchScreen, -1, -1)
+        content.addView(kassaScreen, -1, -1)
+        root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(buildNav())
         setContentView(root)
+        navMark(false)
         refresh(); updateCart()
         login { update(silent = true); checkAppUpdate(silent = true) }
     }
@@ -517,38 +521,73 @@ class MainActivity : Activity() {
         text = t; setTextColor(Color.WHITE); textSize = 20f; typeface = Typeface.DEFAULT_BOLD
     }
 
-    // ---------------------------------------------------------------- qidiruv ekrani
+    // ---------------------------------------------------------------- qidiruv ekrani (yangi dizayn)
+    private val LINE = Color.parseColor("#E3E6EA")
+    private val MUTED = Color.parseColor("#5A6270")
+    private val CHIP = Color.parseColor("#EEF0F3")
+    private lateinit var subTitle: TextView
+    private lateinit var clearBtn: TextView
+    private lateinit var chipRow: LinearLayout
+    private var chipSig = ""
+    private val navItems = ArrayList<TextView>()
+
+    /** Ro'yxatdagi maxsus qatorlar: bosh ekran plitkalari va rasm natijasining 1-o'rni. */
+    private object HomeTiles
+    private class TopHit(val p: Product)
+
     private fun buildSearch(): View {
         val screen = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
-        val top = topBar()
-        top.addView(title("TUR-FA narxlar").apply { setOnClickListener { if (isOwner()) ownerMenu() } }, LinearLayout.LayoutParams(0, -2, 1f))
-        refreshBtn = pill("🔄", GREEN, Color.WHITE, 18f) { update(silent = false); checkAppUpdate(silent = true); verifyAccess() }
-            .apply { setOnLongClickListener { checkAppUpdate(silent = false); true } }
-        top.addView(pill("🏷", GREEN, Color.WHITE, 18f) { kodList() },
-            LinearLayout.LayoutParams(dp(46), dp(44)).apply { rightMargin = dp(4) })
-        top.addView(pill("📍", GREEN, Color.WHITE, 18f) { polkaMenu() },
-            LinearLayout.LayoutParams(dp(46), dp(44)).apply { rightMargin = dp(4) })
-        top.addView(pill("🗂", GREEN, Color.WHITE, 18f) { catMenu() },
-            LinearLayout.LayoutParams(dp(46), dp(44)).apply { rightMargin = dp(4) })
-        top.addView(pill("⭐", GREEN, Color.WHITE, 18f) { toggleFavMode() },
-            LinearLayout.LayoutParams(dp(46), dp(44)).apply { rightMargin = dp(4) })
-        top.addView(refreshBtn, LinearLayout.LayoutParams(-2, dp(44)))
-        screen.addView(top)
-
-        search = EditText(this).apply {
-            hint = "Kod yoki nom: 43-25"; textSize = 20f; isSingleLine = true
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            background = box(Color.WHITE, 14)
-            setPadding(dp(16), dp(14), dp(16), dp(14))
+        // Yashil sarlavha: nom + baza holati + 🔄, ostida qidiruv va 📷
+        val head = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setBackgroundColor(GREEN)
+            setPadding(dp(16), dp(12), dp(16), dp(14))
         }
-        val searchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        searchRow.addView(search, LinearLayout.LayoutParams(0, -2, 1f))
-        searchRow.addView(pill("📷", Color.WHITE, GREEN, 22f) { photoMenu() },
-            LinearLayout.LayoutParams(dp(60), dp(56)).apply { leftMargin = dp(8) })
-        screen.addView(searchRow, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(12), dp(12), dp(4)) })
+        val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titles.addView(TextView(this).apply {
+            text = "TUR-FA narxlar"; textSize = 21f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            setOnClickListener { if (isOwner()) ownerMenu() }
+        })
+        subTitle = TextView(this).apply { textSize = 12f; setTextColor(Color.argb(220, 255, 255, 255)) }
+        titles.addView(subTitle)
+        row1.addView(titles, LinearLayout.LayoutParams(0, -2, 1f))
+        refreshBtn = pill("🔄", Color.WHITE, Color.argb(46, 255, 255, 255), 18f) { update(silent = false); checkAppUpdate(silent = true); verifyAccess() }
+            .apply { setOnLongClickListener { checkAppUpdate(silent = false); true }; contentDescription = "Bazani yangilash" }
+        row1.addView(refreshBtn, LinearLayout.LayoutParams(dp(48), dp(44)))
+        head.addView(row1)
 
-        info = TextView(this).apply { textSize = 13f; setTextColor(Color.GRAY); setPadding(dp(16), dp(4), dp(16), dp(4)) }
+        val searchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val field = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = box(Color.WHITE, 14); setPadding(dp(12), 0, dp(6), 0)
+        }
+        field.addView(TextView(this).apply { text = "🔍"; textSize = 17f }, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(8) })
+        search = EditText(this).apply {
+            hint = "Kod yoki nom: 43-25, vaza…"; textSize = 18f; isSingleLine = true
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            background = null; setPadding(0, dp(12), 0, dp(12)); setTextColor(INK)
+        }
+        field.addView(search, LinearLayout.LayoutParams(0, -2, 1f))
+        clearBtn = TextView(this).apply {
+            text = "✕"; textSize = 15f; gravity = Gravity.CENTER; setTextColor(MUTED)
+            background = box(LINE, 14); visibility = View.GONE; contentDescription = "Tozalash"
+            setOnClickListener { search.setText("") }
+        }
+        field.addView(clearBtn, LinearLayout.LayoutParams(dp(30), dp(30)))
+        searchRow.addView(field, LinearLayout.LayoutParams(0, dp(52), 1f))
+        searchRow.addView(pill("📷", INK, Color.WHITE, 22f) { photoMenu() }.apply { contentDescription = "Rasm bilan qidirish" },
+            LinearLayout.LayoutParams(dp(54), dp(52)).apply { leftMargin = dp(8) })
+        head.addView(searchRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
+        screen.addView(head)
+
+        // Kategoriya chiplari (yonga suriladi)
+        chipRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(12), dp(10), dp(12), dp(4)) }
+        screen.addView(android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false; addView(chipRow)
+        })
+
+        info = TextView(this).apply { textSize = 13f; setTextColor(MUTED); setPadding(dp(16), dp(4), dp(16), dp(2)) }
         screen.addView(info)
 
         adapter = object : BaseAdapter() {
@@ -556,7 +595,12 @@ class MainActivity : Activity() {
             override fun getItem(p: Int) = shown[p]
             override fun getItemId(p: Int) = p.toLong()
             override fun getView(p: Int, convert: View?, parent: ViewGroup?): View =
-                when (val r = shown[p]) { is Product -> productRow(r); else -> sectionHeader(r as String) }
+                when (val r = shown[p]) {
+                    is Product -> productRow(r)
+                    is TopHit -> productRow(r.p, top = true)
+                    HomeTiles -> homeView()
+                    else -> sectionHeader(r as String)
+                }
         }
         val list = ListView(this).apply {
             this.adapter = this@MainActivity.adapter
@@ -567,102 +611,263 @@ class MainActivity : Activity() {
         screen.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
 
         kassaBar = TextView(this).apply {
-            textSize = 17f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
+            textSize = 16f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER_VERTICAL
             background = box(INK, 16)
-            setPadding(dp(16), dp(14), dp(16), dp(14))
+            setPadding(dp(18), dp(14), dp(18), dp(14))
             setOnClickListener { showKassa(true) }
         }
-        screen.addView(kassaBar, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(4), dp(12), dp(12)) })
+        screen.addView(kassaBar, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(4), dp(12), dp(8)) })
 
         search.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
-            override fun afterTextChanged(s: Editable?) = refresh()
+            override fun afterTextChanged(s: Editable?) {
+                clearBtn.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
+                refresh()
+            }
         })
         return screen
     }
 
-    private fun productRow(p: Product): View {
+    /** Pastki menyu: 🔍 Qidiruv · 🗂 Kategoriya · 📍 Polka · 🧾 Kassa · ☰ Yana */
+    private fun buildNav(): View {
+        val nav = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; setBackgroundColor(Color.WHITE)
+            setPadding(dp(4), dp(4), dp(4), dp(6))
+        }
+        fun item(icon: String, label: String, onClick: () -> Unit) {
+            val t = TextView(this).apply {
+                text = "$icon\n$label"; textSize = 12f; gravity = Gravity.CENTER; setTextColor(MUTED)
+                typeface = Typeface.DEFAULT_BOLD; setPadding(0, dp(6), 0, dp(6))
+                setLineSpacing(dp(2).toFloat(), 1f)
+                setOnClickListener { onClick() }
+            }
+            navItems += t
+            nav.addView(t, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        item("🔍", "Qidiruv") { goHome() }
+        item("🗂", "Kategoriya") { showKassa(false); catMenu() }
+        item("📍", "Polka") { showKassa(false); polkaMenu() }
+        item("🧾", "Kassa") { showKassa(true) }
+        item("☰", "Yana") { moreMenu() }
+        val wrap = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        wrap.addView(View(this).apply { setBackgroundColor(LINE) }, LinearLayout.LayoutParams(-1, dp(1)))
+        wrap.addView(nav)
+        return wrap
+    }
+
+    private fun navMark(kassa: Boolean) {
+        navItems.forEachIndexed { i, t -> t.setTextColor(if ((i == 0 && !kassa) || (i == 3 && kassa)) GREEN else MUTED) }
+    }
+
+    /** Hamma rejimlarni yopib, toza qidiruvga qaytaradi (polkaga joylash rejimi saqlanadi). */
+    private fun goHome() {
+        photoHits = null; photoVec = null; photoUri = null
+        favMode = false; catSel = null; noPhotoMode = false; polkaView = null
+        showKassa(false)
+        if (search.text.isNotEmpty()) search.setText("") else refresh()
+    }
+
+    private fun moreMenu() {
+        val items = arrayListOf<Pair<String, () -> Unit>>(
+            "⭐ Sevimlilar" to { showKassa(false); if (!favMode) toggleFavMode() },
+            "🏷 Kod chiqarish ro'yxati" to { kodList() },
+            "📸 Tovarga rasm yuklash" to { uploadStart() },
+            "🚫 Rasmi yo'q tovarlar" to { showKassa(false); openNoPhoto() },
+            "🖼 Yuklangan rasmlar" to { rasmlarList() },
+            "📁 Rasmlar papkasi (ZIP)" to { zipMenu() },
+            "📋 Ro'yxatni rasmdan o'qish" to { scanMenu() },
+            "🔄 Bazani yangilash" to { update(silent = false); verifyAccess() },
+            "⬆️ Ilovani yangilash" to { checkAppUpdate(silent = false) },
+        )
+        if (isOwner()) items += "👤 Egasi menyusi" to { ownerMenu() }
+        AlertDialog.Builder(this).setTitle("☰ Yana")
+            .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }.show()
+    }
+
+    /** Rasm bilan qidirish: kamera yoki galereya (to'liq menyu — 📷 tugmasida). */
+    private fun photoPick() {
+        AlertDialog.Builder(this).setTitle("📷 Rasm bilan topish")
+            .setItems(arrayOf("📷 Kamera bilan", "🖼 Galereyadan")) { _, w ->
+                if (w == 0) openCamera(REQ_PHOTO_CAM) else openGallery(REQ_PHOTO_GAL)
+            }.show()
+    }
+
+    /** Kategoriya chiplari: faqat tovari bor kategoriyalar; tanlangani yashil. */
+    private fun fillChips() {
+        val sig = "${all.size}|${catSel?.first}|${Cats.cats.size}"
+        if (sig == chipSig) return
+        chipSig = sig
+        chipRow.removeAllViews()
+        val counts = all.groupingBy { Cats.of(it).first }.eachCount()
+        for ((c, _) in Cats.order()) {
+            val n = counts[c] ?: continue
+            val on = catSel?.first == c
+            chipRow.addView(TextView(this).apply {
+                text = c; textSize = 14f; typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
+                setTextColor(if (on) Color.WHITE else INK)
+                background = GradientDrawable().apply {
+                    setColor(if (on) GREEN else Color.WHITE); cornerRadius = dp(18).toFloat()
+                    if (!on) setStroke(dp(1), Color.parseColor("#D5D9DE"))
+                }
+                setPadding(dp(14), 0, dp(14), 0)
+                contentDescription = "$c, $n ta"
+                setOnClickListener { if (on) { catSel = null; refresh() } else openCat(c, null) }
+            }, LinearLayout.LayoutParams(-2, dp(38)).apply { rightMargin = dp(8) })
+        }
+    }
+
+    /** Bosh ekran: katta plitkalar (qidiruv bo'sh turganda). */
+    private fun homeView(): View {
+        val wrap = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(4), dp(8), dp(4), dp(8)) }
+        wrap.addView(TextView(this).apply {
+            text = "Tez kirish"; textSize = 15f; setTextColor(MUTED); typeface = Typeface.DEFAULT_BOLD
+            setPadding(dp(4), 0, 0, dp(8))
+        })
+        val noPhoto = all.count { it.photo.isBlank() && Search.stockRank(it) == 0 }
+        val cats = all.map { Cats.of(it).first }.toSet().size
+        val tiles = listOf(
+            Triple("📷", "Rasm bilan topish", "") to { photoPick() },
+            Triple("📍", "Polkalar", "Qaysi tovar qayerda") to { polkaMenu() },
+            Triple("🗂", "Kategoriyalar", "$cats ta bo'lim") to { catMenu() },
+            Triple("⭐", "Sevimlilar", if (favs.isEmpty()) "Tez topiladiganlar" else "${favs.size} ta") to { toggleFavMode() },
+            Triple("🏷", "Kod chiqarish", "Yorliq ro'yxati") to { kodList() },
+            Triple("🚫", "Rasmi yo'qlar", "${group(noPhoto.toLong())} ta — rasmga oling") to { openNoPhoto() },
+        )
+        for (r in tiles.indices step 2) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            for (k in r..minOf(r + 1, tiles.lastIndex)) {
+                val (t, act) = tiles[k]
+                val primary = k == 0
+                val tile = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    background = box(if (primary) GREEN else Color.WHITE, 18)
+                    setPadding(dp(14), dp(12), dp(14), dp(12))
+                    isClickable = true; isFocusable = true
+                    setOnClickListener { act() }
+                    contentDescription = t.second
+                }
+                tile.addView(TextView(this).apply { text = t.first; textSize = 28f }, LinearLayout.LayoutParams(-2, 0, 1f))
+                tile.addView(TextView(this).apply {
+                    text = t.second; textSize = 16f; typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(if (primary) Color.WHITE else INK)
+                })
+                if (t.third.isNotEmpty()) tile.addView(TextView(this).apply {
+                    text = t.third; textSize = 12f
+                    setTextColor(if (k == tiles.lastIndex) RED else MUTED)
+                })
+                row.addView(tile, LinearLayout.LayoutParams(0, dp(110), 1f).apply {
+                    if (k == r) rightMargin = dp(5) else leftMargin = dp(5)
+                })
+            }
+            wrap.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+        }
+        return wrap
+    }
+
+    private fun badge(t: String, fg: Int, bg: Int) = TextView(this).apply {
+        text = t; textSize = 12f; setTextColor(fg); typeface = Typeface.DEFAULT_BOLD
+        background = box(bg, 8); setPadding(dp(8), dp(3), dp(8), dp(3))
+        isSingleLine = true; ellipsize = android.text.TextUtils.TruncateAt.END
+    }
+
+    private fun productRow(p: Product, top: Boolean = false): View {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = box(Color.WHITE, 14)
-            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = GradientDrawable().apply {
+                setColor(if (Search.stockRank(p) == 2) Color.parseColor("#E9EAEC") else Color.WHITE)   // tugagan — kulrang (kassaga baribir qo'shiladi)
+                cornerRadius = dp(18).toFloat()
+                if (top) setStroke(dp(2), GREEN)
+            }
+            setPadding(dp(12), dp(12), dp(12), dp(12))
         }
+        if (top) card.addView(badge("1-o'rin · eng o'xshash", Color.WHITE, GREEN),
+            LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(8) })
+
         val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val photoUrl = myPhoto(p) ?: p.photo
         if (photoUrl.isNotBlank()) {
             val iv = ImageView(this).apply {
                 scaleType = ImageView.ScaleType.CENTER_CROP
-                background = box(Color.parseColor("#EEEEEE"), 10)
+                background = box(Color.parseColor("#E9EEF2"), 14)
                 clipToOutline = true
                 setOnClickListener { showPhoto(p) }
+                contentDescription = "Tovar rasmi"
             }
             Img.load(this, photoUrl, iv)
-            head.addView(iv, LinearLayout.LayoutParams(dp(72), dp(72)).apply { rightMargin = dp(12) })
+            head.addView(iv, LinearLayout.LayoutParams(dp(92), dp(92)).apply { rightMargin = dp(12) })
+        } else {
+            head.addView(TextView(this).apply {
+                text = Cats.of(p).first.substringBefore(' ').ifBlank { "📦" }; textSize = 34f; gravity = Gravity.CENTER
+                background = box(Color.parseColor("#E9EEF2"), 14); alpha = 0.75f
+                contentDescription = "Rasmi yo'q"
+            }, LinearLayout.LayoutParams(dp(92), dp(92)).apply { rightMargin = dp(12) })
         }
         val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         head.addView(titleBox, LinearLayout.LayoutParams(0, -2, 1f))
         val fav = p.key in favs
         head.addView(TextView(this).apply {
-            text = if (fav) "★" else "☆"; textSize = 28f; gravity = Gravity.CENTER
-            setTextColor(if (fav) Color.parseColor("#F2A900") else Color.parseColor("#BBBBBB"))
+            text = if (fav) "★" else "☆"; textSize = 26f; gravity = Gravity.CENTER
+            setTextColor(if (fav) Color.parseColor("#F2A900") else Color.parseColor("#B8BEC6"))
             setOnClickListener { toggleFav(p) }
-        }, LinearLayout.LayoutParams(dp(44), dp(44)).apply { leftMargin = dp(4) })
+            contentDescription = if (fav) "Sevimlilardan olib tashlash" else "Sevimlilarga qo'shish"
+        }, LinearLayout.LayoutParams(dp(40), dp(40)))
         card.addView(head)
 
         titleBox.addView(TextView(this).apply {
             text = p.name; textSize = 17f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
         })
-        val sub = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        sub.addView(TextView(this).apply { text = p.code; textSize = 12f; setTextColor(Color.GRAY) },
-            LinearLayout.LayoutParams(0, -2, 1f))
-        val locs = Polka.of(p)
-        if (locs.isNotEmpty()) sub.addView(TextView(this).apply {
-            text = "📍 " + Polka.labels(locs)
-            textSize = 14f; setTextColor(BLUE); typeface = Typeface.DEFAULT_BOLD
-            background = box(tint(BLUE, 26), 8); setPadding(dp(8), dp(3), dp(8), dp(3))
-            setOnClickListener { openPolka(locs[0]) }
-        }, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(6) })
+        titleBox.addView(TextView(this).apply { text = p.code; textSize = 12f; setTextColor(MUTED) },
+            LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(2) })
+        val badges = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         if (p.qty.isNotBlank()) {
             val n = p.qty.toDoubleOrNull()?.toLong() ?: 0
-            val c = if (n > 0) GREEN else RED
-            sub.addView(TextView(this).apply {
-                text = if (n > 0) "✅ Bor" else "❌ Tugagan"
-                textSize = 13f; setTextColor(c); typeface = Typeface.DEFAULT_BOLD
-                background = box(tint(c, 30), 8); setPadding(dp(8), dp(3), dp(8), dp(3))
-            })
+            badges.addView(if (n > 0) badge("✅ Bor · ${group(n)} ta", Color.parseColor("#0B6B52"), Color.parseColor("#E3F3EE"))
+                else badge("❌ Tugagan", Color.parseColor("#B42318"), Color.parseColor("#FDECEA")),
+                LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(6) })
         }
-        titleBox.addView(sub, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        val locs = Polka.of(p)
+        if (locs.isNotEmpty()) badges.addView(badge("📍 " + Polka.labels(locs), BLUE, Color.parseColor("#E6EDF8")).apply {
+            setOnClickListener { openPolka(locs[0]) }
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        if (badges.childCount > 0) titleBox.addView(badges, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6) })
 
         val prices = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        prices.addView(priceBox("DONA", p.donaText, p.donaList.size > 1, GREEN),
-            LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(6) })
+        prices.addView(priceBox("DONA", p.donaText, p.donaList.size > 1, Color.parseColor("#0B6B52")),
+            LinearLayout.LayoutParams(0, -2, 1f).apply { rightMargin = dp(4) })
         prices.addView(priceBox("OPTOM", p.optomText, p.optomList.size > 1, BLUE),
-            LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(6) })
+            LinearLayout.LayoutParams(0, -2, 1f).apply { leftMargin = dp(4) })
         card.addView(prices, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
         if (p.donaList.size > 1 || p.optomList.size > 1) card.addView(TextView(this).apply {
             text = "Do'konga qarab farq qiladi, kassadan aniqlang"
             textSize = 12f; setTextColor(ORANGE); setPadding(0, dp(6), 0, 0)
         })
 
-        // Kassaga qo'shish
+        // Rasm natijasining 1-o'rni: "✅ Shu tovar" darrov ko'rinadi
+        if (top && photoVec != null && p.key !in photoShared) card.addView(
+            pill(if (p.key in photoLearned) "📤 Shu rasmni hamma telefonga o'rgatish" else "✅ Shu tovar (hamma telefonga o'rgat)", Color.WHITE, GREEN, 15f) {
+                rememberPhoto(p); sharePhoto(p)
+            }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+
+        // Amallar: ⋯ · 🏷 · ＋ Kassaga
         val inCart = cart[p.key]?.count ?: 0
         val addRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        addRow.addView(TextView(this).apply {
-            text = if (inCart > 0) "🧾 Kassada: ${group(inCart)} ta" else ""
-            textSize = 14f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
-        }, LinearLayout.LayoutParams(0, -2, 1f))
-        addRow.addView(pill("🏷", INK, Color.parseColor("#EEEEEE"), 17f) { kodAddProduct(p) },
-            LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(8) })
+        addRow.addView(pill("⋯", INK, CHIP, 22f) { productMenu(p) }.apply { contentDescription = "Boshqa amallar" },
+            LinearLayout.LayoutParams(dp(52), dp(46)).apply { rightMargin = dp(8) })
+        addRow.addView(pill("🏷", INK, CHIP, 17f) { kodAddProduct(p) }.apply { contentDescription = "Kod chiqarish ro'yxatiga" },
+            LinearLayout.LayoutParams(dp(52), dp(46)).apply { rightMargin = dp(8) })
         if (p.donaList.isNotEmpty()) addRow.addView(
-            pill("＋ Kassaga", Color.WHITE, INK, 15f) {
+            pill(if (inCart > 0) "＋ Kassaga · ${group(inCart)} ta" else "＋ Kassaga", Color.WHITE, INK, 16f) {
                 val ci = cart.getOrPut(p.key) { CartItem(p, 0) }
                 ci.count += 1
                 rememberPhoto(p)
                 if (Search.stockRank(p) == 2 && ci.count == 1L) toast("Bazada tugagan, lekin kassaga qo'shildi")
                 updateCart(); adapter.notifyDataSetChanged()
-            }, LinearLayout.LayoutParams(-2, dp(44)))
+            }, LinearLayout.LayoutParams(0, dp(46), 1f))
+        else addRow.addView(TextView(this).apply {
+            text = "Narxi yo'q"; textSize = 14f; setTextColor(MUTED); gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(0, dp(46), 1f))
         card.addView(addRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
 
         polkaAdd?.let { target ->
@@ -673,8 +878,6 @@ class MainActivity : Activity() {
         }
 
         card.setOnLongClickListener { productMenu(p); true }
-
-        if (Search.stockRank(p) == 2) card.background = box(Color.parseColor("#E6E6E6"), 14)   // tugagan — kulrang (kassaga baribir qo'shiladi)
 
         val wrap = LinearLayout(this).apply { setPadding(dp(4), dp(5), dp(4), dp(5)) }
         wrap.addView(card, LinearLayout.LayoutParams(-1, -2))
@@ -702,6 +905,10 @@ class MainActivity : Activity() {
                 background = box(tint(BLUE, 30), 12)
                 setOnClickListener { if (polkaAdd != null) polkaAddMenu() else { polkaView = null; refresh() } }
             }
+            if (t.startsWith("↔️")) {
+                background = box(Color.parseColor("#FFF3DC"), 12); setTextColor(Color.parseColor("#8A5200"))
+            }
+            if (t == "Boshqa o'xshashlari") { setTextColor(MUTED); textSize = 14f }
             if (t.startsWith("📷")) {
                 background = box(tint(GREEN, 22), 12)
                 setOnClickListener { closePhoto() }
@@ -719,14 +926,14 @@ class MainActivity : Activity() {
     private fun priceBox(label0: String, v: String, two: Boolean, color: Int): View =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = box(tint(color), 10)
-            setPadding(dp(10), dp(8), dp(10), dp(8))
+            background = box(tint(color, 22), 12)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
             addView(TextView(context).apply {
                 text = if (two) "$label0 · ⚠️ 2 xil narx" else label0
-                textSize = 11f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
+                textSize = 11f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD; letterSpacing = 0.04f
             })
             addView(TextView(context).apply {
-                text = v; textSize = if (two) 16f else 19f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
+                text = v; textSize = if (two) 16f else 21f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD
             })
         }
 
@@ -853,8 +1060,8 @@ class MainActivity : Activity() {
         val pieces = cart.values.sumOf { it.count }
         val total = cart.values.sumOf { it.p.unitPrice(optomMode) * it.count }
         val mode = if (optomMode) "OPTOM" else "DONA"
-        kassaBar.text = if (cart.isEmpty()) "🧾 Kassa bo'sh"
-            else "🧾 Kassa: ${group(pieces)} ta · ${fmt(total)}  ›"
+        kassaBar.text = "🧾 Kassa: ${group(pieces)} ta tovar  ·  ${fmt(total)}  ›"
+        kassaBar.visibility = if (cart.isEmpty()) View.GONE else View.VISIBLE
         totalSub.text = "JAMI ($mode narxda) · ${cart.size} xil, ${group(pieces)} ta"
         totalText.text = if (total > 0) fmt(total) else "0 so'm"
         emptyCart.visibility = if (cart.isEmpty()) View.VISIBLE else View.GONE
@@ -865,6 +1072,7 @@ class MainActivity : Activity() {
         hideKb(search)
         kassaScreen.visibility = if (show) View.VISIBLE else View.GONE
         searchScreen.visibility = if (show) View.GONE else View.VISIBLE
+        navMark(show)
         if (!show) adapter.notifyDataSetChanged()
     }
 
@@ -2275,12 +2483,27 @@ class MainActivity : Activity() {
     private fun refresh() {
         val q = search.text.toString()
         if (q != lastQuery) { similarOpen = false; lastQuery = q }
+        subTitle.text = "Baza: ${baseDate()} · ${group(all.size.toLong())} tovar"
+        fillChips()
+        info.visibility = View.VISIBLE
         photoHits?.let { hits ->
             // Rasm natijalari ichidan so'z bilan qisqartirish ("gul", "vaza"), o'xshashlik tartibi saqlanadi
             val list = hits.map { it.first }
             val keep = if (q.isBlank()) null else Search.run(list, q).map { it.key }.toHashSet()
             val res = if (keep == null) list else list.filter { it.key in keep }
-            shown = listOf<Any>("📷 Rasmga eng o'xshashlari" + (photoScopeShown?.let { " ($it-polkada)" } ?: "") + ": ${res.size} ta   ✕ yopish") + res
+            val rows = ArrayList<Any>()
+            rows += "📷 Rasmga eng o'xshashlari" + (photoScopeShown?.let { " ($it-polkada)" } ?: "") + ": ${res.size} ta   ✕ yopish"
+            if (keep == null && res.isNotEmpty()) {
+                // 1-o'rin alohida; uning rasmi yo'q seriya egizaklari (Visual.search ularni darrov keyin qo'yadi) — o'z sarlavhasi bilan
+                rows += TopHit(res[0])
+                val ser = Cats.series(res[0].name)
+                var i = 1
+                val twins = ArrayList<Product>()
+                while (ser != null && i < res.size && res[i].photo.isBlank() && myPhoto(res[i]) == null && Cats.series(res[i].name) == ser) { twins += res[i]; i++ }
+                if (twins.isNotEmpty()) { rows += "↔️ Shu seriyadan, o'lchami boshqa:"; rows.addAll(twins) }
+                if (i < res.size) { rows += "Boshqa o'xshashlari"; rows.addAll(res.subList(i, res.size)) }
+            } else rows.addAll(res)
+            shown = rows
             info.text = when {
                 q.isBlank() -> "Ko'p chiqsa, nomini yozing (masalan: gul). To'g'ri tovarni uzoq bosing → ✅ Rasmdagi tovar shu — hamma telefon o'rganadi."
                 res.isEmpty() -> "Rasm natijalari ichida \"${q.trim()}\" yo'q. ✕ yopib, oddiy qidiring."
@@ -2357,6 +2580,12 @@ class MainActivity : Activity() {
                 res.isEmpty() -> "Sevimlilar ichida topilmadi: \"${q.trim()}\""
                 else -> "Sevimlilar ichida topildi: ${res.size} ta"
             }
+            adapter.notifyDataSetChanged()
+            return
+        }
+        if (q.isBlank() && all.isNotEmpty()) {
+            shown = listOf<Any>(HomeTiles)
+            info.visibility = View.GONE
             adapter.notifyDataSetChanged()
             return
         }

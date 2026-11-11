@@ -1,0 +1,44 @@
+name: Virtual telefonda sinov
+# Ilovani Android emulyatorda o'rnatib, asosiy ekranlarni bosib ko'radi va skrinshot oladi.
+on:
+  workflow_dispatch:
+  push:
+    branches: ['dizayn']
+permissions:
+  contents: read
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      - name: Sinov APK (debug, x86_64 bilan)
+        env: { UI_TEST: '1' }
+        run: |
+          mkdir -p app/src/main/assets
+          cp baza/kategoriyalar.txt app/src/main/assets/kategoriyalar.txt
+          curl -fsSL -o app/src/main/assets/embedder.tflite \
+            https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
+          gradle assembleDebug
+      - name: KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Emulyatorda sinash
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash scripts/ui_sinov.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: ui-shots, path: ui-shots/ }
