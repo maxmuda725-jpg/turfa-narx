@@ -1,0 +1,29 @@
+name: Rasmlar papkasi (ZIP)
+on:
+  workflow_dispatch:
+    inputs:
+      billz:
+        description: "Billz'dagi rasmlar ham qo'shilsinmi?"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+jobs:
+  papka:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rasmlarni yig'ish
+        env:
+          BILLZ: ${{ inputs.billz }}
+        run: python3 scripts/rasm_papka.py
+      - name: Yuklab olish uchun joylash
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          # "rasmlar-papka" relizi (APK relizlariga tegmaydi, latest bo'lmaydi)
+          if ! gh release view rasmlar-papka >/dev/null 2>&1; then
+            gh release create rasmlar-papka --title "Rasmlar papkasi" --latest=false \
+              --notes "Tovar rasmlari ZIP papka. Yangilash: Actions → Rasmlar papkasi (ZIP) → Run workflow."
+          fi
+          gh release upload rasmlar-papka rasmlar-papka.zip --clobber
+          echo "Yuklab olish: https://github.com/${{ github.repository }}/releases/download/rasmlar-papka/rasmlar-papka.zip"
