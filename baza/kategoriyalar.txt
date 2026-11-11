@@ -14,6 +14,10 @@
   Yog'och vaza | yogoch, taxta
   Tilla vaza | tilla, gold
 
+🔐 Seyflar | seyf, seyflar, сейф
+  Bolalar seyf | detski, detskiy
+  Kitob seyf | kitob
+  Temir seyf | temir
 🗿 Statuetkalar | statuetka, statuetkalar, figurka, maket, mushuk, kapalak
 🕰 Soatlar | soat, soatlar, budilnik, chasi
   Devor soat | devor, napolni
