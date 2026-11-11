@@ -1124,10 +1124,8 @@ class MainActivity : Activity() {
             labels += "✅ Rasmdagi tovar shu (eslab qol)"
             actions += { rememberPhoto(p); toast("✅ Eslab qolindi") }
         }
-        labels += "📸 Rasm yuklash (hamma telefonga)"
+        labels += "📸 Rasmini o'rgatish (hamma telefonga)"
         actions += { uploadFor(p) }
-        labels += "📷 Rasmini o'rgatish (kamera)"
-        actions += { teachFor = p; openCamera(REQ_TEACH) }
         AlertDialog.Builder(this).setTitle(p.name)
             .setItems(labels.toTypedArray()) { _, i -> actions[i]() }.show()
     }
@@ -1471,7 +1469,7 @@ class MainActivity : Activity() {
         val items = arrayOf("📷 Rasmga olish", "🖼 Galereyadan (bir nechtasini tanlash)",
             "⬆️ Yuklash (${upFiles.size} ta rasm)", "🗑 Tanlanganlarni tozalash")
         AlertDialog.Builder(this).setTitle("📸 ${p.name} · ${p.code}")
-            .setMessage(if (upFiles.isEmpty()) "Tovarni 3–4 xil tomondan rasmga oling." else "Tanlandi: ${upFiles.size} ta rasm. Yana olishingiz yoki yuklashingiz mumkin.")
+            .setMessage(if (upFiles.isEmpty()) "Tovarni 3–4 xil tomondan rasmga oling. Rasm hamma telefonga yuboriladi va rasm orqali qidiruv uni taniydi." else "Tanlandi: ${upFiles.size} ta rasm. Yana olishingiz yoki yuklashingiz mumkin.")
             .setItems(items) { _, w ->
                 when (w) {
                     0 -> openUpCamera()
