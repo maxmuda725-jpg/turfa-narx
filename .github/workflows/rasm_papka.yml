@@ -1,21 +1,21 @@
 name: Rasmlar papkasi (ZIP)
 on:
+  schedule:
+    - cron: '23 22 * * *'   # har kecha 03:23 (Toshkent)
   workflow_dispatch:
-    inputs:
-      billz:
-        description: "Billz'dagi rasmlar ham qo'shilsinmi?"
-        type: boolean
-        default: false
 permissions:
   contents: write
+concurrency: rasm-papka
 jobs:
   papka:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Rasmlarni yig'ish
-        env:
-          BILLZ: ${{ inputs.billz }}
+      - name: Faqat ilovadan yuklangan rasmlar
+        env: { OUT: rasmlar-ilova.zip }
+        run: python3 scripts/rasm_papka.py
+      - name: Hammasi (Billz rasmlari bilan)
+        env: { OUT: rasmlar-hammasi.zip, BILLZ: "1" }
         run: python3 scripts/rasm_papka.py
       - name: Yuklab olish uchun joylash
         env: { GH_TOKEN: '${{ github.token }}' }
@@ -23,7 +23,7 @@ jobs:
           # "rasmlar-papka" relizi (APK relizlariga tegmaydi, latest bo'lmaydi)
           if ! gh release view rasmlar-papka >/dev/null 2>&1; then
             gh release create rasmlar-papka --title "Rasmlar papkasi" --latest=false \
-              --notes "Tovar rasmlari ZIP papka. Yangilash: Actions → Rasmlar papkasi (ZIP) → Run workflow."
+              --notes "Tovar rasmlari ZIP papka (kategoriya bo'yicha). Har kecha yangilanadi."
           fi
-          gh release upload rasmlar-papka rasmlar-papka.zip --clobber
-          echo "Yuklab olish: https://github.com/${{ github.repository }}/releases/download/rasmlar-papka/rasmlar-papka.zip"
+          gh release upload rasmlar-papka rasmlar-ilova.zip rasmlar-hammasi.zip --clobber
+          gh release delete-asset rasmlar-papka rasmlar-papka.zip -y 2>/dev/null || true

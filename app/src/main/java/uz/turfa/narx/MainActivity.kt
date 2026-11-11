@@ -1034,13 +1034,14 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("📷 Tovarni rasm orqali topish")
             .setItems(arrayOf("🔍 Kamera bilan qidirish", "🔍 Galereyadagi rasm bilan qidirish",
                 "📸 Tovarga rasm yuklash (kod bilan)", "🖼 Yuklangan rasmlar (Billz'ga qo'shish)",
-                "🚫 Rasmi yo'q tovarlar")) { _, w ->
+                "🚫 Rasmi yo'q tovarlar", "📁 Rasmlar papkasi (ZIP yuklab olish)")) { _, w ->
                 when (w) {
                     0 -> openCamera(REQ_PHOTO_CAM)
                     1 -> openGallery(REQ_PHOTO_GAL)
                     2 -> uploadStart()
                     3 -> rasmlarList()
-                    else -> openNoPhoto()
+                    4 -> openNoPhoto()
+                    else -> zipMenu()
                 }
             }.show()
     }
@@ -1089,6 +1090,16 @@ class MainActivity : Activity() {
                         .setItems(labels.toTypedArray()) { _, j -> openCat(c, if (j == 0) null else present[j - 1]) }
                         .show()
                 }
+            }.show()
+    }
+
+    private fun zipMenu() {
+        val base = "https://github.com/maxmuda725-jpg/turfa-narx/releases/download/rasmlar-papka/"
+        AlertDialog.Builder(this).setTitle("📁 Rasmlar papkasi (har kecha yangilanadi)")
+            .setItems(arrayOf("📸 Faqat ilovadan yuklanganlar", "🗂 Hammasi, Billz rasmlari bilan (katta, Wi-Fi'da)")) { _, w ->
+                val url = base + if (w == 0) "rasmlar-ilova.zip" else "rasmlar-hammasi.zip"
+                try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                catch (e: Exception) { toast("Brauzer ochilmadi") }
             }.show()
     }
 

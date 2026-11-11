@@ -8,7 +8,47 @@ from concurrent.futures import ThreadPoolExecutor
 
 SERVER = os.environ.get("KASSA_API", "https://do-kon-savdo-yordamchisi.lovable.app")
 WITH_BILLZ = os.environ.get("BILLZ", "") in ("1", "true", "yes")
-OUT = "rasmlar-papka.zip"
+OUT = os.environ.get("OUT", "rasmlar-papka.zip")
+
+# ---- kategoriyalar (ilovadagi Cats.kt bilan bir xil qoida: baza/kategoriyalar.txt)
+APOS = re.compile(r"['`ʻʼ‘’]")
+WORD = re.compile(r"[a-zа-яёé]+")
+
+
+def load_cats():
+    cats = []
+    for line in open("baza/kategoriyalar.txt", encoding="utf-8-sig"):
+        t = line.strip()
+        if not t or t.startswith("#") or "|" not in t:
+            continue
+        name, kws = t.split("|", 1)
+        kws = [APOS.sub("", k.strip().lower()) for k in kws.split(",") if k.strip()]
+        if line[:1] in (" ", "\t"):
+            if cats: cats[-1][2].append((name.strip(), kws))
+        else:
+            cats.append((name.strip(), kws, []))
+    return cats
+
+
+def hit(ws, kws):
+    return any(w == k or (len(k) >= 4 and w.startswith(k)) for w in ws for k in kws)
+
+
+def folder_name(s):
+    # "🏺 Vazalar" -> "Vazalar" (emoji fayl tizimlarida muammo qilmasin)
+    parts = s.split(" ", 1)
+    if len(parts) == 2 and not any(ch.isalnum() for ch in parts[0]):
+        s = parts[1]
+    return safe(s)
+
+
+def category(cats, name):
+    ws = WORD.findall(APOS.sub("", name.lower()))
+    for c, kws, subs in cats:
+        if hit(ws, kws):
+            sub = next((sn for sn, sk in subs if hit(ws, sk)), "Boshqalar" if subs else None)
+            return folder_name(c) + ("/" + folder_name(sub) if sub else "")
+    return "Boshqalar"
 
 
 def get(url, timeout=60):
@@ -28,6 +68,7 @@ def main():
     iN, iK, iR = head.index("nomi"), head.index("kod"), head.index("rasm")
     iX = head.index("rasmlar") if "rasmlar" in head else -1
     name_of = {r[iK].strip(): r[iN].strip() for r in rows[1:] if len(r) > iK}
+    cats = load_cats()
 
     jobs = []   # (kod, url, manba)
     try:
@@ -69,9 +110,11 @@ def main():
             count[base] = count.get(base, 0) + 1
             ext = url.rsplit(".", 1)[-1].split("?")[0].lower()
             ext = ext if ext in ("jpg", "jpeg", "png", "webp") else "jpg"
-            folder = "Ilovadan" if src == "ilova" else "Billz"
-            z.writestr(f"{folder}/{base} {count[base]}.{ext}", data)
-        z.writestr("OQING.txt", "Har rasm nomi: <tovar nomi> [<kod>] <tartib raqami>.\n"
+            top = "Ilovadan" if src == "ilova" else "Billz"
+            cat = category(cats, name_of.get(kod, "")) if kod in name_of else "Bazada yoq"
+            z.writestr(f"{top}/{cat}/{base} {count[base]}.{ext}", data)
+        z.writestr("OQING.txt", "Papkalar: Ilovadan / Billz -> Kategoriya -> Bo'lim.\n"
+                   "Har rasm nomi: <tovar nomi> [<kod>] <tartib raqami>.\n"
                    "Ilovadan — telefondan yuklangan rasmlar. Billz — Billz'dagi rasmlar.\n")
     print(f"Papkaga qo'shildi: {sum(count.values())} ta rasm, {len(count)} ta tovar; yuklanmadi: {missed}")
     print(f"Hajmi: {os.path.getsize(OUT) // 1024 // 1024} MB")
