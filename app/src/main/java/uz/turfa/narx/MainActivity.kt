@@ -1128,6 +1128,7 @@ class MainActivity : Activity() {
                     refresh()
                     if (hits.isEmpty()) toast(if (photoScopeShown != null) "${photoScopeShown}-polkada o'xshash tovar topilmadi" else "O'xshash tovar topilmadi")
                 }.onFailure { e ->
+                    photoScope = null
                     alert("Rasmni o'qib bo'lmadi", e.message ?: e.javaClass.simpleName)
                 }
             }
