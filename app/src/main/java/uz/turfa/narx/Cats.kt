@@ -17,7 +17,7 @@ object Cats {
 
     class Sub(val name: String, val kws: List<String>)
     /** kws — oddiy kalit so'zlar, weak — "~" bilan yozilganlar (faqat oddiylari topilmasa ishlaydi). */
-    class Cat(val name: String, val kws: List<String>, val weak: List<String>, val subs: List<Sub>)
+    class Cat(val name: String, val kws: List<String>, val weak: List<String>, val subs: List<Sub>, val excl: List<String> = emptyList())
 
     @Volatile var cats: List<Cat> = emptyList()
         private set
@@ -63,7 +63,7 @@ object Cats {
     @Synchronized
     fun auto(p: Product): Pair<String, String?> = cache.getOrPut(p.name) {
         val ws = words(p.name)
-        val c = cats.firstOrNull { any(ws, it.kws) } ?: cats.firstOrNull { any(ws, it.weak) }
+        val c = cats.firstOrNull { any(ws, it.kws) && !any(ws, it.excl) } ?: cats.firstOrNull { any(ws, it.weak) && !any(ws, it.excl) }
             ?: return@getOrPut OTHER to null
         if (c.subs.isEmpty()) c.name to null
         else c.name to (c.subs.firstOrNull { any(ws, it.kws) }?.name ?: OTHER_SUB)
@@ -81,7 +81,9 @@ object Cats {
         val subs = ArrayList<Sub>()
         var cur: Pair<String, List<String>>? = null
         fun flush() {
-            cur?.let { (n, k) -> out += Cat(n, k.filterNot { it.startsWith("~") }, k.filter { it.startsWith("~") }.map { it.drop(1) }.filter { it.isNotEmpty() }, subs.toList()) }
+            cur?.let { (n, k) -> out += Cat(n, k.filterNot { it.startsWith("~") || it.startsWith("!") },
+                k.filter { it.startsWith("~") }.map { it.drop(1) }.filter { it.isNotEmpty() }, subs.toList(),
+                k.filter { it.startsWith("!") }.map { it.drop(1) }.filter { it.isNotEmpty() }) }
             subs.clear()
         }
         for (line in text.removePrefix("﻿").lines()) {
@@ -90,7 +92,7 @@ object Cats {
             val name = t.substringBefore('|').trim()
             val kws = t.substringAfter('|').split(',')
                 .map { APOS.replace(it.trim().lowercase(), "") }.filter { it.isNotEmpty() }
-            if (line.startsWith(" ") || line.startsWith("\t")) { if (cur != null) subs += Sub(name, kws.map { it.removePrefix("~") }) }
+            if (line.startsWith(" ") || line.startsWith("\t")) { if (cur != null) subs += Sub(name, kws.filterNot { it.startsWith("!") }.map { it.removePrefix("~") }) }
             else { flush(); cur = name to kws }
         }
         flush()

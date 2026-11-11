@@ -1,7 +1,7 @@
 """Har tovarga "aqlli" kategoriya: baza/products.csv ga "kategoriya" ustuni ("Kategoriya|Bo'lim").
 
 Tartib (birinchi topilgani):
- 1. Kalit so'z (baza/kategoriyalar.txt): avval oddiy, keyin kuchsiz (~) — bo'lim aniq bo'lsa
+ 1. Kalit so'z (baza/kategoriyalar.txt): avval oddiy, keyin kuchsiz (~); istisno (!) bo'lsa o'tkazib yuboriladi
  2. Seriya: bir seriyadagi (43-39 -> "43") boshqa tovarlarning ko'pchiligi qaysi bo'limda bo'lsa (sinovda ~97%)
  3. Rasm: eng o'xshash rasmli tovarning bo'limi (o'xshashlik >= 0.70, sinovda ~97%)
  4. Kategoriyasiz tovar ham seriyasi/rasmi orqali kategoriya oladi
@@ -24,12 +24,13 @@ def load_cats():
             continue
         name, kws = t.split("|", 1)
         kws = [APOS.sub("", k.strip().lower()) for k in kws.split(",") if k.strip()]
-        strong = [k for k in kws if not k.startswith("~")]
+        strong = [k for k in kws if k[0] not in "~!"]
         weak = [k[1:] for k in kws if k.startswith("~") and len(k) > 1]
+        excl = [k[1:] for k in kws if k.startswith("!") and len(k) > 1]
         if line[:1] in (" ", "\t"):
             if cats: cats[-1][3].append((name.strip(), strong + weak))
         else:
-            cats.append((name.strip(), strong, weak, []))
+            cats.append((name.strip(), strong, weak, [], excl))
     return cats
 
 
@@ -41,8 +42,8 @@ def auto(cats, name):
     ws = WORD.findall(APOS.sub("", name.lower()))
     # avval oddiy kalit so'zlar, hech biri topilmasa — kuchsiz (~) kalit so'zlar
     for weak in (False, True):
-        for c, strong, wk, subs in cats:
-            if hit(ws, wk if weak else strong):
+        for c, strong, wk, subs, excl in cats:
+            if hit(ws, wk if weak else strong) and not hit(ws, excl):
                 if not subs:
                     return c, None, True, weak
                 sub = next((sn for sn, sk in subs if hit(ws, sk)), None)
@@ -117,7 +118,7 @@ def main():
                 top, n = collections.Counter(mates).most_common(1)[0]
                 if n / len(mates) >= 0.8 and top != cat[i]:
                     cat[i] = top; weak[i] = False; sure[i] = False; stats["seriya: kategoriya"] += 1
-                    c, s2, ok = next(((c, OTHER_SUB if subs else None, False) for c, _st, _wk, subs in cats if c == top), (top, None, False))
+                    c, s2, ok = next(((c, OTHER_SUB if subs else None, False) for c, _st, _wk, subs, _ex in cats if c == top), (top, None, False))
                     sub[i] = s2
         if sub[i] == OTHER_SUB:
             mates = [sub[j] for j in by_cs[(cat[i], s)] if j != i and sure[j] and sub[j] not in (None, OTHER_SUB)]

@@ -5,6 +5,8 @@
 # 4 harfdan uzun kalit so'z so'z boshiga ham mos keladi (svetil -> svetilnik).
 # ~ bilan boshlangan kalit so'z "kuchsiz": faqat boshqa hech qaysi kategoriyaning
 #   oddiy kalit so'zi topilmasa ishlaydi (masalan "~ot": "Ot soat" -> Soatlar, "Ot 50-25" -> Statuetkalar).
+# ! bilan boshlangan so'z — istisno: nomida shu so'z bo'lsa, tovar bu kategoriyaga OLINMAYDI
+#   (masalan Soatlar'da "!kartina": "Kartina soat" -> Rasm va ramkalar).
 # Bo'limga tushmagan tovar "Boshqalar" bo'limiga tushadi.
 # Bu faylni GitHub'da o'zgartirsangiz, ilovada 🔄 Yangilash bosilganda yangilanadi.
 
@@ -22,7 +24,7 @@
   Temir seyf | temir
 🐷 Kapilkalar | kapilka, kopilka, kpailka, копилка
 🗿 Statuetkalar | statuetka, statuetkalar, figurka, maket, xaykal, xaykalcha, haykal, ~mushuk, ~kapalak, ~kapalek, ~ot, ~otlar, ~sher, ~yolbars, ~maymun, ~ilon, ~fil, ~tuya, ~kabutar, ~qush, ~tovus, ~flamengo, ~flamingo, ~buqa, ~quyon, ~aravacha, ~motosikl, ~velosiped, ~samalyot, ~samolyot, ~vertalyot, ~moshina, ~bino, ~minora, ~burj, ~odamcha, ~odamchalar, ~askar, ~femida, ~napalyon, ~kosmonavt, ~kasmanaft, ~yakkashox, ~baliq, ~riba, ~panda, ~ekskovator, ~qozichoq, ~jirafa, ~leopard
-🕰 Soatlar | soat, soatlar, budilnik, chasi, mayatnik, fajr, fajir, alfajr, zuhr
+🕰 Soatlar | soat, soatlar, budilnik, chasi, mayatnik, fajr, fajir, alfajr, zuhr, !kartina, !kartinka, !kartna
   Azon soat | fajr, fajir, alfajr, zuhr, azon, salah
   Devor soat | devor, devoriy, napolni
   Stol soat | nastolni, stol, elektron
@@ -59,6 +61,12 @@
   English Home | english
 🪞 Oynalar | oyna, oynacha, zerkalo
 🖼 Rasm va ramkalar | ramka, ram, kartina, kartinka, kartna, fotoramka, baget, akrel, akril, laminat, laminar, xitich, ~hitech, ~xitech, ~haytec
+  Soatli kartina | soat, saot, chasi
+  Akril kartina | akrel, akril
+  Laminat / Xi-tech | laminat, laminar, xitich, hitech, xitech, haytec
+  Fotoramka | fotoramka, foto, fota
+  Kartina | kartina, kartinka, kartna
+  Ramka | ramka, ram, baget
 💨 Uvlajnitel va diffuzorlar | uvlajnitel, uvlajnitell, ovlajnitel, aromadiffuzor, defuzor, diffuzor, diffuser, difusser, osvejitel, osvijitel, asvijitel
   Avto osvijitel | moshina, moshinaga, moshinalarga, mashina, mashinaga, car, velik
   Uvlajnitel | uvlajnitel, uvlajnitell, ovlajnitel
