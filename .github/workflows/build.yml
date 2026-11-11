@@ -17,6 +17,7 @@ jobs:
       - name: Rasm modeli (rasm orqali qidirish)
         run: |
           mkdir -p app/src/main/assets
+          cp baza/kategoriyalar.txt app/src/main/assets/kategoriyalar.txt
           curl -fsSL -o app/src/main/assets/embedder.tflite \
             https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
       - run: gradle assembleRelease
