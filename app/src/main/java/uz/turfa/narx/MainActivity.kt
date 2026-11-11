@@ -161,12 +161,77 @@ object Search {
     private fun natKey(s: String): String =
         Regex("\\d+").replace(s.lowercase()) { it.value.padStart(8, '0') }
 
+    // ---------------------------------------------------- har xil yozilgan kodlar
+    private val ODD_DASH = Regex("[–—−‐‑_]")
+    // "43 39", "43.39", "43,39" (oldi-ortida chiziqcha yoki raqam bo'lmasa)
+    private val SPACED = Regex("(?<![\\d-])\\d+(?:[ .,]+\\d+)+(?![\\d-])")
+    private val SPACED_SEP = Regex("[ .,]+")
+    private var codeSet: Set<String> = emptySet()
+    private var codeSetOf: List<Product>? = null
+
+    /** Bazadagi barcha raqamli kodlar (43-39, qai-68441, shtrix...). */
+    @Synchronized
+    private fun codes(all: List<Product>): Set<String> {
+        if (codeSetOf !== all) {
+            codeSet = all.flatMapTo(HashSet()) { p -> p.tokens.filter { t -> t.any { it.isDigit() } } }
+            codeSetOf = all
+        }
+        return codeSet
+    }
+
+    /** "43 39" -> "43-39", "43–39" -> "43-39" (faqat shunday kod bazada bo'lsa). */
+    private fun normalize(query: String, codes: Set<String>): String {
+        val q = ODD_DASH.replace(query, "-")
+        return SPACED.replace(q) { m ->
+            val j = m.value.split(SPACED_SEP).joinToString("-")
+            if (j in codes) j else m.value
+        }
+    }
+
+    /**
+     * Bitta so'zning bazadagi variantlari: "4339" -> ["43-39"], "43.39" -> ["43-39"].
+     * Aniq o'zi bazada bo'lsa — faqat o'zi. Hech narsa topilmasa — o'zi.
+     */
+    fun variants(w: String, codes: Set<String>): List<String> {
+        if (w.none { it.isDigit() } || w in codes) return listOf(w)
+        val d = w.replace('.', '-').replace(',', '-')
+        if (d in codes) return listOf(d)
+        if (d.length in 3..9 && d.all { it.isDigit() }) {
+            val n = d.length - 1
+            val res = ArrayList<String>()
+            for (mask in 1 until (1 shl n)) {
+                val sb = StringBuilder()
+                for (i in d.indices) { sb.append(d[i]); if (i < n && (mask shr i) and 1 == 1) sb.append('-') }
+                val c = sb.toString()
+                if (c in codes) res += c
+            }
+            if (res.isNotEmpty()) return res.sortedBy { c -> c.count { it == '-' } }
+        }
+        return listOf(d)
+    }
+
+    /** Qidiruv so'zini bazadagi ko'rinishga keltiradi ("4339" -> "43-39"). */
+    fun canonical(all: List<Product>, query: String): String {
+        val codes = codes(all)
+        return tokens(normalize(query, codes)).joinToString(" ") { variants(it, codes).first() }
+    }
+
+    /** 0 = omborda bor, 1 = noma'lum, 2 = tugagan */
+    fun stockRank(p: Product): Int {
+        val q = p.qty.toDoubleOrNull() ?: return 1
+        return if (q > 0) 0 else 2
+    }
+
     fun run(all: List<Product>, query: String): List<Product> {
-        val words = tokens(query).toList()
-        if (words.isEmpty()) return emptyList()
-        val digitWords = words.filter { w -> w.any { it.isDigit() } }
-        return all.filter { matches(it, words) }
-            .sortedByDescending { p -> digitWords.sumOf { codeHit(p, it) } }   // aniq kodlar tepada
+        val codes = codes(all)
+        val alts = tokens(normalize(query, codes)).map { variants(it, codes) }
+        if (alts.isEmpty()) return emptyList()
+        fun hit(p: Product, w: String) = if (w.any { it.isDigit() }) codeHit(p, w) else if (p.nameLower.contains(w)) 1 else 0
+        return all.filter { p -> alts.all { a -> a.any { hit(p, it) > 0 } } }
+            .sortedWith(compareBy<Product>(
+                { p -> -alts.sumOf { a -> a.maxOf { w -> if (w.any { it.isDigit() }) hit(p, w) else 0 } } },  // aniq kodlar tepada
+                { stockRank(it) },                                                                           // keyin omborda borlar
+            ))
             .take(300)
     }
 }
@@ -539,6 +604,8 @@ class MainActivity : Activity() {
         card.addView(addRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
 
         card.setOnLongClickListener { productMenu(p); true }
+
+        if (Search.stockRank(p) == 2) card.alpha = 0.5f   // tugagan — kulrang
 
         val wrap = LinearLayout(this).apply { setPadding(dp(4), dp(5), dp(4), dp(5)) }
         wrap.addView(card, LinearLayout.LayoutParams(-1, -2))
@@ -1228,7 +1295,7 @@ class MainActivity : Activity() {
             return
         }
         val exact = Search.run(all, q)
-        val (ser, sim) = if (q.isBlank()) "" to emptyList<Product>() else Search.similar(all, q, exact)
+        val (ser, sim) = if (q.isBlank()) "" to emptyList<Product>() else Search.similar(all, Search.canonical(all, q), exact)
         val open = similarOpen || exact.isEmpty()
         val rows = ArrayList<Any>()
         if (exact.isNotEmpty() && sim.isNotEmpty()) rows += "🎯 Topildi: ${exact.size} ta"
