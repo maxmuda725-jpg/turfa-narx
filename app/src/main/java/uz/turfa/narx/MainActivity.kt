@@ -614,6 +614,8 @@ class MainActivity : Activity() {
             text = if (inCart > 0) "🧾 Kassada: ${group(inCart)} ta" else ""
             textSize = 14f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
         }, LinearLayout.LayoutParams(0, -2, 1f))
+        addRow.addView(pill("🏷", INK, Color.parseColor("#EEEEEE"), 17f) { kodAddProduct(p) },
+            LinearLayout.LayoutParams(dp(52), dp(44)).apply { rightMargin = dp(8) })
         if (p.donaList.isNotEmpty()) addRow.addView(
             pill("＋ Kassaga", Color.WHITE, INK, 15f) {
                 val ci = cart.getOrPut(p.key) { CartItem(p, 0) }
@@ -1208,6 +1210,33 @@ class MainActivity : Activity() {
             .setNegativeButton("Orqaga") { _, _ -> kodList() }.show()
     }
 
+    /** Tovar nomidagi do'kon kodi (masalan "gul 43-39" -> "43-39"), bo'lmasa Billz kodi. */
+    private fun shopCode(p: Product): String =
+        Search.tokens(p.name).lastOrNull { t -> t.contains('-') && t.any { it.isDigit() } } ?: p.code
+
+    /** Istalgan joydan (qidiruv, rasm qidiruvi, kategoriya, sevimlilar) tovarni 🏷 ro'yxatiga qo'shish. */
+    private fun kodAddProduct(p: Product) {
+        val list = kodLoad()
+        val old = list.firstOrNull { it.sku.isNotBlank() && it.sku == p.code }
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER; textSize = 24f; gravity = Gravity.CENTER
+            hint = "Soni"; setText("1"); selectAll()
+        }
+        val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+        AlertDialog.Builder(this).setTitle("🏷 ${shopCode(p)} — nechta?" + if (old != null) "\n(ro'yxatda allaqachon ${group(old.qty)} ta, qo'shiladi)" else "")
+            .setView(wrap)
+            .setPositiveButton("Qo'shish") { _, _ ->
+                val n = input.text.toString().toLongOrNull()?.takeIf { it > 0 } ?: 1
+                val l = kodLoad()
+                val o = l.firstOrNull { it.sku.isNotBlank() && it.sku == p.code }
+                if (o != null) o.qty += n else l += KodItem(shopCode(p), p.name, p.code, n, 0)
+                kodSave(l)
+                toast("🏷 Qo'shildi: ${shopCode(p)} — ${group(o?.qty ?: n)} ta (ro'yxatda ${l.size} ta kod)")
+            }
+            .setNegativeButton("Bekor", null).show()
+        input.requestFocus()
+    }
+
     /** Ro'yxatdagi kod uchun rasm: bazadagi tovarga, bo'lmasa kodning o'ziga yuklanadi. */
     private fun kodPhoto(i: Int) {
         val k = kodLoad().getOrNull(i) ?: return
@@ -1323,6 +1352,8 @@ class MainActivity : Activity() {
             labels += "✅ Rasmdagi tovar shu (eslab qol)"
             actions += { rememberPhoto(p); toast("✅ Eslab qolindi") }
         }
+        labels += "🏷 Kod chiqarish ro'yxatiga qo'shish"
+        actions += { kodAddProduct(p) }
         labels += "📸 Rasmini o'rgatish (hamma telefonga)"
         actions += { uploadFor(p) }
         val cur = Cats.of(p)
