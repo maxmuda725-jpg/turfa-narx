@@ -173,7 +173,14 @@ object Search {
     @Synchronized
     private fun codes(all: List<Product>): Set<String> {
         if (codeSetOf !== all) {
-            codeSet = all.flatMapTo(HashSet()) { p -> p.tokens.filter { t -> t.any { it.isDigit() } } }
+            val set = HashSet<String>()
+            for (p in all) for (t in p.tokens) if (t.any { it.isDigit() }) {
+                set += t
+                // chiziqcha chegarasidagi qo'shimchalar: "25-4-37-w05-15" -> "w05-15", "37-w05-15"...
+                var i = t.indexOf('-')
+                while (i >= 0) { val suf = t.substring(i + 1); if (suf.contains('-')) set += suf; i = t.indexOf('-', i + 1) }
+            }
+            codeSet = set
             codeSetOf = all
         }
         return codeSet
@@ -196,7 +203,7 @@ object Search {
         if (w.none { it.isDigit() } || w in codes) return listOf(w)
         val d = w.replace('.', '-').replace(',', '-')
         if (d in codes) return listOf(d)
-        if (d.length in 3..9 && d.all { it.isDigit() }) {
+        if (d.length in 3..9 && d.all { it.isLetterOrDigit() } && d.any { it.isDigit() }) {
             val n = d.length - 1
             val res = ArrayList<String>()
             for (mask in 1 until (1 shl n)) {
@@ -341,6 +348,11 @@ object Img {
     private fun file(ctx: Context, url: String, big: Boolean) =
         File(File(ctx.cacheDir, "img").apply { mkdirs() }, (if (big) "b" else "s") + url.hashCode().toUInt())
 
+    fun forget(ctx: Context, url: String) {
+        mem.remove("s:$url"); mem.remove("b:$url")
+        file(ctx, url, false).delete(); file(ctx, url, true).delete()
+    }
+
     fun load(ctx: Context, url: String, view: ImageView, big: Boolean = false) {
         val key = (if (big) "b:" else "s:") + url
         view.tag = key
@@ -350,9 +362,12 @@ object Img {
             val bmp = try {
                 val f = file(ctx, url, big)
                 if (!f.exists()) {
-                    val c = URL(url).openConnection() as HttpURLConnection
-                    c.connectTimeout = 10000; c.readTimeout = 20000
-                    val bytes = c.inputStream.use { it.readBytes() }; c.disconnect()
+                    val bytes = if (url.startsWith("file:")) File(url.removePrefix("file:")).readBytes() else {
+                        val c = URL(url).openConnection() as HttpURLConnection
+                        c.connectTimeout = 10000; c.readTimeout = 20000
+                        c.instanceFollowRedirects = true
+                        c.inputStream.use { it.readBytes() }.also { c.disconnect() }
+                    }
                     val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, o)
                     val target = if (big) 1200 else 240
@@ -560,14 +575,15 @@ class MainActivity : Activity() {
             setPadding(dp(14), dp(12), dp(14), dp(12))
         }
         val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        if (p.photo.isNotBlank()) {
+        val photoUrl = myPhoto(p) ?: p.photo
+        if (photoUrl.isNotBlank()) {
             val iv = ImageView(this).apply {
                 scaleType = ImageView.ScaleType.CENTER_CROP
                 background = box(Color.parseColor("#EEEEEE"), 10)
                 clipToOutline = true
                 setOnClickListener { showPhoto(p) }
             }
-            Img.load(this, p.photo, iv)
+            Img.load(this, photoUrl, iv)
             head.addView(iv, LinearLayout.LayoutParams(dp(72), dp(72)).apply { rightMargin = dp(12) })
         }
         val titleBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -1655,7 +1671,7 @@ class MainActivity : Activity() {
     // ---------------------------------------------------------------- umumiy
     private fun showPhoto(p: Product) {
         val iv = ImageView(this).apply { adjustViewBounds = true; setBackgroundColor(Color.WHITE) }
-        Img.load(this, p.photo, iv, big = true)
+        Img.load(this, myPhoto(p) ?: p.photo, iv, big = true)
         val d = AlertDialog.Builder(this).setTitle(p.name).setView(iv).setPositiveButton("Yopish", null).create()
         iv.setOnClickListener { d.dismiss() }
         d.show()
@@ -1906,6 +1922,15 @@ class MainActivity : Activity() {
                     }
                 } catch (e: Exception) { lastErr = "Internet yo'q yoki server javob bermadi" }
             }
+            sent.lastOrNull()?.let { f ->   // kartada darrov ko'rinsin (baza yangilanguncha)
+                try {
+                    val dir = File(filesDir, "myphoto").apply { mkdirs() }
+                    val out = File(dir, "${p.key.hashCode().toUInt()}.jpg")
+                    Visual.bitmap(this, Uri.fromFile(f), 640).let { b -> out.outputStream().use { b.compress(Bitmap.CompressFormat.JPEG, 82, it) } }
+                    getSharedPreferences("myphoto", MODE_PRIVATE).edit().putString(p.key, out.path).apply()
+                    Img.forget(this, "file:" + out.path)
+                } catch (_: Exception) {}
+            }
             upKodId?.let { id ->   // 🏷 ro'yxatida ko'rinishi uchun kichik nusxa
                 val dir = kodDir(id).apply { mkdirs() }
                 for (f in sent) try {
@@ -1915,6 +1940,7 @@ class MainActivity : Activity() {
             }
             main.post {
                 wait.dismiss()
+                if (ok > 0) adapter.notifyDataSetChanged()
                 if (unauthorized) {
                     if (BuildConfig.RASM_APP_KEY.isBlank()) prefs().edit().remove("key").apply()
                     alert("Ruxsat yo'q", if (BuildConfig.RASM_APP_KEY.isBlank()) "Ulanish kaliti noto'g'ri. Qayta yuklab, to'g'ri kalitni kiriting."
@@ -1940,6 +1966,10 @@ class MainActivity : Activity() {
             }
         }.start()
     }
+
+    /** Shu telefonda yuklangan rasm: baza yangilanguncha kartada darrov ko'rinsin. */
+    private fun myPhoto(p: Product): String? =
+        getSharedPreferences("myphoto", MODE_PRIVATE).getString(p.key, null)?.takeIf { File(it).exists() }?.let { "file:$it" }
 
     // ---------------------------------------------------------------- yuklangan rasmlar (egasi uchun)
     private class Rasm(val sku: String, val name: String, val url: String, val at: Long)

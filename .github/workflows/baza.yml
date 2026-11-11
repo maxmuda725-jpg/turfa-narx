@@ -1,7 +1,7 @@
 name: Bazani Billz'dan yangilash
 on:
   schedule:
-    - cron: '17 * * * *'   # har soatda
+    - cron: '17,47 * * * *'   # har 30 daqiqada
   workflow_dispatch:
 permissions:
   contents: write

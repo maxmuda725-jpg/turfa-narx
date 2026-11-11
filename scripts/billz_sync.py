@@ -91,9 +91,20 @@ def main():
         # ilovadan yuklanganlar: Billz SKU bo'yicha, yoki "🏷 Kod chiqarish"da yozilgan do'kon kodi (43-39) bo'yicha
         mine = list(upl.get((p.get("sku") or "").strip(), []))
         for t in set(re.split(r"[\s,;/|()\[\]{}\"']+", (p.get("name") or "").lower())):
-            if any(ch.isdigit() for ch in t) and t in upl_codes:
-                mine += upl_codes[t]
-        urls += [u for u in mine if u not in urls][-6:]
+            if not any(ch.isdigit() for ch in t):
+                continue
+            parts = t.split("-")
+            # "25-4-37-w05-15": 25-4-37-w05-15, 4-37-w05-15, ..., w05-15 — chiziqchali yoki chiziqchasiz yozilgan kod
+            for i in range(len(parts) - 1):
+                suf = "-".join(parts[i:])
+                for key in (suf, suf.replace("-", "")):
+                    if key in upl_codes:
+                        mine += [u for u in upl_codes[key] if u not in mine]
+            if t in upl_codes:
+                mine += [u for u in upl_codes[t] if u not in mine]
+        mine = mine[-6:]
+        # O'zimiz olgan rasm ustun: kartada birinchi bo'lib chiqadi, Billz rasmlari keyin
+        urls = mine[::-1] + [u for u in urls if u not in mine]
         photo = urls[0] if urls else ""
         extra = " ".join(urls[1:11])   # qo'shimcha rasmlar (rasm orqali qidirish uchun)
         if not photo and any(cands) and not globals().get("_shown"):
