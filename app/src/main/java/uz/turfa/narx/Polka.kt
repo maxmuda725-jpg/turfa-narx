@@ -6,7 +6,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Tovar qaysi polkada turadi: "stellaj-qavat", qavat TEPADAN sanaladi ("7-2" — 7-stellaj, tepadan 2-qavat).
+ * Tovar qaysi polkada turadi: "polka-etaj", etaj TEPADAN sanaladi ("7-2" — 7-polka, tepadan 2-etaj).
+ * Ilovada "7-polka, 2-etaj" deb ko'rsatiladi (label), saqlanishi qisqa: "7-2".
  * Bir tovar 3 tagacha joyda bo'lishi mumkin: "7-2,15-4".
  * Hamma telefonga server orqali (Do'kon Yordamchisi: /api/kassa/polka, /api/public/polkalar), kalit — tovar kodi.
  * Stellajlarda qavat soni har xil bo'lishi mumkin — hech qanday qat'iy sozlama yo'q.
@@ -46,6 +47,12 @@ object Polka {
         if (a !in 1..999 || b !in 1..99) return null
         return "$a-$b"
     }
+
+    /** Ko'rsatish uchun: "7-2" -> "7-polka, 2-etaj"; "7" -> "7-polka". */
+    fun label(loc: String): String =
+        if (loc.contains('-')) "${stellaj(loc)}-polka, ${loc.substringAfter('-')}-etaj" else "$loc-polka"
+
+    fun labels(locs: List<String>) = locs.joinToString("; ") { label(it) }
 
     fun next(loc: String): String = "${stellaj(loc)}-${(loc.substringAfter('-').toIntOrNull() ?: 0) + 1}"
 
