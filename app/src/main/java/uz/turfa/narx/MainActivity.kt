@@ -1240,7 +1240,8 @@ class MainActivity : Activity() {
                     val shown = if (canon.isNotBlank()) canon else c
                     list += KodItem(newKodId(), shown, p?.name.orEmpty(), p?.code.orEmpty(), n, 0)
                     kodSave(list)
-                    AlertDialog.Builder(this).setTitle("✅ Saqlandi: $shown — $n ta")
+                    val noPhoto = p == null || p.photo.isBlank()
+                    AlertDialog.Builder(this).setTitle("✅ Saqlandi: $shown — $n ta" + if (noPhoto) "\n📷 Bu tovarning rasmi yo'q" else "")
                         .setItems(arrayOf("📷 Hozir rasmga olish", "➕ Yana kod qo'shish", "🏷 Ro'yxatni ko'rish")) { _, w ->
                             when (w) { 0 -> kodPhoto(list.size - 1); 1 -> kodAdd(); else -> kodList() }
                         }.show()
@@ -1299,16 +1300,29 @@ class MainActivity : Activity() {
                 val n = input.text.toString().toLongOrNull()?.takeIf { it > 0 } ?: 1
                 val l = kodLoad()
                 val o = l.firstOrNull { it.sku.isNotBlank() && it.sku == p.code }
-                if (o != null) o.qty += n else l += KodItem(newKodId(), shopCode(p), p.name, p.code, n, 0)
+                val item = o ?: KodItem(newKodId(), shopCode(p), p.name, p.code, n, 0).also { l += it }
+                if (o != null) o.qty += n
                 kodSave(l)
-                toast("🏷 Qo'shildi: ${shopCode(p)} — ${group(o?.qty ?: n)} ta (ro'yxatda ${l.size} ta kod)")
+                toast("🏷 Qo'shildi: ${shopCode(p)} — ${group(item.qty)} ta (ro'yxatda ${l.size} ta kod)")
+                // Rasmi yo'q bo'lsa — darrov rasmga olishni taklif qilamiz
+                if (p.photo.isBlank() && kodThumbs(item.id).isEmpty()) kodAskPhoto(item.id, p.name)
             }
             .setNegativeButton("Bekor", null).show()
         input.requestFocus()
     }
 
+    private fun kodAskPhoto(id: String, name: String) {
+        AlertDialog.Builder(this).setTitle("📷 Rasmi yo'q")
+            .setMessage("$name\n\nHozir rasmga olasizmi? Rasm hamma telefonga yuklanadi va 🏷 ro'yxatida ko'rinadi.")
+            .setPositiveButton("📷 Rasmga olish") { _, _ ->
+                val i = kodLoad().indexOfFirst { it.id == id }
+                if (i >= 0) kodPhoto(i, back = false)
+            }
+            .setNegativeButton("Keyin", null).show()
+    }
+
     /** Ro'yxatdagi kod uchun rasm: bazadagi tovarga, bo'lmasa kodning o'ziga yuklanadi. */
-    private fun kodPhoto(i: Int) {
+    private fun kodPhoto(i: Int, back: Boolean = true) {
         val k = kodLoad().getOrNull(i) ?: return
         val p = (if (k.sku.isNotBlank()) all.firstOrNull { it.code == k.sku } else null)
             ?: Product(name = k.name.ifBlank { "Yangi kod ${k.code}" }, code = k.sku.ifBlank { k.code }, barcode = "", dona = "", optom = "", qty = "")
@@ -1317,7 +1331,7 @@ class MainActivity : Activity() {
             upKodId = null
             val list = kodLoad()
             list.firstOrNull { it.id == k.id }?.let { it.photos += n; kodSave(list) }
-            kodList()
+            if (back) kodList() else if (n > 0) toast("✅ Rasm saqlandi: ${k.code}")
         }
         uploadFor(p)
     }
@@ -1915,7 +1929,7 @@ class MainActivity : Activity() {
                     if (ok > 0) append("\n\nBu telefonda darrov ishlaydi. Boshqa telefonlarda taxminan 1 soatda (🔄 bosilganda) ko'rinadi.")
                 }
                 AlertDialog.Builder(this).setTitle(if (ok == files.size) "✅ Tayyor" else "Yuklash").setMessage(msg)
-                    .setPositiveButton(if (upDone != null) "🏷 Ro'yxatga qaytish" else "Boshqa tovar") { _, _ ->
+                    .setPositiveButton(if (upDone != null) "✅ Tayyor" else "Boshqa tovar") { _, _ ->
                         upProduct = null; upFiles.clear()
                         val back = upDone; upDone = null
                         if (back != null) back(ok) else uploadStart()
