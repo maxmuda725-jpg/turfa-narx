@@ -412,6 +412,8 @@ class MainActivity : Activity() {
     private var favMode = false
     // Kategoriya: (kategoriya, bo'lim yoki null = hammasi)
     private var catSel: Pair<String, String?>? = null
+    // Rasmi yo'q tovarlar ko'rinishi (faqat ko'rsatish, kassa va kategoriyaga ta'sir qilmaydi)
+    private var noPhotoMode = false
 
     private lateinit var searchScreen: View
     private lateinit var kassaScreen: View
@@ -450,6 +452,7 @@ class MainActivity : Activity() {
             photoHits != null -> closePhoto()
             favMode -> { favMode = false; refresh() }
             catSel != null -> { catSel = null; refresh() }
+            noPhotoMode -> { noPhotoMode = false; refresh() }
             else -> super.onBackPressed()
         }
     }
@@ -630,6 +633,10 @@ class MainActivity : Activity() {
             text = t; textSize = 15f; typeface = Typeface.DEFAULT_BOLD
             setTextColor(if (t.startsWith("🔍")) BLUE else INK)
             setPadding(dp(12), dp(14), dp(12), dp(8))
+            if (t.startsWith("🚫")) {
+                background = box(tint(RED, 22), 12)
+                setOnClickListener { noPhotoMode = false; refresh() }
+            }
             if (t.startsWith("🗂")) {
                 background = box(tint(BLUE, 22), 12)
                 setOnClickListener { catSel = null; refresh() }
@@ -1026,12 +1033,14 @@ class MainActivity : Activity() {
     private fun photoMenu() {
         AlertDialog.Builder(this).setTitle("📷 Tovarni rasm orqali topish")
             .setItems(arrayOf("🔍 Kamera bilan qidirish", "🔍 Galereyadagi rasm bilan qidirish",
-                "📸 Tovarga rasm yuklash (kod bilan)", "🖼 Yuklangan rasmlar (Billz'ga qo'shish)")) { _, w ->
+                "📸 Tovarga rasm yuklash (kod bilan)", "🖼 Yuklangan rasmlar (Billz'ga qo'shish)",
+                "🚫 Rasmi yo'q tovarlar")) { _, w ->
                 when (w) {
                     0 -> openCamera(REQ_PHOTO_CAM)
                     1 -> openGallery(REQ_PHOTO_GAL)
                     2 -> uploadStart()
-                    else -> rasmlarList()
+                    3 -> rasmlarList()
+                    else -> openNoPhoto()
                 }
             }.show()
     }
@@ -1050,7 +1059,7 @@ class MainActivity : Activity() {
             main.post {
                 wait.dismiss()
                 res.onSuccess { (v, hits) ->
-                    photoVec = v; photoHits = hits; photoLearned.clear(); favMode = false; catSel = null
+                    photoVec = v; photoHits = hits; photoLearned.clear(); favMode = false; catSel = null; noPhotoMode = false
                     hideKb(search)
                     if (search.text.isNotEmpty()) search.setText("")
                     refresh()
@@ -1083,9 +1092,17 @@ class MainActivity : Activity() {
             }.show()
     }
 
+    private fun openNoPhoto() {
+        noPhotoMode = true
+        catSel = null; favMode = false; photoHits = null; photoVec = null
+        hideKb(search)
+        if (search.text.isNotEmpty()) search.setText("")
+        refresh()
+    }
+
     private fun openCat(c: String, sub: String?) {
         catSel = c to sub
-        favMode = false; photoHits = null; photoVec = null
+        favMode = false; photoHits = null; photoVec = null; noPhotoMode = false
         hideKb(search)
         if (search.text.isNotEmpty()) search.setText("")
         refresh()
@@ -1100,7 +1117,7 @@ class MainActivity : Activity() {
 
     private fun toggleFavMode() {
         favMode = !favMode
-        if (favMode) { photoHits = null; photoVec = null; catSel = null }
+        if (favMode) { photoHits = null; photoVec = null; catSel = null; noPhotoMode = false }
         hideKb(search)
         refresh()
     }
@@ -1351,6 +1368,20 @@ class MainActivity : Activity() {
                 q.isBlank() -> "Ko'p chiqsa, nomini yozing (masalan: gul). To'g'ri tovarni \"＋ Kassaga\" bosing — telefon eslab qoladi."
                 res.isEmpty() -> "Rasm natijalari ichida \"${q.trim()}\" yo'q. ✕ yopib, oddiy qidiring."
                 else -> "Rasm natijalari ichida \"${q.trim()}\": ${res.size} ta"
+            }
+            adapter.notifyDataSetChanged()
+            return
+        }
+        if (noPhotoMode) {
+            // Omborda borlari tepada: avval shularni rasmga olish foydali
+            val list = all.filter { it.photo.isBlank() }
+                .sortedWith(compareBy<Product>({ Search.stockRank(it) }, { it.nameLower }))
+            val res = if (q.isBlank()) list else Search.run(list, q)
+            shown = listOf<Any>("🚫 Rasmi yo'q: ${res.size} ta   ✕ yopish") + res
+            info.text = when {
+                q.isBlank() -> "Tovarni uzoq bosing → 📸 Rasmini o'rgatish. Ichidan qidirish uchun yozing."
+                res.isEmpty() -> "Rasmi yo'qlar ichida topilmadi: \"${q.trim()}\""
+                else -> "Rasmi yo'qlar ichida topildi: ${res.size} ta"
             }
             adapter.notifyDataSetChanged()
             return
