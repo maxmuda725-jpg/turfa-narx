@@ -1198,23 +1198,185 @@ class MainActivity : Activity() {
         kodDlg = AlertDialog.Builder(this).setTitle("🏷 Kod chiqarish: ${list.size} ta kod, ${group(total)} ta")
             .setView(if (list.isEmpty()) empty else lv)
             .setPositiveButton("➕ Qo'shish") { _, _ -> kodAdd() }
-            .setNeutralButton("⋯") { _, _ ->
-                if (list.isEmpty()) return@setNeutralButton
-                AlertDialog.Builder(this).setItems(arrayOf("📋 Ro'yxatni nusxalash (matn)", "🗑 Ro'yxatni tozalash")) { _, w ->
-                    if (w == 0) {
-                        val text = list.joinToString("\n") { "${it.code} — ${it.qty} ta" + if (it.name.isNotBlank()) " (${it.name})" else "" }
-                        (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
-                            .setPrimaryClip(android.content.ClipData.newPlainText("kodlar", text))
-                        toast("📋 Nusxalandi: ${list.size} ta kod"); kodList()
-                    } else AlertDialog.Builder(this).setMessage("Ro'yxat tozalansinmi? (${list.size} ta kod)\nYuklangan rasmlar umumiy bazada qoladi.")
-                        .setPositiveButton("Tozalash") { _, _ ->
-                            kodSave(emptyList()); File(filesDir, "kod").deleteRecursively(); toast("🗑 Tozalandi")
+            .setNeutralButton("📤 Yuborish") { _, _ ->
+                if (list.isEmpty()) { toast("Ro'yxat bo'sh"); kodList() } else kodSend(list)
+            }
+            .setNegativeButton("⋯ Boshqa") { _, _ ->
+                AlertDialog.Builder(this).setItems(arrayOf("📥 Kelgan ro'yxatlar (sotuvchilardan)", "📋 Ro'yxatni nusxalash (matn)",
+                    "🗑 Ro'yxatni tozalash", "👤 Ismni o'zgartirish (${myName().ifBlank { "kiritilmagan" }})")) { _, w ->
+                    when (w) {
+                        0 -> royxatlar()
+                        1 -> {
+                            val text = list.joinToString("\n") { "${it.code} — ${it.qty} ta" + if (it.name.isNotBlank()) " (${it.name})" else "" }
+                            (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                                .setPrimaryClip(android.content.ClipData.newPlainText("kodlar", text))
+                            toast("📋 Nusxalandi: ${list.size} ta kod"); kodList()
                         }
-                        .setNegativeButton("Yo'q") { _, _ -> kodList() }.show()
+                        2 -> if (list.isEmpty()) kodList() else AlertDialog.Builder(this)
+                            .setMessage("Ro'yxat tozalansinmi? (${list.size} ta kod)\nYuklangan rasmlar umumiy bazada qoladi.")
+                            .setPositiveButton("Tozalash") { _, _ ->
+                                kodSave(emptyList()); File(filesDir, "kod").deleteRecursively(); toast("🗑 Tozalandi")
+                            }
+                            .setNegativeButton("Yo'q") { _, _ -> kodList() }.show()
+                        else -> askName { kodList() }
+                    }
                 }.show()
             }
-            .setNegativeButton("Yopish", null).show()
+            .show()
     }
+
+    // ---------------------------------------------------------------- ro'yxatni egasiga yuborish
+    private fun myName() = getSharedPreferences("kassa", MODE_PRIVATE).getString("ism", "").orEmpty()
+
+    private fun askName(then: () -> Unit) {
+        val input = EditText(this).apply { hint = "Ismingiz, masalan: Bekzod"; isSingleLine = true; textSize = 20f; setText(myName()) }
+        val wrap = LinearLayout(this).apply { setPadding(dp(24), dp(8), dp(24), 0); addView(input, -1, -2) }
+        AlertDialog.Builder(this).setTitle("👤 Ismingiz").setMessage("Ro'yxatni kim yozganini bilish uchun (bir marta).")
+            .setView(wrap)
+            .setPositiveButton("Saqlash") { _, _ ->
+                val n = input.text.toString().trim()
+                if (n.isEmpty()) { toast("Ismni yozing"); askName(then); return@setPositiveButton }
+                getSharedPreferences("kassa", MODE_PRIVATE).edit().putString("ism", n.take(60)).apply()
+                then()
+            }
+            .setNegativeButton("Bekor", null).show()
+        input.requestFocus()
+    }
+
+    private fun appKey() = BuildConfig.RASM_APP_KEY.ifBlank { prefs().getString("key", "").orEmpty() }
+
+    /** (kod, javob matni) — tarmoq so'rovi (asosiy oqimda chaqirmang). */
+    private fun royxatApi(method: String, json: String? = null): Pair<Int, String> = try {
+        val c = URL("$KASSA_API/api/kassa/kod-royxat").openConnection() as HttpURLConnection
+        c.requestMethod = method; c.connectTimeout = 15000; c.readTimeout = 30000
+        c.setRequestProperty("x-app-key", appKey())
+        if (json != null) {
+            c.doOutput = true; c.setRequestProperty("Content-Type", "application/json")
+            c.outputStream.use { it.write(json.toByteArray()) }
+        }
+        val rc = c.responseCode
+        val t = (if (rc in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.readText().orEmpty()
+        c.disconnect(); rc to t
+    } catch (e: Exception) { -1 to "" }
+
+    private fun kodSend(list: List<KodItem>) {
+        if (myName().isBlank()) { askName { kodSend(list) }; return }
+        if (appKey().isEmpty()) { askKey { kodSend(list) }; return }
+        val total = list.sumOf { it.qty }
+        AlertDialog.Builder(this).setTitle("📤 Yuborilsinmi?")
+            .setMessage("Kimdan: ${myName()}\n${list.size} ta kod, ${group(total)} ta")
+            .setPositiveButton("Yuborish") { _, _ ->
+                val body = org.json.JSONObject().put("op", "send").put("from", myName()).put("items", org.json.JSONArray().apply {
+                    for (k in list) put(org.json.JSONObject().put("code", k.code.take(80)).put("name", k.name.take(300))
+                        .put("sku", k.sku.take(120)).put("qty", k.qty))
+                }).toString()
+                val wait = AlertDialog.Builder(this).setMessage("📤 Yuborilmoqda…").setCancelable(false).show()
+                Thread {
+                    val (rc, _) = royxatApi("POST", body)
+                    main.post {
+                        wait.dismiss()
+                        when (rc) {
+                            in 200..299 -> AlertDialog.Builder(this).setTitle("✅ Yuborildi")
+                                .setMessage("${list.size} ta kod ${myName()} nomidan yuborildi.\nRo'yxatni tozalaysizmi?")
+                                .setPositiveButton("🗑 Tozalash") { _, _ ->
+                                    kodSave(emptyList()); File(filesDir, "kod").deleteRecursively(); toast("🗑 Tozalandi")
+                                }
+                                .setNegativeButton("Qoldirish", null).show()
+                            -1 -> alert("Internet yo'q", "Ro'yxat yuborilmadi. Internetni tekshirib, qayta urinib ko'ring.")
+                            401 -> alert("Ruxsat yo'q", "Eng yangi APK'ni o'rnating.")
+                            else -> alert("Yuborilmadi", "Server xatosi ($rc). Keyinroq urinib ko'ring.")
+                        }
+                    }
+                }.start()
+            }
+            .setNegativeButton("Bekor") { _, _ -> kodList() }.show()
+    }
+
+    /** Egasi uchun: sotuvchilardan kelgan ro'yxatlar. */
+    private fun royxatlar() {
+        if (appKey().isEmpty()) { askKey { royxatlar() }; return }
+        val wait = AlertDialog.Builder(this).setMessage("⏳ Yuklanmoqda…").setCancelable(false).show()
+        Thread {
+            val (rc, t) = royxatApi("GET")
+            main.post {
+                wait.dismiss()
+                val arr = try { org.json.JSONObject(t).getJSONArray("items") } catch (e: Exception) { null }
+                if (rc !in 200..299 || arr == null) { alert("Ochilmadi", if (rc == -1) "Internet yo'q." else "Server xatosi ($rc)."); return@post }
+                val lists = (0 until arr.length()).map { arr.getJSONObject(it) }
+                if (lists.isEmpty()) { alert("📥 Kelgan ro'yxatlar", "Hozircha hech kim ro'yxat yubormagan."); return@post }
+                val fmtT = SimpleDateFormat("dd.MM HH:mm", Locale.US)
+                val labels = lists.map { o ->
+                    val its = o.optJSONArray("items")
+                    var sum = 0L; for (i in 0 until (its?.length() ?: 0)) sum += its!!.getJSONObject(i).optLong("qty")
+                    (if (o.optBoolean("done")) "✅ " else "🆕 ") + o.optString("from") + " — ${its?.length() ?: 0} ta kod, ${group(sum)} ta" +
+                        "\n     " + fmtT.format(Date(o.optLong("at")))
+                }
+                AlertDialog.Builder(this).setTitle("📥 Kelgan ro'yxatlar: ${lists.size} ta (🆕 ${lists.count { !it.optBoolean("done") }})")
+                    .setItems(labels.toTypedArray()) { _, i -> royxatView(lists[i]) }
+                    .setNegativeButton("Yopish", null).show()
+            }
+        }.start()
+    }
+
+    private fun royxatView(o: org.json.JSONObject) {
+        val its = o.optJSONArray("items") ?: org.json.JSONArray()
+        val items = (0 until its.length()).map { its.getJSONObject(it) }
+        val bySku = all.filter { it.code.isNotBlank() }.associateBy { it.code }
+        val ad = object : BaseAdapter() {
+            override fun getCount() = items.size
+            override fun getItem(i: Int) = items[i]
+            override fun getItemId(i: Int) = i.toLong()
+            override fun getView(i: Int, cv: View?, parent: ViewGroup?): View {
+                val it = items[i]
+                val p = bySku[it.optString("sku")]
+                val row = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    background = box(Color.WHITE, 12); setPadding(dp(8), dp(8), dp(10), dp(8))
+                }
+                val iv = ImageView(this@MainActivity).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP; background = box(Color.parseColor("#EEEEEE"), 10); clipToOutline = true
+                }
+                val url = p?.let { myPhoto(it) ?: it.photo }.orEmpty()
+                if (url.isNotBlank()) { Img.load(this@MainActivity, url, iv); iv.setOnClickListener { p?.let { showPhoto(it) } } }
+                row.addView(iv, LinearLayout.LayoutParams(dp(76), dp(76)).apply { rightMargin = dp(12) })
+                val col = LinearLayout(this@MainActivity).apply { orientation = LinearLayout.VERTICAL }
+                col.addView(TextView(this@MainActivity).apply { text = it.optString("code"); textSize = 20f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD })
+                col.addView(TextView(this@MainActivity).apply { text = "${group(it.optLong("qty"))} ta"; textSize = 16f; setTextColor(GREEN); typeface = Typeface.DEFAULT_BOLD })
+                col.addView(TextView(this@MainActivity).apply { text = it.optString("name").ifBlank { "bazada yo'q" }; textSize = 13f; setTextColor(Color.GRAY); maxLines = 2 })
+                row.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
+                return LinearLayout(this@MainActivity).apply { setPadding(0, dp(4), 0, dp(4)); addView(row, -1, -2) }
+            }
+        }
+        val lv = ListView(this).apply { adapter = ad; divider = null; setPadding(dp(8), dp(4), dp(8), dp(4)) }
+        val id = o.optString("id")
+        val done = o.optBoolean("done")
+        fun mark(op: String, msg: String) {
+            Thread {
+                val (rc, _) = royxatApi("POST", org.json.JSONObject().put("op", op).put("id", id).toString())
+                main.post { if (rc in 200..299) { toast(msg); royxatlar() } else toast("Bajarilmadi ($rc)") }
+            }.start()
+        }
+        AlertDialog.Builder(this)
+            .setTitle("${o.optString("from")} · ${SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.US).format(Date(o.optLong("at")))}")
+            .setView(lv)
+            .setPositiveButton(if (done) "↩️ Qaytarish" else "✅ Bajarildi") { _, _ ->
+                if (done) mark("undo", "↩️ Qaytarildi") else mark("done", "✅ Bajarildi deb belgilandi")
+            }
+            .setNeutralButton("📋 Nusxalash") { _, _ ->
+                val text = "${o.optString("from")}:\n" + items.joinToString("\n") { "${it.optString("code")} — ${it.optLong("qty")} ta" +
+                    it.optString("name").let { n -> if (n.isNotBlank()) " ($n)" else "" } }
+                (getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                    .setPrimaryClip(android.content.ClipData.newPlainText("ro'yxat", text))
+                toast("📋 Nusxalandi")
+            }
+            .setNegativeButton("🗑 O'chirish") { _, _ ->
+                AlertDialog.Builder(this).setMessage("Bu ro'yxat o'chirilsinmi?")
+                    .setPositiveButton("O'chirish") { _, _ -> mark("remove", "🗑 O'chirildi") }
+                    .setNegativeButton("Yo'q", null).show()
+            }
+            .show()
+    }
+
 
     /** Ro'yxatdagi tovar rasmlarini katta ko'rish (o'zingiz olganlari, bo'lmasa bazadagi). */
     private fun kodPhotos(k: KodItem, url: String) {
