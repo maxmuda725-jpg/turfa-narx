@@ -85,6 +85,9 @@ def main():
     if st != 200 or not isinstance(q, dict) or not q.get("ok"):
         print("Navbat olinmadi:", st)
         return
+    # Server kalitini tekshirish: 400 = kalit to'g'ri, 401 = noto'g'ri, 503 = serverda RASM_KEY yo'q
+    st, _ = http("POST", f"{SERVER}/api/kassa/rasm-arxiv", {"op": "forget", "name": "tekshiruv"}, {"x-rasm-key": key})
+    print("Server kaliti:", {400: "to'g'ri ✅", 401: "NOTO'G'RI ❌", 503: "serverda RASM_KEY yo'q ❌"}.get(st, f"javob {st}"))
     rows = read_csv()
     moved = forgot = 0
 
