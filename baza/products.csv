@@ -141,8 +141,8 @@ Aravacha 24-3;MKN-72120;2000000031590;2280000;1900000;;1;;🗿 Statuetkalar
 Aravacha 24-4;UVK-58491;2000000043531;2688000;2240000;;1;;🗿 Statuetkalar
 Aravacha 24-4;BAH-32742;2000000031583;2280000;1900000;;4;;🗿 Statuetkalar
 Aravacha 24-5;BCC-48935;2000000043500;2760000;2300000;;3;;🗿 Statuetkalar
-Aravacha 24-5;ITF-53195;2000000031576;2280000;1900000;;2;;🗿 Statuetkalar
 Aravacha 24-5;UVW-96198;2000000031613;2688000;2240000;;1;;🗿 Statuetkalar
+Aravacha 24-5;ITF-53195;2000000031576;2280000;1900000;;2;;🗿 Statuetkalar
 Aravacha 24-14;JQC-22168;2000000031569;3120000;2600000;;2;;🗿 Statuetkalar
 Ark tea 1.25 l;LCI-39364;2000000034713;10000;;;24;;🥤 Ichimliklar
 Ark tea 05l;IRV-66873;2000000034683;6000;;;40;;🥤 Ichimliklar
@@ -474,7 +474,7 @@ bakal 26-4-36-16;KJQ-84082;2000000062594;25300;22000;https://fra1.digitaloceansp
 bakal 26-4-36-16;XNC-47417;2000000017754;24200;22000;;20;;🥂 Bakal va idishlar|Bakal
 bakal 27-1;QDJ-49332;2000000070988;90000;82000;;28;;🥂 Bakal va idishlar|Bakal
 bakal 27-2;YWD-43658;2000000070995;90000;82000;;32;;🥂 Bakal va idishlar|Bakal
-bakal 27-3;TZN-29798;2000000071008;95000;88000;;23;;🥂 Bakal va idishlar|Bakal
+bakal 27-3;TZN-29798;2000000071008;95000;88000;;22;;🥂 Bakal va idishlar|Bakal
 bakal 27-4;VAR-58889;2000000070971;55000;46000;;8;;🥂 Bakal va idishlar|Bakal
 bakal 27-5;BCZ-21126;2000000070957;55000;46000;;82;;🥂 Bakal va idishlar|Bakal
 bakal 27-6;ESX-68625;2000000070964;55000;46000;;91;;🥂 Bakal va idishlar|Bakal
@@ -909,7 +909,7 @@ Dekor led candles 25-1;YQT-45751;2000000032993;45100;;;0;;🕯 Shamlar|LED sham
 Dekor pat geliviy 64-1;ADS-54824;2000000047751;960000;800000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/8c8a6d5a-f6bf-4f63-902c-dd79a5214ce9.jpg;6;;✨ Dekor|Boshqalar
 Dekor pat statuetka 26-4-26-21;PTP-38340;2000000015941;615000;585000;;3;;🗿 Statuetkalar
 Dekor shagam 25-11-6-10;AWE-75757;2000000071459;6000;4600;https://fra1.digitaloceanspaces.com/billz2-minio-billz/e747fb87-fcfc-4c22-b288-5e1ac472eb16.jpg;409;;🕯 Shamlar|Hidli sham
-Dekor Sham 6-8;QBE-88043;2000000026398;4125;3750;;425;;🕯 Shamlar|Boshqalar
+Dekor Sham 6-8;QBE-88043;2000000026398;4125;3750;;422;;🕯 Shamlar|Boshqalar
 Dekor Sham 6-9;GUW-47208;2000000026404;4840;4400;;381;;🕯 Shamlar|Boshqalar
 dekor sham 9-4;TUJ-76400;2000000050010;23000;20000;;0;;🕯 Shamlar|Boshqalar
 dekor sham 10-4;UTA-80370;2000000054223;20000;20000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/bf4a5e6d-6b13-42e3-a0c3-b897b7e8889b.jpg;0;;🕯 Shamlar|Hidli sham
@@ -936,10 +936,10 @@ Dekorative led sham 25-7 33333;GUG-78992;2000000032962;35000;32000;;59;;🕯 Sha
 Dekorative led sham 25-11;RBO-79582;2000000032955;51700;47000;;1;;🕯 Shamlar|LED sham
 dekorativni barg 26-3-8-2;BDU-77427;2000000047980;22000;20000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/c5fb3db0-2759-4c91-9d3b-717f7237bb12.jpg;171;;💐 Gullar|Barg va ko'kat
 delete;PRE-49790;2000000019031;330000;;;0;;📦 Boshqalar
-delete;OHQ-65346;2000000014043;1260000;;;0;;📦 Boshqalar
-delete;LKF-34344;2000000014050;444000;;;0;;📦 Boshqalar
-delete;LPN-74560;2000000014067;420000;;;0;;📦 Boshqalar
 delete;FOL-32718;2000000014036;444000;;;0;;📦 Boshqalar
+delete;OHQ-65346;2000000014043;1260000;;;0;;📦 Boshqalar
+delete;LPN-74560;2000000014067;420000;;;0;;📦 Boshqalar
+delete;LKF-34344;2000000014050;444000;;;0;;📦 Boshqalar
 Delfin svitelnik bf-2;NGN-67548;2000000030579;138000;115000;;18;;💡 Svetilniklar|Boshqalar
 delfinun gul 47-3;DKL-81671;2000000047478;19800;18000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/6ac1ffcf-7a4c-4f9b-853b-58376e06229c.jpg;55;;💐 Gullar|Boshqalar
 dengiz o'ti 9-23;OGS-17855;2000000049540;15000;13000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/3ff706a0-9d36-45a3-b3c3-46f87f14070b.jpg;0;;📦 Boshqalar
@@ -2581,7 +2581,6 @@ Kaktus gul 15-6;RZN-40333;2000000047966;1080000;900000;;1;;💐 Gullar|Boshqalar
 Kala gul 21-1;YXV-42612;2000000047461;23000;20000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d05ea399-331b-473e-91e5-2eb09366b7cb.jpg;782;;💐 Gullar|Boshqalar
 Kala gul 21-2;TYO-99640;2000000063034;17300;15000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/9d6d1ab1-0120-4890-8c21-13b6f10a9f0e.jpg;681;;💐 Gullar|Boshqalar
 Kala gul n18;ETN-55864;2000000057156;63300;55000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/6b9d193e-1735-4116-a151-7c268c6aa741.jpg;0;;💐 Gullar|Boshqalar
-Kalit Brilok Quyon 1-6;LWW-28367;2000000010878;1800000;;;0;;🎲 Suvenirlar|Brelok
 kalonka 01-06;SZD-69766;2000000053615;258800;225000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/45c0e619-47d3-4f7a-9a7b-4c915c3e3747.jpg;0;;🎧 Gadjetlar
 kalonka g 4-54-9;ABM-39924;6973281283070;85000;75000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d1693cf0-6d51-4405-8cdc-a028b9f054b2.jpg;3;;🎧 Gadjetlar
 Kalyan Vaza 39-46;JFJ-35314;2000000012780;222000;185000;;1;;🏺 Vazalar|Tilla vaza
@@ -2996,7 +2995,7 @@ led oyna;LKH-77028;2000000052182;103500;90000;;0;;🪞 Oynalar
 Led Oyna Soat T-2-11;RGC-59003;2000000011585;88000;80000;;12;;🕰 Soatlar|Boshqalar
 Led pat décor Al-2-4;EGD-90146;2000000031422;660000;550000;;4;;✨ Dekor|Boshqalar
 led sham;CGB-46002;2000000034423;30800;;;0;;🕯 Shamlar|LED sham
-Led sham 6-17;UYH-71947;2000000072722;55000;48000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d1987620-de45-4374-8c1a-915d0c029352.jpg;75;;🕯 Shamlar|LED sham
+Led sham 6-17;UYH-71947;2000000072722;55000;48000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d1987620-de45-4374-8c1a-915d0c029352.jpg;74;;🕯 Shamlar|LED sham
 Led sham 6-18;EIQ-17822;2000000072746;60000;52000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/075c6baa-bd34-4ecb-90d0-bea5c5d1971e.jpg;63;;🕯 Shamlar|LED sham
 Led sham 6-19;JSX-36413;2000000072739;60000;52000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/827384ba-e306-4101-a738-49c3e91ad1fe.jpg;75;;🕯 Shamlar|LED sham
 led sham 26-10;NIE-24420;2000000028521;63800;58000;;107;;🕯 Shamlar|LED sham
@@ -3396,6 +3395,7 @@ Oformleniyaga Gullar 6-11;FAR-18004;2000000043517;600000;500000;;10;;💐 Gullar
 oilandir guli 43-53;GGB-50336;2000000047683;138000;115000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/0246ced2-e1dc-4001-8a40-eb11ad61e823.jpg;9;;💐 Gullar|Boshqalar
 Olloh Muxammad 1-22;KEV-52656;2000000010892;66000;60000;;55;;🕌 Islomiy buyumlar|Lavh va oyatlar
 Olloh Muxammad Tovoq 1-5;AKH-49960;2000000010908;180000;150000;;1;;🕌 Islomiy buyumlar|Lavh va oyatlar
+Olloh Muxammad Tovoq 1-5;AKH-49960;2000000010908;180000;150000;;1;;🕌 Islomiy buyumlar|Lavh va oyatlar
 olma 65-5;ORP-56020;2000000051178;55200;48000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/fb12369e-33ed-4553-83db-db87fd656cab.jpg;0;;🕯 Shamlar|Shamdon
 olma meva 8-9;FEE-84974;2000000048543;3500;;;0;;💐 Gullar|Sun'iy meva
 Olma vetka 101-4;NKQ-41517;2000000047546;33000;30000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/fd689f3b-be6b-4b6d-bc9b-f5f660a0332e.jpg;69;;💐 Gullar|Sun'iy meva
@@ -3666,6 +3666,7 @@ oyna;DSB-92474;2000000051642;74800;65000;;0;;🪞 Oynalar
 Oyna 01-33;KTZ-66552;2000000052335;110400;96000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/b149d910-a8f3-4751-954e-70531144a121.jpg;0;;🪞 Oynalar
 Oyna 8-10;KUZ-27272;2000000029283;108000;90000;;1;;🪞 Oynalar
 Oyna 10-1;HUM-13124;2000000051710;78200;68000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/d5a365fc-c357-47cc-9ad8-24dcf91862c0.jpg;0;;🪞 Oynalar
+oyna 10-10;WNO-53330;2000000035680;45100;41000;;1;;🪞 Oynalar
 Oyna 11-7;OIN-39754;2000000044620;696000;580000;;2;;🪞 Oynalar
 oyna 17-7;THX-42951;2000000069692;100000;90000;;16;;🪞 Oynalar
 Oyna 18-10;CEY-57508;2000000028880;82500;75000;;1;;🪞 Oynalar
@@ -3834,11 +3835,11 @@ PAKET 25-9-35-42;VZQ-16690;2000000019406;6050;5500;;127;;🎁 Karobka va paketla
 PAKET 25-9-35-42;GWQ-27150;2000000013183;6050;5500;;153;;🎁 Karobka va paketlar
 PAKET 25-9-35-44;ACT-80109;2000000013213;3300;3000;;9;;🎁 Karobka va paketlar
 PAKET 25-9-35-45;OCO-54184;2000000013138;6050;5500;;85;;🎁 Karobka va paketlar
-PAKET 25-9-35-47;ZMX-33249;2000000013206;3520;3200;;37;;🎁 Karobka va paketlar
+PAKET 25-9-35-47;ZMX-33249;2000000013206;3520;3200;;36;;🎁 Karobka va paketlar
 PAKET 25-9-35-48;DJZ-89134;2000000013169;5500;;;0;;🎁 Karobka va paketlar
 PAKET 25-9-35-49;NPS-58520;2000000013152;6600;6000;;5;;🎁 Karobka va paketlar
 PAKET 25-9-35-50;GTF-71445;2000000013190;3300;3000;;18;;🎁 Karobka va paketlar
-PAKET 25-9-35-51;APV-84659;2000000013176;5500;5000;;60;;🎁 Karobka va paketlar
+PAKET 25-9-35-51;APV-84659;2000000013176;5500;5000;;59;;🎁 Karobka va paketlar
 PAKET 25-9-35-52;ABG-94878;2000000013145;6600;6000;;0;;🎁 Karobka va paketlar
 PAKET 25-9-35-57;SKI-73252;2000000019390;5060;4600;;1;;🎁 Karobka va paketlar
 PAKET 25-9-35-58;CLH-81023;2000000019352;6380;;;0;;🎁 Karobka va paketlar
@@ -4532,7 +4533,7 @@ Shamdon 26-4-6-2;MYK-96829;2000000065359;65000;55000;https://fra1.digitaloceansp
 Shamdon 26-4-6-3;EHJ-61927;2000000065366;130000;113000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/521422d5-70d1-40bc-86c0-6f12d848dd01.jpg;24;;🕯 Shamlar|Shamdon
 Shamdon 65-1;MZG-18902;2000000065304;50000;45000;;14;;🕯 Shamlar|Shamdon
 Shamdon 65-2;ZHK-20722;2000000065311;65000;55000;;4;;🕯 Shamlar|Shamdon
-Shamdon 65-3;ZQA-87713;2000000065328;85000;70000;;63;;🕯 Shamlar|Shamdon
+Shamdon 65-3;ZQA-87713;2000000065328;85000;70000;;62;;🕯 Shamlar|Shamdon
 Shamdon 65-7;LXY-69448;2000000065335;75000;60000;;0;;🕯 Shamlar|Shamdon
 Shamdon 85-1;UHB-54764;2000000033105;49500;45000;;9;;🕯 Shamlar|Shamdon
 Shamdon 85-4;YGI-43501;2000000033099;44000;40000;;28;;🕯 Shamlar|Shamdon
@@ -5708,7 +5709,6 @@ tayyor gul 11-38-10;CYC-56071;2000000035857;45000;38000;;1;;💐 Gullar|Boshqala
 Tayyor Gul 11-38-11;JXN-37425;2000000023427;50000;;;0;;💐 Gullar|Boshqalar
 Tayyor Gul 11-38-12;VVB-99818;2000000023410;52800;48000;;2;;💐 Gullar|Boshqalar
 Tayyor Gul 11-41-1;JQH-81732;2000000035789;82500;75000;;71;;💐 Gullar|Boshqalar
-Tayyor Gul 11-41-1;JQH-81732;2000000035789;82500;75000;;71;;💐 Gullar|Boshqalar
 Tayyor Gul 11-41-2;FJF-26605;2000000023298;46200;42000;;74;;💐 Gullar|Boshqalar
 Tayyor Gul 11-41-3;HMA-42796;2000000023366;69300;63000;;76;;💐 Gullar|Boshqalar
 Tayyor Gul 11-41-4;GOO-82874;2000000023359;79200;72000;;80;;💐 Gullar|Boshqalar
@@ -6076,7 +6076,6 @@ Uvlajnitel 01-20;RFY-88889;2000000052557;126500;110000;https://fra1.digitalocean
 UVLAJNITEL 1-77;GVK-33242;2000000035741;492000;410000;;1;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
 UVLAJNITEL 5-28;WCT-77555;2000000016818;168000;140000;;1;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
 uvlajnitel 5-30;ASJ-88647;2000000035802;168000;140000;;2;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
-uvlajnitel 5-30;ASJ-88647;2000000035802;168000;140000;;2;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
 UVLAJNITEL 5-54;YVU-66657;2000000016801;174000;145000;;5;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
 UVLAJNITEL 5-61;WEZ-86184;2000000016795;144000;120000;;5;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
 Uvlajnitel 5-64;DWI-55549;2000000045733;66000;60000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/a94e48b9-0b4c-4a43-a39d-b58107969e5c.jpg;2;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
@@ -6084,6 +6083,7 @@ Uvlajnitel 5-67;PIO-48464;2000000035864;180000;150000;https://fra1.digitaloceans
 Uvlajnitel 5-71;KLJ-76034;2000000016894;170000;150000;;16;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
 Uvlajnitel 5-75;WHJ-40674;2000000016887;180000;150000;;5;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
 UVLAJNITEL 9-42;ODF-93137;2000000035765;71500;65000;;1;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
+UVLAJNITEL 9-46;FJJ-25621;2000000035758;174000;145000;;1;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
 UVLAJNITEL 9-49;MPP-58805;2000000035772;120000;100000;;3;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
 Uvlajnitel 20 26-4-41-20;LJX-46441;2000000053950;603800;525000;https://fra1.digitaloceanspaces.com/billz2-minio-billz/cf83c1f8-fa1a-4d20-8437-e07f465964a6.jpg;6;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
 uvlajnitel 25-4-70-1;ZKC-71451;2000000035369;210000;182000;;10;;💨 Uvlajnitel va diffuzorlar|Uvlajnitel
