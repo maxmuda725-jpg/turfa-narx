@@ -2718,7 +2718,12 @@ class MainActivity : Activity() {
         if (q != lastQuery) { similarOpen = false; lastQuery = q }
         // Bo'lim o'zgarsa (bosh ekran, kategoriya, rasm natijasi…) ro'yxat tepadan boshlanadi
         val modeKey = listOf(photoHits != null, polkaAdd, polkaView, special, priceRange, altFor?.key, catSel, favMode, noPhotoMode, q.isBlank()).toString()
-        if (modeKey != lastModeKey) { lastModeKey = modeKey; listView.post { listView.setSelection(0) } }
+        if (modeKey != lastModeKey) {
+            lastModeKey = modeKey
+            listView.smoothScrollBy(0, 0)   // aylanayotgan ro'yxatni to'xtatish
+            listView.setSelection(0)
+            listView.post { listView.smoothScrollBy(0, 0); listView.setSelection(0) }
+        }
         subTitle.text = "Baza: ${baseDate()} · ${group(all.size.toLong())} tovar"
         fillChips()
         info.visibility = View.VISIBLE
