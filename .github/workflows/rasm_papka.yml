@@ -1,7 +1,7 @@
-name: Rasmlar papkasi (ZIP)
+name: Zaxira — baza va rasmlar (har soat)
 on:
   schedule:
-    - cron: '23 22 * * *'   # har kecha 03:23 (Toshkent)
+    - cron: '23 * * * *'   # har soatda
   workflow_dispatch:
 permissions:
   contents: write
@@ -17,13 +17,23 @@ jobs:
       - name: Hammasi (Billz rasmlari bilan)
         env: { OUT: rasmlar-hammasi.zip, BILLZ: "1" }
         run: python3 scripts/rasm_papka.py
+      - name: Baza jadvali (Excel'da ochiladi)
+        run: |
+          T=$(TZ=Asia/Tashkent date +%Y-%m-%d_%H-00)
+          mkdir -p zx && cp baza/products.csv "zx/tovarlar_$T.csv"
+          cp baza/*.json baza/*.txt zx/ 2>/dev/null || true
+          (cd zx && zip -q -r ../baza-zaxira.zip .)
+          D=$(TZ=Asia/Tashkent date +%Y-%m-%d); cp baza-zaxira.zip "baza-$D.zip"
+          echo "KUN=$D" >> $GITHUB_ENV
       - name: Yuklab olish uchun joylash
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
           # "rasmlar-papka" relizi (APK relizlariga tegmaydi, latest bo'lmaydi)
           if ! gh release view rasmlar-papka >/dev/null 2>&1; then
             gh release create rasmlar-papka --title "Rasmlar papkasi" --latest=false \
-              --notes "Tovar rasmlari ZIP papka (kategoriya bo'yicha). Har kecha yangilanadi."
+              --notes "Tovar rasmlari ZIP papka (kategoriya bo'yicha). Har soatda yangilanadi: rasmlar + baza jadvali."
           fi
-          gh release upload rasmlar-papka rasmlar-ilova.zip rasmlar-hammasi.zip --clobber
+          gh release upload rasmlar-papka rasmlar-ilova.zip rasmlar-hammasi.zip baza-zaxira.zip "baza-$KUN.zip" --clobber
+          # kunlik baza nusxalari: oxirgi 14 kunniki qoladi
+          gh release view rasmlar-papka --json assets -q '.assets[].name' | grep -E '^baza-[0-9]{4}-' | sort | head -n -14 | while read a; do gh release delete-asset rasmlar-papka "$a" -y; done
           gh release delete-asset rasmlar-papka rasmlar-papka.zip -y 2>/dev/null || true
