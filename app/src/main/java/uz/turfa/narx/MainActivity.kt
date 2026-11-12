@@ -1367,12 +1367,20 @@ class MainActivity : Activity() {
                 // 2) Rasmga o'xshashlik
                 val scope = photoScope
                 val pool = if (scope == null) all else all.filter { Polka.matches(it, scope) }
+                var ranked = codes
                 val (v, hits) = if (vis) {
                     val qs = Visual.embedQuery(applicationContext, Visual.bitmap(this, uri))
+                    // Kod bir necha tovarga to'g'ri kelsa (44-12 -> 3-4 ta) — ular orasida rasmga eng o'xshashi birinchi
+                    ranked = codes.map { (c, list) ->
+                        if (list.size < 2) c to list else {
+                            val byLook = Visual.search(qs, list, list.size).map { it.first }.filter { p -> list.any { it.key == p.key } }
+                            c to (byLook + list.filter { p -> byLook.none { it.key == p.key } })
+                        }
+                    }
                     qs[0] to Visual.search(qs, pool)
                 } else null to emptyList()
                 if (!vis && codes.isEmpty()) throw IllegalStateException("Rasmda kod topilmadi, rasm bazasi esa hali yuklanmagan. Internetni yoqib 🔄 Yangilash ni bosing.")
-                Result.success(Triple(v, hits, codes))
+                Result.success(Triple(v, hits, ranked))
             } catch (e: Throwable) { Result.failure(e) }
             main.post {
                 wait.dismiss()
@@ -2575,7 +2583,8 @@ class MainActivity : Activity() {
             rows += "📷 Rasm natijasi" + (photoScopeShown?.let { " ($it-polkada)" } ?: "") + ": ${res.size + byCode.size} ta   ✕ yopish"
             if (byCode.isNotEmpty()) {
                 // Rasmdagi kod o'qildi — aynan shu kodli tovar(lar) eng tepada
-                rows += "🔤 Rasmdagi kod: " + photoCodes.joinToString(", ") { it.first }
+                rows += "🔤 Rasmdagi kod: " + photoCodes.joinToString(", ") { it.first } +
+                    if (byCode.size > 1) " — ${byCode.size} ta, rasmga eng o'xshashi birinchi" else ""
                 rows += TopHit(byCode[0])
                 rows.addAll(byCode.drop(1))
                 val codeKeys = byCode.map { it.key }.toHashSet()

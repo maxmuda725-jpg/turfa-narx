@@ -28,18 +28,29 @@ object CodeReader {
         return out.sortedByDescending { it.length }
     }
 
-    /** -> [(o'qilgan kod, shu kodli tovarlar)]; juda ko'p tovarga to'g'ri keladigan (noaniq) raqamlar tashlanadi. */
+    /**
+     * -> [(o'qilgan kod, shu kodli tovarlar)].
+     * Bazada kod ba'zan qisqa yozilgan (tovarda 26-3-44-12, bazada 44-12) — to'liq kod topilmasa, oxirgi
+     * qismlari bilan qayta qidiriladi. Bitta kod bir necha tovarga to'g'ri kelsa (44-12 -> 3-4 ta), qaysi
+     * biri ekanini keyin rasmga o'xshashlik hal qiladi (MainActivity.photoSearch).
+     */
     fun find(all: List<Product>, text: String): List<Pair<String, List<Product>>> {
         if (text.isBlank()) return emptyList()
         val seen = HashSet<String>()
         val out = ArrayList<Pair<String, List<Product>>>()
         for (c in candidates(text)) {
             val w = c.lowercase()
-            val hits = all.filter { Search.codeHit(it, w) == 2 && it.key !in seen }
-            val limit = if (w.contains('-') || w.any { it.isLetter() }) 6 else 2   // yolg'iz raqam — faqat juda aniq bo'lsa
-            if (hits.isEmpty() || hits.size > limit) continue
-            hits.forEach { seen += it.key }
-            out += c to hits.sortedBy { Search.stockRank(it) }
+            val dashed = w.contains('-') || w.any { it.isLetter() }
+            val limit = if (dashed) 10 else 2          // yolg'iz raqam — faqat juda aniq bo'lsa
+            // to'liq kod, keyin oxirgi qismlari: 26-3-44-12 -> 3-44-12 -> 44-12
+            val tries = if (w.contains('-')) w.split('-').let { parts -> (0..parts.size - 2).map { parts.drop(it).joinToString("-") } } else listOf(w)
+            for (t in tries) {
+                val hits = all.filter { Search.codeHit(it, t) > 0 && it.key !in seen }
+                if (hits.isEmpty() || hits.size > limit) continue
+                hits.forEach { seen += it.key }
+                out += t to hits.sortedWith(compareBy<Product>({ -Search.codeHit(it, t) }, { Search.stockRank(it) }))
+                break
+            }
             if (out.size >= 3) break
         }
         return out
