@@ -42,7 +42,7 @@ dismiss
 adb shell am start -n $PKG/.MainActivity; sleep 8
 dismiss
 $U shot 01-bosh-ekran
-check $U has "kod ro.yxatda"
+check $U has "kod ro'yxatda"
 $U shot 01b-profil
 adb shell input swipe 540 1700 540 700 300; sleep 1
 $U shot 01c-profil-past
@@ -130,7 +130,7 @@ $U shot 13-rasmi-yoqlar
 check $U has "🚫 Rasmi yo'q"
 check $U tap "Qidiruv"
 $U shot 14-orqaga-bosh-ekran
-check $U has "kod ro.yxatda"
+check $U has "kod ro'yxatda"
 end
 
 step "11b. Narx bo'yicha va yangi kelganlar"
