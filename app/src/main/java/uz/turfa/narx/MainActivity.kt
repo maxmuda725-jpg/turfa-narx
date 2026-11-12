@@ -2023,6 +2023,7 @@ class MainActivity : Activity() {
                     }
                     -1 -> toast("Internet yo'q — saqlanmadi")
                     401 -> alert("Ruxsat yo'q", "Eng yangi APK'ni o'rnating.")
+                    403 -> alert("Ruxsat yo'q", "Kategoriyani faqat do'kon egasi o'zgartira oladi.")
                     else -> toast("Saqlanmadi (server $code). Keyinroq urinib ko'ring")
                 }
             }
@@ -2060,12 +2061,15 @@ class MainActivity : Activity() {
     private fun polkaMenu() {
         val counts = all.flatMap { Polka.of(it) }.groupingBy { Polka.stellaj(it) }.eachCount()
         val noPlace = all.count { Polka.of(it).isEmpty() && Search.stockRank(it) == 0 }
+        val items = arrayListOf(
+            "🔎 Polkani ko'rish" + if (counts.isEmpty()) "" else "  (${counts.size} ta polka)",
+            "📷 Bitta polkada rasm bilan qidirish",
+            "❓ Joyi yozilmagan tovarlar ($noPlace ta)")
+        val owner = isOwner()   // joylash faqat egasiga
+        if (owner) items.add(0, "📍 Polkaga tovar joylash")
         AlertDialog.Builder(this).setTitle("📍 Polkalar (etaj tepadan sanaladi)")
-            .setItems(arrayOf(
-                "📍 Polkaga tovar joylash",
-                "🔎 Polkani ko'rish" + if (counts.isEmpty()) "" else "  (${counts.size} ta polka)",
-                "📷 Bitta polkada rasm bilan qidirish",
-                "❓ Joyi yozilmagan tovarlar ($noPlace ta)")) { _, w ->
+            .setItems(items.toTypedArray()) { _, w0 ->
+                val w = if (owner) w0 else w0 + 1
                 when (w) {
                     0 -> askPolka("Qaysi polka va etajga joylaymiz?", prefs().getString("polka_last", "") ?: "", false) { startPolkaAdd(it) }
                     1 -> polkaPick()
@@ -2211,7 +2215,7 @@ class MainActivity : Activity() {
                     in 200..299 -> { Polka.setLocal(applicationContext, listOf(p.code), value); refresh(); ok() }
                     -1 -> toast("Internet yo'q — saqlanmadi")
                     401 -> alert("Ruxsat yo'q", "Eng yangi APK'ni o'rnating.")
-                    403 -> alert("Kirish kodi kerak", "Xodim kodingiz bilan qayta kiring.")
+                    403 -> alert("Ruxsat yo'q", if (isOwner()) "Egasi kodi bilan qayta kiring." else "Polkani faqat do'kon egasi o'zgartira oladi.")
                     429 -> toast("Juda tez — 1 daqiqa kutib davom eting")
                     else -> toast("Saqlanmadi (server $rc). Keyinroq urinib ko'ring")
                 }
@@ -2290,17 +2294,22 @@ class MainActivity : Activity() {
             labels += "📤 Shu rasmni hamma telefonga o'rgatish"
             actions += { sharePhoto(p) }
         }
+        val owner = isOwner()   // kategoriya va polkani faqat egasi o'zgartiradi (server ham tekshiradi)
         val locs = Polka.of(p)
-        labels += if (locs.isEmpty()) "📍 Joyini yozish (qaysi polka, qaysi etaj)" else "📍 Joyini o'zgartirish (hozir: ${Polka.labels(locs)})"
-        actions += { polkaEdit(p) }
+        if (owner) {
+            labels += if (locs.isEmpty()) "📍 Joyini yozish (qaysi polka, qaysi etaj)" else "📍 Joyini o'zgartirish (hozir: ${Polka.labels(locs)})"
+            actions += { polkaEdit(p) }
+        }
         labels += "🏷 Kod chiqarish ro'yxatiga qo'shish"
         actions += { kodAddProduct(p) }
         labels += "📸 Rasmini o'rgatish (hamma telefonga)"
         actions += { uploadFor(p) }
         val cur = Cats.of(p)
-        labels += "🗂 Kategoriyasini o'zgartirish (hozir: ${cur.first}${cur.second?.let { " › $it" } ?: ""})"
-        actions += { changeCat(p) }
-        if (Cats.override(p) != null) {
+        if (owner) {
+            labels += "🗂 Kategoriyasini o'zgartirish (hozir: ${cur.first}${cur.second?.let { " › $it" } ?: ""})"
+            actions += { changeCat(p) }
+        }
+        if (owner && Cats.override(p) != null) {
             labels += "↩️ Kategoriyani avtomatikka qaytarish"
             actions += { saveCat(p, null) }
         }

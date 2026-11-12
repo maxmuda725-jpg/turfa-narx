@@ -126,7 +126,27 @@ $U shot 14-orqaga-bosh-ekran
 check $U has "Tez kirish"
 end
 
-step "12. Ilova yiqilmadimi (crash)"
+step "12. Oddiy xodim: kategoriya/polka o'zgartirish yashirin"
+sed -i 's/<boolean name="owner" value="true" \/>/<boolean name="owner" value="false" \/>/' /tmp/xodim.xml
+adb shell am force-stop $PKG
+adb push /tmp/xodim.xml /data/local/tmp/xodim.xml; adb shell chmod 644 /data/local/tmp/xodim.xml
+adb shell run-as $PKG cp /data/local/tmp/xodim.xml shared_prefs/xodim.xml
+adb shell am start -n $PKG/.MainActivity; sleep 6; dismiss
+check $U tap "Kod yoki nom"
+adb shell input text "vaza"; sleep 2; adb shell input keyevent 111
+check $U tap "Boshqa amallar"
+$U shot 15-xodim-tovar-amallari
+check $U has "📸 Rasmini"
+if $U has "🗂 Kategoriyasini" >/dev/null 2>&1; then echo "::error::Xodimda kategoriya o'zgartirish ko'rinyapti"; FAIL=1; fi
+if $U has "📍 Joyini" >/dev/null 2>&1; then echo "::error::Xodimda polka o'zgartirish ko'rinyapti"; FAIL=1; fi
+adb shell input keyevent 4; sleep 1
+check $U tap "Polka"
+$U shot 16-xodim-polka-menyu
+if $U has "📍 Polkaga tovar joylash" >/dev/null 2>&1; then echo "::error::Xodimda polkaga joylash ko'rinyapti"; FAIL=1; fi
+adb shell input keyevent 4; sleep 1
+end
+
+step "13. Ilova yiqilmadimi (crash)"
 adb logcat -d > ui-shots/logcat.txt
 if grep -E "FATAL EXCEPTION|AndroidRuntime: (java|kotlin)" ui-shots/logcat.txt; then
   echo "::error::Ilova yiqildi (crash) — logcat.txt ga qarang"; FAIL=1
