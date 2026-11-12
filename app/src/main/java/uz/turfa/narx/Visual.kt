@@ -29,7 +29,7 @@ object Visual {
     private const val MODEL = "embedder.tflite"
     private const val SIDE = 640          // scripts/embed.py dagi bilan bir xil
     private const val MAX_LEARNED = 4000
-    private const val STOCK_PENALTY = 0.03f   // tugagan tovar shuncha pastroq
+    private const val STOCK_PENALTY = 0f   // tugagan tovar pastga tushirilmaydi: rasmga olingan bo'lsa — do'konda bor
     private const val MAX_TWINS = 4
 
     class Entry(val key: String, val url: String, val v: ByteArray)

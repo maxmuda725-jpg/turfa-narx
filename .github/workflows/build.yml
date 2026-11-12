@@ -25,6 +25,7 @@ jobs:
         run: |
           mkdir -p app/src/main/assets
           cp baza/kategoriyalar.txt app/src/main/assets/kategoriyalar.txt
+          curl -fsSL -o app/src/main/assets/detector.tflite https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/latest/efficientdet_lite0.tflite || curl -fsSL -o app/src/main/assets/detector.tflite https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/latest/efficientdet_lite0.tflite
           curl -fsSL -o app/src/main/assets/embedder.tflite \
             https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite
       - name: APK yig'ish

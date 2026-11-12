@@ -7,3 +7,4 @@ app/src/main/assets/embedder.tflite
 embedder.tflite
 __pycache__/
 app/turfa.jks
+app/src/main/assets/detector.tflite

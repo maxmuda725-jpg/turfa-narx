@@ -240,8 +240,7 @@ object Search {
         return all.filter { p -> alts.all { a -> a.any { hit(p, it) > 0 } } }
             .sortedWith(compareBy<Product>(
                 { p -> -alts.sumOf { a -> a.maxOf { w -> if (w.any { it.isDigit() }) hit(p, w) else 0 } } },  // aniq kodlar tepada
-                { stockRank(it) },                                                                           // keyin omborda borlar
-            ))
+            ))   // tugaganlar pastga tushirilmaydi: Billz'da "tugagan" bo'lsa ham do'konda turgan bo'lishi mumkin
             .take(300)
     }
 }
@@ -422,6 +421,10 @@ class MainActivity : Activity() {
     // Rasm orqali qidirish
     private val REQ_PHOTO_CAM = 73
     private val REQ_PHOTO_GAL = 74
+    private val REQ_SHELF_CAM = 75
+    private val REQ_SHELF_GAL = 76
+    private class ShelfObj(val bmp: Bitmap, val n: Int)
+    private var shelfRows: List<Any>? = null   // polka rasmi natijasi (har buyum + mos tovarlar)
     private val REQ_TEACH = 75
     private var photoHits: List<Pair<Product, Float>>? = null
     private var photoVec: FloatArray? = null
@@ -508,6 +511,7 @@ class MainActivity : Activity() {
         when {
             kassaScreen.visibility == View.VISIBLE -> showKassa(false)
             photoHits != null -> closePhoto()
+            shelfRows != null -> { shelfRows = null; refresh() }
             polkaAdd != null -> polkaAddMenu()
             polkaView != null -> { polkaView = null; refresh() }
             special != null || priceRange != null || altFor != null -> { clearSpecial(); refresh() }
@@ -639,6 +643,7 @@ class MainActivity : Activity() {
                 when (val r = shown[p]) {
                     is Product -> productRow(r)
                     is TopHit -> productRow(r.p, top = true)
+                    is ShelfObj -> shelfObjView(r)
                     HomeTiles -> homeView()
                     else -> sectionHeader(r as String)
                 }
@@ -1189,6 +1194,10 @@ class MainActivity : Activity() {
                 background = box(tint(GREEN, 30), 12); setTextColor(GREEN)
                 setOnClickListener { clearSpecial(); refresh() }
             }
+            if (t.startsWith("🗄")) {
+                background = box(tint(BLUE, 26), 12); setTextColor(BLUE)
+                setOnClickListener { shelfRows = null; refresh() }
+            }
             if (t.startsWith("📍") || t.startsWith("❓")) {
                 background = box(tint(BLUE, 30), 12)
                 setOnClickListener { if (polkaAdd != null) polkaAddMenu() else { polkaView = null; refresh() } }
@@ -1573,15 +1582,73 @@ class MainActivity : Activity() {
         if (requestCode == REQ_UP_CAM || requestCode == REQ_UP_GAL) { uploadResult(requestCode, resultCode, data); return }
         if (resultCode != RESULT_OK) { if (requestCode == REQ_PHOTO_CAM || requestCode == REQ_PHOTO_GAL) photoScope = null; return }
         val uri = when (requestCode) {
-            REQ_GALLERY, REQ_PHOTO_GAL -> data?.data
-            REQ_CAMERA, REQ_PHOTO_CAM, REQ_TEACH -> camUri
+            REQ_GALLERY, REQ_PHOTO_GAL, REQ_SHELF_GAL -> data?.data
+            REQ_CAMERA, REQ_PHOTO_CAM, REQ_TEACH, REQ_SHELF_CAM -> camUri
             else -> null
         } ?: return
         when (requestCode) {
             REQ_PHOTO_CAM, REQ_PHOTO_GAL -> photoSearch(uri)
+            REQ_SHELF_CAM, REQ_SHELF_GAL -> shelfSearch(uri)
             REQ_TEACH -> teachFor?.let { teachSave(it, uri) }
             else -> recognize(uri)
         }
+    }
+
+    // ---------------------------------------------------------------- 🗄 etaj rasmi: bir rasmda ko'p tovar
+    private fun shelfSearch(uri: Uri) {
+        val target = polkaAdd ?: return
+        if (!Visual.ready()) { toast("Rasm bazasi hali yuklanmagan — internetni yoqib 🔄 bosing"); return }
+        val wait = AlertDialog.Builder(this).setMessage("🗄 Etajdagi buyumlar ajratilmoqda…").setCancelable(false).show()
+        Thread {
+            val res = try {
+                val big = Visual.bitmap(this, uri, 1280)
+                // 1) yozuvlardan kodlar (yorliqlar ko'rinsa — eng aniq)
+                val codes = try {
+                    val text = com.google.android.gms.tasks.Tasks.await(
+                        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).process(InputImage.fromBitmap(big, 0)),
+                        10, java.util.concurrent.TimeUnit.SECONDS).text
+                    CodeReader.find(all, text)
+                } catch (_: Throwable) { emptyList() }
+                // 2) har buyum alohida
+                val rows = ArrayList<Any>()
+                val used = HashSet<String>()
+                val crops = Shelf.crops(applicationContext, big)
+                val byCode = codes.flatMap { it.second }.distinctBy { it.key }
+                rows += "🗄 ${Polka.label(target)} — rasmda ${crops.size} ta buyum   ✕ yopish"
+                if (byCode.isNotEmpty()) {
+                    rows += "🔤 Yorliqdan o'qilgan kod: " + codes.joinToString(", ") { it.first }
+                    byCode.forEach { used += it.key }; rows.addAll(byCode)
+                }
+                crops.forEachIndexed { i, c ->
+                    val q = Visual.embedQuery(applicationContext, c)
+                    val hits = Visual.search(q, all, 6).map { it.first }.filter { it.key !in used }.take(2)
+                    rows += ShelfObj(Bitmap.createScaledBitmap(c, 160, (160f * c.height / c.width).toInt().coerceIn(60, 320), true), i + 1)
+                    hits.forEach { used += it.key }
+                    rows.addAll(hits)
+                }
+                Result.success(rows)
+            } catch (e: Throwable) { Result.failure(e) }
+            main.post {
+                wait.dismiss()
+                res.onSuccess { shelfRows = it; if (search.text.isNotEmpty()) search.setText("") else refresh(); listView.setSelection(0) }
+                    .onFailure { toast("Rasmni o'qib bo'lmadi: ${it.message}") }
+            }
+        }.start()
+    }
+
+    private fun shelfObjView(o: ShelfObj): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(10), dp(14), dp(10), dp(6))
+        }
+        row.addView(ImageView(this).apply {
+            setImageBitmap(o.bmp); scaleType = ImageView.ScaleType.CENTER_CROP
+            background = box(LINE, 10); clipToOutline = true; contentDescription = "${o.n}-buyum"
+        }, LinearLayout.LayoutParams(dp(64), dp(64)).apply { rightMargin = dp(12) })
+        row.addView(TextView(this).apply {
+            text = "${o.n}-buyum — mos tovarlar:"; textSize = 15f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
+        })
+        return row
     }
 
     // ---------------------------------------------------------------- rasm orqali qidirish
@@ -2432,12 +2499,17 @@ class MainActivity : Activity() {
         val t = polkaAdd ?: return
         val nx = Polka.next(t)
         AlertDialog.Builder(this).setTitle("📍 ${Polka.label(t)} ga joylash")
-            .setItems(arrayOf("▶ Keyingi etaj (${Polka.label(nx)})", "✏️ Boshqa polka / etaj", "📷 Rasm bilan topib qo'yish", "✅ Tugatish")) { _, w ->
+            .setItems(arrayOf("▶ Keyingi etaj (${Polka.label(nx)})", "✏️ Boshqa polka / etaj", "📷 Bitta tovarni rasm bilan topib qo'yish",
+                "🗄 Etajni butunlay rasmga olish (ko'p tovar)", "✅ Tugatish")) { _, w ->
                 when (w) {
                     0 -> { startPolkaAdd(nx); toast("📍 ${Polka.label(nx)} — pastroqdagi etaj") }
                     1 -> askPolka("Qaysi polkaga?", t, false) { startPolkaAdd(it) }
-                    2 -> photoMenu()
-                    else -> { polkaAdd = null; refresh(); toast("✅ Joylash tugadi") }
+                    2 -> photoPick()
+                    3 -> AlertDialog.Builder(this).setTitle("🗄 Etaj rasmi")
+                        .setMessage("Etajni oldidan, tovarlar yaxshi ko'rinadigan qilib bitta rasmga oling. Ilova har bir buyumni alohida ajratib, mos tovarni taklif qiladi — to'g'risiga \"📍 qo'yish\" ni bosasiz.")
+                        .setPositiveButton("📷 Kamera") { _, _ -> openCamera(REQ_SHELF_CAM) }
+                        .setNegativeButton("🖼 Galereya") { _, _ -> openGallery(REQ_SHELF_GAL) }.show()
+                    else -> { polkaAdd = null; shelfRows = null; refresh(); toast("✅ Joylash tugadi") }
                 }
             }.show()
     }
@@ -2834,7 +2906,7 @@ class MainActivity : Activity() {
         val q = search.text.toString()
         if (q != lastQuery) { similarOpen = false; lastQuery = q }
         // Bo'lim o'zgarsa (bosh ekran, kategoriya, rasm natijasi…) ro'yxat tepadan boshlanadi
-        val modeKey = listOf(photoHits != null, polkaAdd, polkaView, special, priceRange, altFor?.key, catSel, favMode, noPhotoMode, q.isBlank()).toString()
+        val modeKey = listOf(photoHits != null, shelfRows != null, polkaAdd, polkaView, special, priceRange, altFor?.key, catSel, favMode, noPhotoMode, q.isBlank()).toString()
         if (modeKey != lastModeKey) {
             lastModeKey = modeKey
             listView.smoothScrollBy(0, 0)   // aylanayotgan ro'yxatni to'xtatish
@@ -2887,6 +2959,13 @@ class MainActivity : Activity() {
                 res.isEmpty() -> "Rasm natijalari ichida \"${q.trim()}\" yo'q. ✕ yopib, oddiy qidiring."
                 else -> "Rasm natijalari ichida \"${q.trim()}\": ${res.size} ta"
             }
+            adapter.notifyDataSetChanged()
+            return
+        }
+        if (shelfRows != null && polkaAdd != null && q.isBlank()) {
+            shown = shelfRows!!
+            info.text = "Har buyum ostida — ilova taklif qilgan tovarlar. To'g'risiga \"📍 qo'yish\". Yo'q bo'lsa, kodini yozib qidiring."
+            info.visibility = View.VISIBLE
             adapter.notifyDataSetChanged()
             return
         }
