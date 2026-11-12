@@ -859,7 +859,8 @@ class MainActivity : Activity() {
         val badges = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         if (p.qty.isNotBlank()) {
             val n = p.qty.toDoubleOrNull()?.toLong() ?: 0
-            badges.addView(if (n > 0) badge("✅ Bor · ${group(n)} ta", Color.parseColor("#0B6B52"), Color.parseColor("#E3F3EE"))
+            // Qoldiq SONI faqat egasiga; sotuvchilar faqat "Bor" / "Tugagan" ni ko'radi
+            badges.addView(if (n > 0) badge(if (isOwner()) "✅ Bor · ${group(n)} ta" else "✅ Bor", Color.parseColor("#0B6B52"), Color.parseColor("#E3F3EE"))
                 else badge("❌ Tugagan", Color.parseColor("#B42318"), Color.parseColor("#FDECEA")),
                 LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(6) })
         }
