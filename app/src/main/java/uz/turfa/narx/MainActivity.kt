@@ -446,6 +446,7 @@ class MainActivity : Activity() {
     private var polkaAdd: String? = null
     private var photoScope: String? = null      // rasm qidiruv faqat shu stellaj ichida (keyingi qidiruv uchun)
     private var photoScopeShown: String? = null // ko'rsatilayotgan natija qaysi stellajdan
+    private var photoCodes: List<Pair<String, List<Product>>> = emptyList()   // rasmdan o'qilgan kod(lar) va shu kodli tovarlar
 
     private lateinit var searchScreen: View
     private lateinit var kassaScreen: View
@@ -945,7 +946,8 @@ class MainActivity : Activity() {
             if (t.startsWith("↔️")) {
                 background = box(Color.parseColor("#FFF3DC"), 12); setTextColor(Color.parseColor("#8A5200"))
             }
-            if (t == "Boshqa o'xshashlari") { setTextColor(MUTED); textSize = 14f }
+            if (t == "Boshqa o'xshashlari" || t == "Rasmga o'xshashlari") { setTextColor(MUTED); textSize = 14f }
+            if (t.startsWith("🔤")) { background = box(tint(GREEN, 30), 12); setTextColor(GREEN) }
             if (t.startsWith("📷")) {
                 background = box(tint(GREEN, 22), 12)
                 setOnClickListener { closePhoto() }
@@ -1350,28 +1352,42 @@ class MainActivity : Activity() {
     }
 
     private fun photoSearch(uri: Uri) {
-        if (!Visual.ready()) {
-            alert("Rasm bazasi yo'q", "Rasm orqali qidirish uchun bazani yuklash kerak. Internetni yoqib 🔄 Yangilash ni bosing.")
-            return
-        }
-        val wait = AlertDialog.Builder(this).setMessage("📷 Rasmga o'xshash tovarlar qidirilmoqda…").setCancelable(false).show()
+        val vis = Visual.ready()
+        val wait = AlertDialog.Builder(this).setMessage("📷 Rasm va undagi kod tekshirilmoqda…").setCancelable(false).show()
         Thread {
             val res = try {
-                val qs = Visual.embedQuery(applicationContext, Visual.bitmap(this, uri))
+                // 1) Rasmdagi yozilgan kod (43-25…) — telefonning o'zida o'qiladi; topilsa eng aniq natija shu
+                val codes = try {
+                    val big = Visual.bitmap(this, uri, 1280)
+                    val text = com.google.android.gms.tasks.Tasks.await(
+                        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).process(InputImage.fromBitmap(big, 0)),
+                        10, java.util.concurrent.TimeUnit.SECONDS).text
+                    CodeReader.find(all, text)
+                } catch (_: Throwable) { emptyList() }
+                // 2) Rasmga o'xshashlik
                 val scope = photoScope
                 val pool = if (scope == null) all else all.filter { Polka.matches(it, scope) }
-                Result.success(qs[0] to Visual.search(qs, pool))
+                val (v, hits) = if (vis) {
+                    val qs = Visual.embedQuery(applicationContext, Visual.bitmap(this, uri))
+                    qs[0] to Visual.search(qs, pool)
+                } else null to emptyList()
+                if (!vis && codes.isEmpty()) throw IllegalStateException("Rasmda kod topilmadi, rasm bazasi esa hali yuklanmagan. Internetni yoqib 🔄 Yangilash ni bosing.")
+                Result.success(Triple(v, hits, codes))
             } catch (e: Throwable) { Result.failure(e) }
             main.post {
                 wait.dismiss()
-                res.onSuccess { (v, hits) ->
-                    photoVec = v; photoHits = hits; photoLearned.clear(); photoShared.clear(); photoUri = uri
+                res.onSuccess { (v, hits, codes) ->
+                    photoVec = v; photoHits = hits; photoCodes = codes
+                    photoLearned.clear(); photoShared.clear(); photoUri = uri
                     favMode = false; catSel = null; noPhotoMode = false; polkaView = null
                     photoScopeShown = photoScope; photoScope = null
                     hideKb(search)
                     if (search.text.isNotEmpty()) search.setText("")
                     refresh()
-                    if (hits.isEmpty()) toast(if (photoScopeShown != null) "${photoScopeShown}-polkada o'xshash tovar topilmadi" else "O'xshash tovar topilmadi")
+                    when {
+                        codes.isNotEmpty() -> toast("🔤 Kod o'qildi: " + codes.joinToString(", ") { it.first })
+                        hits.isEmpty() -> toast(if (photoScopeShown != null) "${photoScopeShown}-polkada o'xshash tovar topilmadi" else "O'xshash tovar topilmadi")
+                    }
                 }.onFailure { e ->
                     photoScope = null
                     alert("Rasmni o'qib bo'lmadi", e.message ?: e.javaClass.simpleName)
@@ -2239,7 +2255,7 @@ class MainActivity : Activity() {
     }
 
     private fun closePhoto() {
-        photoHits = null; photoVec = null; photoUri = null
+        photoHits = null; photoVec = null; photoUri = null; photoCodes = emptyList()
         refresh()
     }
 
@@ -2555,8 +2571,17 @@ class MainActivity : Activity() {
             val keep = if (q.isBlank()) null else Search.run(list, q).map { it.key }.toHashSet()
             val res = if (keep == null) list else list.filter { it.key in keep }
             val rows = ArrayList<Any>()
-            rows += "📷 Rasmga eng o'xshashlari" + (photoScopeShown?.let { " ($it-polkada)" } ?: "") + ": ${res.size} ta   ✕ yopish"
-            if (keep == null && res.isNotEmpty()) {
+            val byCode = if (keep == null) photoCodes.flatMap { it.second }.distinctBy { it.key } else emptyList()
+            rows += "📷 Rasm natijasi" + (photoScopeShown?.let { " ($it-polkada)" } ?: "") + ": ${res.size + byCode.size} ta   ✕ yopish"
+            if (byCode.isNotEmpty()) {
+                // Rasmdagi kod o'qildi — aynan shu kodli tovar(lar) eng tepada
+                rows += "🔤 Rasmdagi kod: " + photoCodes.joinToString(", ") { it.first }
+                rows += TopHit(byCode[0])
+                rows.addAll(byCode.drop(1))
+                val codeKeys = byCode.map { it.key }.toHashSet()
+                val rest = res.filter { it.key !in codeKeys }
+                if (rest.isNotEmpty()) { rows += "Rasmga o'xshashlari"; rows.addAll(rest) }
+            } else if (keep == null && res.isNotEmpty()) {
                 // 1-o'rin alohida; uning rasmi yo'q seriya egizaklari (Visual.search ularni darrov keyin qo'yadi) — o'z sarlavhasi bilan
                 rows += TopHit(res[0])
                 val ser = Cats.series(res[0].name)
