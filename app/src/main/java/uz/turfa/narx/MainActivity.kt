@@ -76,6 +76,7 @@ data class Product(
     val dona: String, val optom: String, val qty: String, val photo: String = "",
     val cat: String = "",   // GitHub'da hisoblangan "aqlli" kategoriya: "Kategoriya|Bo'lim"
     val photos: List<String> = emptyList(),   // hamma rasmlari: asosiysi + "rasmlar" ustunidagilar
+    val added: String = "",   // bazaga qo'shilgan sana YYYY-MM-DD (🆕 Yangi kelganlar)
 ) {
     val nameLower = name.lowercase()
     val tokens: Set<String> = Search.tokens(name) + Search.tokens(code) + Search.tokens(barcode)
@@ -299,6 +300,7 @@ object Db {
         val iPhoto = head.indexOf("rasm").takeIf { it >= 0 } ?: idx("rasm", "photo", "image", "фото")
         val iPhotos = head.indexOf("rasmlar")
         val iCat = head.indexOf("kategoriya")
+        val iAdded = head.indexOf("qoshilgan")
 
         val hasHeader = iName >= 0 && iDona >= 0
         if (!hasHeader) { iName = 0; iCode = 1; iDona = 2; iOptom = 3 }
@@ -317,6 +319,7 @@ object Db {
                 qty = if (iQty >= 0) c.getOrNull(iQty)?.trim().orEmpty() else "",
                 photo = if (iPhoto >= 0) c.getOrNull(iPhoto)?.trim().orEmpty() else "",
                 cat = if (iCat >= 0) c.getOrNull(iCat)?.trim().orEmpty() else "",
+                added = if (iAdded >= 0) c.getOrNull(iAdded)?.trim().orEmpty() else "",
                 photos = ((if (iPhoto >= 0) listOf(c.getOrNull(iPhoto)?.trim().orEmpty()) else emptyList()) +
                     (if (iPhotos >= 0) c.getOrNull(iPhotos).orEmpty().split(' ', '\n', '\t', ',') else emptyList()))
                     .map { it.trim() }.filter { it.startsWith("http") }.distinct(),
@@ -394,7 +397,7 @@ object Img {
 }
 
 class MainActivity : Activity() {
-    private val GREEN = Color.parseColor("#0F7B5F")
+    private val GREEN = Color.parseColor("#1E5F49")   // TURFA emblemasi yashili
     private val BLUE = Color.parseColor("#1F4E9E")
     private val ORANGE = Color.parseColor("#B26A00")
     private val RED = Color.parseColor("#C62828")
@@ -445,6 +448,13 @@ class MainActivity : Activity() {
     private var polkaView: String? = null
     private var polkaAdd: String? = null
     private var photoScope: String? = null      // rasm qidiruv faqat shu stellaj ichida (keyingi qidiruv uchun)
+    // Maxsus ro'yxatlar: "hot" — 🔥 ko'p sotiladi, "new" — 🆕 yangi kelgan; priceRange — 💰 narx oralig'i; altFor — 🔁 tugagan o'rniga
+    private var special: String? = null
+    private var priceRange: Pair<Long, Long>? = null
+    private var altFor: Product? = null
+    private lateinit var banner: View
+    private lateinit var bannerImg: ImageView
+    private lateinit var titleRow: View
     private var photoScopeShown: String? = null // ko'rsatilayotgan natija qaysi stellajdan
     private var photoCodes: List<Pair<String, List<Product>>> = emptyList()   // rasmdan o'qilgan kod(lar) va shu kodli tovarlar
 
@@ -470,6 +480,7 @@ class MainActivity : Activity() {
         Cats.load(this)
         Cats.loadOverrides(this)
         Polka.load(this)
+        Hot.load(this)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(BG); fitsSystemWindows = true }
         val content = FrameLayout(this)
         searchScreen = buildSearch()
@@ -491,6 +502,7 @@ class MainActivity : Activity() {
             photoHits != null -> closePhoto()
             polkaAdd != null -> polkaAddMenu()
             polkaView != null -> { polkaView = null; refresh() }
+            special != null || priceRange != null || altFor != null -> { clearSpecial(); refresh() }
             favMode -> { favMode = false; refresh() }
             catSel != null -> { catSel = null; refresh() }
             noPhotoMode -> { noPhotoMode = false; refresh() }
@@ -544,6 +556,16 @@ class MainActivity : Activity() {
     private fun buildSearch(): View {
         val screen = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
+        // Bosh ekranda: do'kon rasmi (banner, tiniq — ustiga hech narsa yozilmaydi)
+        banner = FrameLayout(this).apply { setBackgroundColor(GREEN) }
+        bannerImg = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP; contentDescription = "TUR-FA do'koni"
+            Fon.bitmap(this@MainActivity)?.let { setImageBitmap(it) }
+            setOnClickListener { if (isOwner()) ownerMenu() }
+        }
+        (banner as FrameLayout).addView(bannerImg, FrameLayout.LayoutParams(-1, -1))
+        screen.addView(banner, LinearLayout.LayoutParams(-1, dp(170)))
+
         // Yashil sarlavha: nom + baza holati + 🔄, ostida qidiruv va 📷
         val head = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setBackgroundColor(GREEN)
@@ -562,6 +584,7 @@ class MainActivity : Activity() {
             .apply { setOnLongClickListener { checkAppUpdate(silent = false); true }; contentDescription = "Bazani yangilash" }
         row1.addView(refreshBtn, LinearLayout.LayoutParams(dp(48), dp(44)))
         head.addView(row1)
+        titleRow = row1
 
         val searchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val field = LinearLayout(this).apply {
@@ -670,7 +693,7 @@ class MainActivity : Activity() {
     /** Hamma rejimlarni yopib, toza qidiruvga qaytaradi (polkaga joylash rejimi saqlanadi). */
     private fun goHome() {
         photoHits = null; photoVec = null; photoUri = null
-        favMode = false; catSel = null; noPhotoMode = false; polkaView = null
+        favMode = false; catSel = null; noPhotoMode = false; polkaView = null; clearSpecial()
         showKassa(false)
         if (search.text.isNotEmpty()) search.setText("") else refresh()
     }
@@ -732,10 +755,13 @@ class MainActivity : Activity() {
             setPadding(dp(4), 0, 0, dp(8))
         })
         val (noPhoto, cats) = homeStats()
+        val newN = all.count { isNew(it) }
         val tiles = listOf(
-            Triple("📷", "Rasm bilan topish", "") to { photoPick() },
+            Triple("📷", "Rasm bilan topish", "Rasm yoki yozilgan kod") to { photoPick() },
+            Triple("💰", "Narx bo'yicha", "Mijoz byudjetiga sovg'a") to { priceMenu() },
+            Triple("🔥", "Ko'p sotiladi", if (Hot.codes().isEmpty()) "Oxirgi 30 kun" else "Top ${Hot.codes().size} · 30 kun") to { openSpecial("hot") },
+            Triple("🆕", "Yangi kelgan", if (newN > 0) "$newN ta · 14 kun" else "Oxirgi 14 kun") to { openSpecial("new") },
             Triple("📍", "Polkalar", "Qaysi tovar qayerda") to { polkaMenu() },
-            Triple("🗂", "Kategoriyalar", "$cats ta bo'lim") to { catMenu() },
             Triple("⭐", "Sevimlilar", if (favs.isEmpty()) "Tez topiladiganlar" else "${favs.size} ta") to { toggleFavMode() },
             Triple("🏷", "Kod chiqarish", "Yorliq ro'yxati") to { kodList() },
             Triple("🚫", "Rasmi yo'qlar", "${group(noPhoto.toLong())} ta — rasmga oling") to { openNoPhoto() },
@@ -769,6 +795,107 @@ class MainActivity : Activity() {
             wrap.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
         }
         return wrap
+    }
+
+    // ---------------------------------------------------------------- 💰 🔥 🆕 🔁 maxsus ro'yxatlar
+    private fun setBanner(on: Boolean) {
+        banner.visibility = if (on) View.VISIBLE else View.GONE
+    }
+
+    private val today: String
+        get() = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Tashkent") }.format(java.util.Date())
+
+    private var newSince = ""
+    /** Oxirgi 14 kunda bazaga qo'shilgan. */
+    private fun isNew(p: Product): Boolean {
+        if (newSince.isEmpty()) newSince = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+            .apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Tashkent") }
+            .format(java.util.Date(System.currentTimeMillis() - 14L * 86_400_000))
+        return p.added.length == 10 && p.added >= newSince && p.added > "2000-01-01"
+    }
+
+    private fun price(p: Product): Long = p.donaList.maxOrNull() ?: 0
+
+    private fun openSpecial(kind: String?, range: Pair<Long, Long>? = null, alt: Product? = null) {
+        special = kind; priceRange = range; altFor = alt
+        favMode = false; noPhotoMode = false; polkaView = null; photoHits = null; photoVec = null
+        if (range == null) catSel = null   // narx oralig'ida tanlangan kategoriya saqlanadi
+        showKassa(false)
+        hideKb(search)
+        if (search.text.isNotEmpty()) search.setText("") else refresh()
+    }
+
+    /** -> (sarlavha, tovarlar) */
+    private fun specialList(): Pair<String, List<Product>> {
+        altFor?.let { p ->
+            return "🔁 «${p.name}» o'rniga (do'konda bor)" to alternatives(p)
+        }
+        priceRange?.let { (lo, hi) ->
+            val cat = catSel
+            val list = all.filter { Search.stockRank(it) == 0 && price(it) in lo..hi &&
+                (cat == null || Cats.of(it).let { c -> c.first == cat.first && (cat.second == null || c.second == cat.second) }) }
+                .sortedWith(compareBy<Product>({ if (Hot.isHot(it)) 0 else 1 }, { price(it) }))
+            return "💰 ${priceLabel(lo, hi)}" + (cat?.let { " · ${it.second ?: it.first}" } ?: "") to list
+        }
+        return when (special) {
+            "hot" -> {
+                val byCode = all.groupBy { it.code }
+                "🔥 Ko'p sotiladi (30 kun)" to Hot.codes().flatMap { byCode[it].orEmpty() }.distinctBy { it.key }
+            }
+            else -> "🆕 Yangi kelgan (14 kun)" to all.filter { isNew(it) }
+                .sortedWith(compareBy<Product> { Search.stockRank(it) }.thenByDescending { it.added })
+        }
+    }
+
+    private fun priceLabel(lo: Long, hi: Long): String = when {
+        lo <= 0 -> "${group(hi / 1000)} minggacha"
+        hi >= Long.MAX_VALUE / 2 -> "${group(lo / 1000)} mingdan yuqori"
+        else -> "${group(lo / 1000)}–${group(hi / 1000)} ming"
+    }
+
+    /** Mijoz byudjeti: narx oralig'i (faqat do'konda borlari; kategoriya tanlangan bo'lsa — o'sha ichida). */
+    private fun priceMenu() {
+        val opts = listOf(0L to 50_000L, 50_000L to 100_000L, 100_000L to 200_000L, 200_000L to 300_000L,
+            300_000L to 500_000L, 500_000L to Long.MAX_VALUE)
+        val labels = opts.map { "💰 " + priceLabel(it.first, it.second) } + "✏️ O'zim yozaman"
+        val cat = catSel
+        AlertDialog.Builder(this).setTitle("Mijozning byudjeti" + (cat?.let { "\n(${it.second ?: it.first} ichida)" } ?: ""))
+            .setItems(labels.toTypedArray()) { _, i ->
+                if (i < opts.size) openSpecial(null, opts[i]) else priceCustom()
+            }.show()
+    }
+
+    private fun priceCustom() {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(20), dp(8), dp(20), 0); gravity = Gravity.CENTER_VERTICAL }
+        fun field(h: String) = EditText(this).apply { hint = h; inputType = InputType.TYPE_CLASS_NUMBER; textSize = 20f; gravity = Gravity.CENTER }
+        val a = field("dan"); val b = field("gacha")
+        row.addView(a, LinearLayout.LayoutParams(0, -2, 1f))
+        row.addView(TextView(this).apply { text = " – "; textSize = 20f })
+        row.addView(b, LinearLayout.LayoutParams(0, -2, 1f))
+        row.addView(TextView(this).apply { text = " ming"; textSize = 16f })
+        AlertDialog.Builder(this).setTitle("💰 Narx oralig'i (ming so'mda)").setView(row)
+            .setPositiveButton("Ko'rsat") { _, _ ->
+                val lo = (a.text.toString().toLongOrNull() ?: 0) * 1000
+                val hi = b.text.toString().toLongOrNull()?.times(1000) ?: Long.MAX_VALUE
+                if (hi < lo) toast("Oraliq noto'g'ri") else openSpecial(null, lo to hi)
+            }.setNegativeButton("Bekor", null).show()
+    }
+
+    /** Tugagan tovar o'rniga: o'sha kategoriya, narxi yaqin, do'konda bor; bir bo'limdagilari va 🔥 ko'p sotiladiganlar oldinda. */
+    private fun alternatives(p: Product): List<Product> {
+        val (c, sub) = Cats.of(p)
+        val pr = price(p).coerceAtLeast(1)
+        return all.asSequence()
+            .filter { it.key != p.key && Search.stockRank(it) == 0 && Cats.of(it).first == c && price(it) > 0 }
+            .filter { kotlin.math.abs(price(it) - pr).toDouble() / pr <= 0.5 }
+            .sortedWith(compareBy<Product>(
+                { if (sub != null && Cats.of(it).second == sub) 0 else 1 },
+                { kotlin.math.abs(price(it) - pr).toDouble() / pr > 0.2 },
+                { if (Hot.isHot(it)) 0 else 1 },
+                { kotlin.math.abs(price(it) - pr) },
+            ))
+            .take(30).toList()
     }
 
     // Bosh ekran raqamlari: baza o'zgarganda bir marta hisoblanadi (har chizishda emas — sekin telefonda qotmasin)
@@ -857,6 +984,11 @@ class MainActivity : Activity() {
         })
         titleBox.addView(TextView(this).apply { text = p.code; textSize = 12f; setTextColor(MUTED) },
             LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(2) })
+        val marks = listOfNotNull(if (Hot.isHot(p)) "🔥 Ko'p sotiladi" else null, if (isNew(p)) "🆕 Yangi" else null)
+        if (marks.isNotEmpty()) titleBox.addView(TextView(this).apply {
+            text = marks.joinToString("  ·  "); textSize = 12f; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor("#B54708"))
+        }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(3) })
         val badges = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         if (p.qty.isNotBlank()) {
             val n = p.qty.toDoubleOrNull()?.toLong() ?: 0
@@ -887,6 +1019,11 @@ class MainActivity : Activity() {
             pill(if (p.key in photoLearned) "📤 Shu rasmni hamma telefonga o'rgatish" else "✅ Shu tovar (hamma telefonga o'rgat)", Color.WHITE, GREEN, 15f) {
                 rememberPhoto(p); sharePhoto(p)
             }, LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(10) })
+
+        // Tugagan: o'rniga do'konda bor o'xshashini taklif qilish
+        if (Search.stockRank(p) == 2 && altFor?.key != p.key) card.addView(
+            pill("🔁 O'rniga boshqasini ko'rsat (do'konda bor)", GREEN, tint(GREEN, 26), 15f) { openSpecial(null, null, p) },
+            LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
 
         // Amallar: ⋯ · 🏷 · ＋ Kassaga
         val inCart = cart[p.key]?.count ?: 0
@@ -938,6 +1075,10 @@ class MainActivity : Activity() {
             if (t.startsWith("⭐")) {
                 background = box(tint(Color.parseColor("#F2A900"), 34), 12)
                 setOnClickListener { favMode = false; refresh() }
+            }
+            if (t.startsWith("💰") || t.startsWith("🔥") || t.startsWith("🆕") || t.startsWith("🔁")) {
+                background = box(tint(GREEN, 30), 12); setTextColor(GREEN)
+                setOnClickListener { clearSpecial(); refresh() }
             }
             if (t.startsWith("📍") || t.startsWith("❓")) {
                 background = box(tint(BLUE, 30), 12)
@@ -1387,7 +1528,7 @@ class MainActivity : Activity() {
                 res.onSuccess { (v, hits, codes) ->
                     photoVec = v; photoHits = hits; photoCodes = codes
                     photoLearned.clear(); photoShared.clear(); photoUri = uri
-                    favMode = false; catSel = null; noPhotoMode = false; polkaView = null
+                    favMode = false; catSel = null; noPhotoMode = false; polkaView = null; clearSpecial()
                     photoScopeShown = photoScope; photoScope = null
                     hideKb(search)
                     if (search.text.isNotEmpty()) search.setText("")
@@ -2065,8 +2206,10 @@ class MainActivity : Activity() {
             }.show()
     }
 
+    private fun clearSpecial() { special = null; priceRange = null; altFor = null }
+
     private fun openNoPhoto() {
-        noPhotoMode = true; polkaView = null
+        noPhotoMode = true; polkaView = null; clearSpecial()
         catSel = null; favMode = false; photoHits = null; photoVec = null
         hideKb(search)
         if (search.text.isNotEmpty()) search.setText("")
@@ -2074,7 +2217,7 @@ class MainActivity : Activity() {
     }
 
     private fun openCat(c: String, sub: String?) {
-        catSel = c to sub; polkaView = null
+        catSel = c to sub; polkaView = null; special = null; altFor = null   // narx oralig'i saqlanadi: "vazalar, 200 minggacha"
         favMode = false; photoHits = null; photoVec = null; noPhotoMode = false
         hideKb(search)
         if (search.text.isNotEmpty()) search.setText("")
@@ -2149,7 +2292,7 @@ class MainActivity : Activity() {
     }
 
     private fun openPolka(sel: String) {
-        polkaView = sel
+        polkaView = sel; clearSpecial()
         catSel = null; favMode = false; noPhotoMode = false; photoHits = null; photoVec = null
         hideKb(search)
         if (search.text.isNotEmpty()) search.setText("")
@@ -2257,7 +2400,7 @@ class MainActivity : Activity() {
 
     private fun toggleFavMode() {
         favMode = !favMode
-        if (favMode) { photoHits = null; photoVec = null; catSel = null; noPhotoMode = false; polkaView = null }
+        if (favMode) { photoHits = null; photoVec = null; catSel = null; noPhotoMode = false; polkaView = null; clearSpecial() }
         hideKb(search)
         refresh()
     }
@@ -2573,6 +2716,7 @@ class MainActivity : Activity() {
         subTitle.text = "Baza: ${baseDate()} · ${group(all.size.toLong())} tovar"
         fillChips()
         info.visibility = View.VISIBLE
+        setBanner(false)
         photoHits?.let { hits ->
             // Rasm natijalari ichidan so'z bilan qisqartirish ("gul", "vaza"), o'xshashlik tartibi saqlanadi
             val list = hits.map { it.first }
@@ -2638,6 +2782,23 @@ class MainActivity : Activity() {
             adapter.notifyDataSetChanged()
             return
         }
+        if (special != null || priceRange != null || altFor != null) {
+            val (title, base) = specialList()
+            val res = if (q.isBlank()) base else Search.run(base, q).let { r -> val k = r.map { it.key }.toHashSet(); base.filter { it.key in k } }
+            shown = listOf<Any>("$title: ${res.size} ta   ✕ yopish") + res
+            info.text = when {
+                base.isEmpty() -> when {
+                    special == "hot" -> "Ro'yxat hali yuklanmagan — internetni yoqib 🔄 ni bosing"
+                    special == "new" -> "Oxirgi 14 kunda yangi tovar qo'shilmagan"
+                    else -> "Mos tovar topilmadi"
+                }
+                q.isBlank() -> if (priceRange != null) "Faqat do'konda borlari. Kategoriya tugmasini bossangiz — shu narxda o'sha kategoriya" else "Ichidan qidirish uchun yozing"
+                res.isEmpty() -> "Topilmadi: \"${q.trim()}\""
+                else -> "Topildi: ${res.size} ta"
+            }
+            adapter.notifyDataSetChanged()
+            return
+        }
         if (noPhotoMode) {
             // Omborda borlari tepada: avval shularni rasmga olish foydali
             val list = all.filter { it.photo.isBlank() }
@@ -2680,9 +2841,10 @@ class MainActivity : Activity() {
             adapter.notifyDataSetChanged()
             return
         }
-        if (q.isBlank() && all.isNotEmpty()) {
+        if (q.isBlank() && all.isNotEmpty() && catSel == null && !favMode && !noPhotoMode && special == null && priceRange == null && altFor == null) {
             shown = listOf<Any>(HomeTiles)
             info.visibility = View.GONE
+            setBanner(true)
             adapter.notifyDataSetChanged()
             return
         }
@@ -2722,6 +2884,8 @@ class MainActivity : Activity() {
             try { Cats.download(applicationContext) } catch (_: Exception) {}
             try { Cats.downloadOverrides(applicationContext) } catch (_: Exception) {}
             try { Polka.download(applicationContext) } catch (_: Exception) {}
+            try { Hot.download(applicationContext) } catch (_: Exception) {}
+            try { if (Fon.download(applicationContext)) main.post { Fon.bitmap(this)?.let { bannerImg.setImageBitmap(it) } } } catch (_: Exception) {}
             main.post {
                 busy = false
                 refreshBtn.text = "🔄"; refreshBtn.isEnabled = true

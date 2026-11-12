@@ -126,6 +126,23 @@ $U shot 14-orqaga-bosh-ekran
 check $U has "Tez kirish"
 end
 
+step "11b. Narx bo'yicha va yangi kelganlar"
+check $U tap "Qidiruv"
+$U shot 17-bosh-ekran-yangi
+check $U tap "Narx bo'yicha"
+$U shot 18-narx-menyu
+check $U tap "💰 100–200 ming"
+$U shot 19-narx-natija
+check $U has "💰 100–200 ming"
+adb shell input keyevent 4; sleep 1
+check $U tap "Yangi kelgan"
+$U shot 20-yangi-kelgan
+adb shell input keyevent 4; sleep 1
+check $U tap "Kod yoki nom"
+adb shell input text "tugagan"; sleep 1
+adb shell input keyevent 111
+end
+
 step "12. Oddiy xodim: kategoriya/polka o'zgartirish yashirin"
 sed -i 's/<boolean name="owner" value="true" \/>/<boolean name="owner" value="false" \/>/' /tmp/xodim.xml
 adb shell am force-stop $PKG

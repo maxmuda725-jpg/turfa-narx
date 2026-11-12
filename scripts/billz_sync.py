@@ -70,6 +70,26 @@ def main():
     print(f"Kategoriyasiz: {cc.get('', 0)} / {len(products)}, kategoriyalar soni: {len(cc) - (1 if '' in cc else 0)}")
     for n, c in cc.most_common(40): print(f"  {c:5d}  {n or '(yo`q)'}")
 
+    # Tovar bazaga qachon qo'shilgani ("🆕 Yangi kelganlar" uchun): Billz'dagi yaratilgan sana,
+    # bo'lmasa — birinchi marta ko'rilgan kun (baza/qoshilgan.json da saqlanadi)
+    dkeys = sorted({k for p in products for k in p if "creat" in k.lower() or k.lower() in ("date", "added_at")})
+    print("Sana maydonlari:", dkeys)
+    def created(p):
+        for k in dkeys:
+            v = str(p.get(k) or "")
+            m = re.match(r"(\d{4}-\d{2}-\d{2})", v)
+            if m: return m.group(1)
+        return ""
+    seen_path = "baza/qoshilgan.json"
+    try: first_seen = json.load(open(seen_path, encoding="utf-8"))
+    except Exception: first_seen = None   # birinchi ishga tushish: hozirgi hamma tovar "eski" hisoblanadi
+    today = __import__("datetime").datetime.utcfromtimestamp(__import__("time").time() + 5 * 3600).strftime("%Y-%m-%d")
+    seen_new = dict(first_seen or {})
+    for p in products:
+        sku = (p.get("sku") or "").strip()
+        if sku and sku not in seen_new: seen_new[sku] = today if first_seen is not None else "2000-01-01"
+    json.dump(seen_new, open(seen_path, "w", encoding="utf-8"), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
     upl = uploaded_photos()
     skus = {(p.get("sku") or "").strip() for p in products}
     upl_codes = {k.lower(): v for k, v in upl.items() if k not in skus}   # bazada SKU emas — do'kon kodi
@@ -116,9 +136,11 @@ def main():
                               for m in p.get("shop_measurement_values") or [] if m.get("shop_id") == turfa_id)))
         name = re.sub(r"\s+", " ", p.get("name") or "").strip()
         if not name: continue
-        rows.append([name, (p.get("sku") or "").strip(), (p.get("barcode") or "").strip(),
+        sku = (p.get("sku") or "").strip()
+        added = created(p) or seen_new.get(sku, "")
+        rows.append([name, sku, (p.get("barcode") or "").strip(),
                      str(num(sp.get("retail_price"))),
-                     "-".join(map(str, sorted(set(opt)))), photo, qty, extra])
+                     "-".join(map(str, sorted(set(opt)))), photo, qty, extra, added])
 
     if len(rows) < 100:
         sys.exit(f"Juda kam mahsulot ({len(rows)}), baza o'zgartirilmadi")
@@ -126,7 +148,7 @@ def main():
     rows.sort(key=lambda r: nat(r[0]))
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";", lineterminator="\n")
-    w.writerow(["nomi", "kod", "shtrix", "dona narx", "optom narx", "rasm", "qoldiq", "rasmlar"])
+    w.writerow(["nomi", "kod", "shtrix", "dona narx", "optom narx", "rasm", "qoldiq", "rasmlar", "qoshilgan"])
     w.writerows(rows)
     open("baza/products.csv", "w", encoding="utf-8").write("﻿" + buf.getvalue())
     print(f"Yozildi: {len(rows)} ta (Billz'da {len(products)} ta), rasmli: {sum(1 for r in rows if r[5])} (qo'shimcha rasm: {sum(len(r[7].split()) for r in rows)}), narxsiz: {sum(1 for r in rows if r[3] == '0')}, "
