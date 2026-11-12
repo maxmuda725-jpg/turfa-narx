@@ -68,6 +68,9 @@ def main():
     iN, iK, iR = head.index("nomi"), head.index("kod"), head.index("rasm")
     iX = head.index("rasmlar") if "rasmlar" in head else -1
     name_of = {r[iK].strip(): r[iN].strip() for r in rows[1:] if len(r) > iK}
+    # Bazada tayyor hisoblangan kategoriya (scripts/kategoriya.py: ~ va ! qoidalari, seriya, rasm) — ilova bilan bir xil
+    iC = head.index("kategoriya") if "kategoriya" in head else -1
+    cat_of = {r[iK].strip(): r[iC].strip() for r in rows[1:] if iC >= 0 and len(r) > iC and r[iC].strip()}
     cats = load_cats()
     try:   # qo'lda almashtirilgan kategoriyalar (ilovadan)
         ovr = json.loads(get(SERVER + "/api/public/kategoriyalar")).get("items") or {}
@@ -117,6 +120,8 @@ def main():
             top = "Ilovadan" if src == "ilova" else "Billz"
             if kod in ovr:
                 cat = "/".join(folder_name(x) for x in ovr[kod].split("|") if x.strip())
+            elif kod in cat_of:
+                cat = "/".join(folder_name(x) for x in cat_of[kod].split("|") if x.strip())
             else:
                 cat = category(cats, name_of.get(kod, "")) if kod in name_of else "Bazada yoq"
             z.writestr(f"{top}/{cat}/{base} {count[base]}.{ext}", data)
