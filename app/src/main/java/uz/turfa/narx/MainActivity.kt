@@ -463,6 +463,7 @@ class MainActivity : Activity() {
     private lateinit var listView: ListView
     private var lastModeKey = ""
     private var photoScopeShown: String? = null // ko'rsatilayotgan natija qaysi stellajdan
+    private var photoCodeDoubt = false   // o'qilgan kodli tovarlar rasmga umuman o'xshamaydi — kod pastga tushadi
     private var photoCodes: List<Pair<String, List<Product>>> = emptyList()   // rasmdan o'qilgan kod(lar) va shu kodli tovarlar
 
     private lateinit var searchScreen: View
@@ -1617,6 +1618,7 @@ class MainActivity : Activity() {
                 val scope = photoScope
                 val pool = if (scope == null) all else all.filter { Polka.matches(it, scope) }
                 var ranked = codes
+                var doubt = false
                 val (v, hits) = if (vis) {
                     val qs = Visual.embedQuery(applicationContext, Visual.bitmap(this, uri))
                     // Kod bir necha tovarga to'g'ri kelsa (44-12 -> 3-4 ta) — ular orasida rasmga eng o'xshashi birinchi
@@ -1626,15 +1628,24 @@ class MainActivity : Activity() {
                             c to (byLook + list.filter { p -> byLook.none { it.key == p.key } })
                         }
                     }
-                    qs[0] to Visual.search(qs, pool)
+                    val vh = Visual.search(qs, pool)
+                    // Kod noto'g'ri o'qilgan yoki boshqa tovarniki bo'lishi mumkin (soatdagi 42-3 -> gul 42-3):
+                    // kodli tovarlarning rasmi bor-u, suratga eng o'xshashidan ancha uzoq bo'lsa — kodga ishonmaymiz
+                    val codeProds = codes.flatMap { it.second }
+                    val codeLook = Visual.search(qs, codeProds, codeProds.size)
+                    val best = vh.firstOrNull()?.second
+                    if (best != null && codeProds.isNotEmpty() && codeLook.size == codeProds.size &&
+                        codeLook.maxOf { it.second } < best - 0.08f) doubt = true
+                    qs[0] to vh
                 } else null to emptyList()
                 if (!vis && codes.isEmpty()) throw IllegalStateException("Rasmda kod topilmadi, rasm bazasi esa hali yuklanmagan. Internetni yoqib 🔄 Yangilash ni bosing.")
-                Result.success(Triple(v, hits, ranked))
+                Result.success(Triple(v, hits, ranked to doubt))
             } catch (e: Throwable) { Result.failure(e) }
             main.post {
                 wait.dismiss()
-                res.onSuccess { (v, hits, codes) ->
-                    photoVec = v; photoHits = hits; photoCodes = codes
+                res.onSuccess { (v, hits, cd) ->
+                    val (codes, doubt) = cd
+                    photoVec = v; photoHits = hits; photoCodes = codes; photoCodeDoubt = doubt
                     photoLearned.clear(); photoShared.clear(); photoUri = uri
                     favMode = false; catSel = null; noPhotoMode = false; polkaView = null; clearSpecial()
                     photoScopeShown = photoScope; photoScope = null
@@ -2515,7 +2526,7 @@ class MainActivity : Activity() {
     }
 
     private fun closePhoto() {
-        photoHits = null; photoVec = null; photoUri = null; photoCodes = emptyList()
+        photoHits = null; photoVec = null; photoUri = null; photoCodes = emptyList(); photoCodeDoubt = false
         refresh()
     }
 
@@ -2840,7 +2851,9 @@ class MainActivity : Activity() {
             val keep = if (q.isBlank()) null else Search.run(list, q).map { it.key }.toHashSet()
             val res = if (keep == null) list else list.filter { it.key in keep }
             val rows = ArrayList<Any>()
-            val byCode = if (keep == null) photoCodes.flatMap { it.second }.distinctBy { it.key } else emptyList()
+            val codeAll = if (keep == null) photoCodes.flatMap { it.second }.distinctBy { it.key } else emptyList()
+            val byCode = if (photoCodeDoubt) emptyList() else codeAll
+            val lateCode = if (photoCodeDoubt) codeAll else emptyList()
             rows += "📷 Rasm natijasi" + (photoScopeShown?.let { " ($it-polkada)" } ?: "") + ": ${res.size + byCode.size} ta   ✕ yopish"
             if (byCode.isNotEmpty()) {
                 // Rasmdagi kod o'qildi — aynan shu kodli tovar(lar) eng tepada
@@ -2861,6 +2874,13 @@ class MainActivity : Activity() {
                 if (twins.isNotEmpty()) { rows += "↔️ Shu seriyadan, o'lchami boshqa:"; rows.addAll(twins) }
                 if (i < res.size) { rows += "Boshqa o'xshashlari"; rows.addAll(res.subList(i, res.size)) }
             } else rows.addAll(res)
+            if (lateCode.isNotEmpty()) {
+                // Kod o'qildi, lekin o'sha kodli tovarlar suratga o'xshamaydi — pastda, ogohlantirish bilan
+                val lk = lateCode.map { it.key }.toHashSet()
+                rows.removeAll { it is Product && it.key in lk }
+                rows += "🔤 Rasmdagi «" + photoCodes.joinToString(", ") { it.first } + "» kodli tovarlar (rasmga o'xshamadi):"
+                rows.addAll(lateCode)
+            }
             shown = rows
             info.text = when {
                 q.isBlank() -> "Ko'p chiqsa, nomini yozing (masalan: gul). To'g'ri tovarni uzoq bosing → ✅ Rasmdagi tovar shu — hamma telefon o'rganadi."
