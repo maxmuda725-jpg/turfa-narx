@@ -455,6 +455,8 @@ class MainActivity : Activity() {
     private lateinit var banner: View
     private lateinit var bannerImg: ImageView
     private lateinit var titleRow: View
+    private lateinit var listView: ListView
+    private var lastModeKey = ""
     private var photoScopeShown: String? = null // ko'rsatilayotgan natija qaysi stellajdan
     private var photoCodes: List<Pair<String, List<Product>>> = emptyList()   // rasmdan o'qilgan kod(lar) va shu kodli tovarlar
 
@@ -632,6 +634,7 @@ class MainActivity : Activity() {
                 }
         }
         val list = ListView(this).apply {
+            listView = this
             this.adapter = this@MainActivity.adapter
             divider = null; clipToPadding = false
             setPadding(dp(8), 0, dp(8), dp(12))
@@ -2713,6 +2716,9 @@ class MainActivity : Activity() {
     private fun refresh() {
         val q = search.text.toString()
         if (q != lastQuery) { similarOpen = false; lastQuery = q }
+        // Bo'lim o'zgarsa (bosh ekran, kategoriya, rasm natijasi…) ro'yxat tepadan boshlanadi
+        val modeKey = listOf(photoHits != null, polkaAdd, polkaView, special, priceRange, altFor?.key, catSel, favMode, noPhotoMode, q.isBlank()).toString()
+        if (modeKey != lastModeKey) { lastModeKey = modeKey; listView.post { listView.setSelection(0) } }
         subTitle.text = "Baza: ${baseDate()} · ${group(all.size.toLong())} tovar"
         fillChips()
         info.visibility = View.VISIBLE
