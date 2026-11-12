@@ -25,7 +25,7 @@ import kotlin.math.roundToInt
  * Do'konchi to'g'ri tovarni tanlasa, rasm shu telefonda eslab qolinadi (learned.bin) — keyingi safar aniqroq.
  */
 object Visual {
-    const val VECTORS_URL = "https://raw.githubusercontent.com/maxmuda725-jpg/turfa-narx/main/baza/vectors.bin"
+    const val VECTORS_URL = "https://raw.githubusercontent.com/maxmuda725-jpg/turfa-narx/main/baza/vectors-l.bin"
     private const val MODEL = "embedder.tflite"
     private const val SIDE = 640          // scripts/embed.py dagi bilan bir xil
     private const val MAX_LEARNED = 4000
@@ -157,8 +157,8 @@ object Visual {
     }
 
     // ------------------------------------------------------------ fayllar
-    private fun serverFile(ctx: Context) = File(ctx.filesDir, "vectors.bin")
-    private fun learnedFile(ctx: Context) = File(ctx.filesDir, "learned.bin")
+    private fun serverFile(ctx: Context) = File(ctx.filesDir, "vectors-l.bin")
+    private fun learnedFile(ctx: Context) = File(ctx.filesDir, "learned-l.bin")
 
     fun load(ctx: Context) {
         server = try { read(serverFile(ctx).readBytes()) } catch (e: Exception) { emptyList() }
@@ -171,7 +171,7 @@ object Visual {
         val f = serverFile(ctx)
         val c = URL(VECTORS_URL).openConnection() as HttpURLConnection
         c.connectTimeout = 15000; c.readTimeout = 60000
-        val tag = prefs.getString("vectors_etag", null)
+        val tag = prefs.getString("vectors_l_etag", null)
         if (tag != null && f.exists()) c.setRequestProperty("If-None-Match", tag)
         try {
             if (c.responseCode == 304) return false
@@ -179,9 +179,9 @@ object Visual {
             val bytes = c.inputStream.use { it.readBytes() }
             val list = read(bytes)
             if (list.isEmpty()) throw Exception("bo'sh")
-            val tmp = File(ctx.filesDir, "vectors.bin.tmp")
+            val tmp = File(ctx.filesDir, "vectors-l.bin.tmp")
             tmp.writeBytes(bytes); tmp.renameTo(f)
-            prefs.edit().putString("vectors_etag", c.getHeaderField("ETag")).apply()
+            prefs.edit().putString("vectors_l_etag", c.getHeaderField("ETag")).apply()
             server = list
             return true
         } finally { c.disconnect() }

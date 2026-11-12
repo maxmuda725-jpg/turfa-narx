@@ -22,7 +22,7 @@ jobs:
           mkdir -p app/src/main/assets
           cp baza/kategoriyalar.txt app/src/main/assets/kategoriyalar.txt
           curl -fsSL -o app/src/main/assets/embedder.tflite \
-            https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
+            https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite
           gradle assembleDebug
       - name: KVM
         run: |
