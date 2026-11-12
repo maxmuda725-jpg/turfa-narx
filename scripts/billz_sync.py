@@ -42,7 +42,7 @@ def backfill_dates(products, seen, today):
     rasmi yo'q tovarga undan kattaroq shtrix-kodli eng yaqin tovarning sanasi beriladi."""
     import datetime, email.utils
     lim = (datetime.date.fromisoformat(today) - datetime.timedelta(days=30)).isoformat()
-    bc = sorted((int(p["barcode"]), p) for p in products if re.fullmatch(r"2000000\d{6}", (p.get("barcode") or "").strip()))
+    bc = sorted(((int(p["barcode"]), p) for p in products if re.fullmatch(r"2000000\d{6}", (p.get("barcode") or "").strip())), key=lambda t: t[0])
     cur, n_old = today, 0
     for b, p in reversed(bc):
         u = p.get("main_image_url_full") or ""
@@ -117,7 +117,8 @@ def main():
         sku = (p.get("sku") or "").strip()
         if sku and sku not in seen_new: seen_new[sku] = today if first_seen is not None else "2000-01-01"
     if not os.path.exists("baza/qoshilgan_tiklandi"):
-        backfill_dates(products, seen_new, today)
+        try: backfill_dates(products, seen_new, today)
+        except Exception as e: print("Sana tiklashda xato:", e)
         open("baza/qoshilgan_tiklandi", "w").write(today)
     json.dump(seen_new, open(seen_path, "w", encoding="utf-8"), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
