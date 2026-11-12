@@ -118,12 +118,13 @@ end
 
 step "11. Sevimlilar va rasmi yo'qlar"
 check $U tap "Qidiruv"
-adb shell input swipe 540 1900 540 700 300; sleep 1   # pastki plitkalar ekrandan pastda
+adb shell input swipe 540 1800 540 500 300; sleep 1   # pastki plitkalar ekrandan pastda
+adb shell input swipe 540 1800 540 500 300; sleep 1
 $U shot 13a-bosh-ekran-past
 check $U tap "Rasmi yo'qlar"
 $U shot 13-rasmi-yoqlar
 check $U has "🚫 Rasmi yo'q"
-adb shell input keyevent 4; sleep 1
+check $U tap "Qidiruv"
 $U shot 14-orqaga-bosh-ekran
 check $U has "Tez kirish"
 end
@@ -136,10 +137,10 @@ $U shot 18-narx-menyu
 check $U tap "💰 100–200 ming"
 $U shot 19-narx-natija
 check $U has "💰 100–200 ming"
-adb shell input keyevent 4; sleep 1
+check $U tap "Qidiruv"
 check $U tap "Yangi kelgan"
 $U shot 20-yangi-kelgan
-adb shell input keyevent 4; sleep 1
+check $U tap "Qidiruv"
 check $U tap "Kod yoki nom"
 adb shell input text "tugagan"; sleep 1
 adb shell input keyevent 111
