@@ -1,0 +1,11 @@
+name: kirim-probe
+on: push
+jobs:
+  p:
+    if: github.ref == 'refs/heads/kirim-probe'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/kirim_probe.py
+        env:
+          BILLZ_SECRET_TOKEN: ${{ secrets.BILLZ_SECRET_TOKEN }}
