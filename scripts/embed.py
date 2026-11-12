@@ -19,7 +19,7 @@ from mediapipe.tasks.python import vision
 
 MODEL = os.environ.get("EMBED_MODEL", "embedder.tflite")
 CSV = "baza/products.csv"
-OUT = "baza/vectors.bin"
+OUT = os.environ.get("EMBED_OUT", "baza/vectors.bin")   # large model: baza/vectors-l.bin
 SIDE = 640      # ilovada ham shu o'lcham
 CHUNK = 64
 

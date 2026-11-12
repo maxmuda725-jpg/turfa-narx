@@ -33,6 +33,15 @@ jobs:
           python3 scripts/embed.py
         env:
           EMBED_URL: https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
+      - name: Rasm vektorlari — kuchli model (ilova v1.80+)
+        continue-on-error: true
+        run: |
+          curl -fsSL -o embedder-l.tflite "$EMBED_URL"
+          python3 scripts/embed.py
+        env:
+          EMBED_URL: https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite
+          EMBED_MODEL: embedder-l.tflite
+          EMBED_OUT: baza/vectors-l.bin
       - name: Aqlli kategoriya (kalit so'z + seriya + rasm)
         continue-on-error: true
         run: python3 scripts/kategoriya.py
