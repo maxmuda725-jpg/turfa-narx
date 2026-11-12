@@ -118,6 +118,8 @@ end
 
 step "11. Sevimlilar va rasmi yo'qlar"
 check $U tap "Qidiruv"
+adb shell input swipe 540 1900 540 700 300; sleep 1   # pastki plitkalar ekrandan pastda
+$U shot 13a-bosh-ekran-past
 check $U tap "Rasmi yo'qlar"
 $U shot 13-rasmi-yoqlar
 check $U has "🚫 Rasmi yo'q"

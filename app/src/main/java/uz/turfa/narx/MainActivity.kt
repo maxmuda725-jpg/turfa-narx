@@ -786,7 +786,7 @@ class MainActivity : Activity() {
                 })
                 if (t.third.isNotEmpty()) tile.addView(TextView(this).apply {
                     text = t.third; textSize = 12f
-                    setTextColor(if (k == tiles.lastIndex) RED else MUTED)
+                    setTextColor(if (primary) Color.argb(225, 255, 255, 255) else if (k == tiles.lastIndex) RED else MUTED)
                 })
                 row.addView(tile, LinearLayout.LayoutParams(0, dp(110), 1f).apply {
                     if (k == r) rightMargin = dp(5) else leftMargin = dp(5)
