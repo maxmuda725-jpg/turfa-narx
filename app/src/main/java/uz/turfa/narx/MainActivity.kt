@@ -763,7 +763,7 @@ class MainActivity : Activity() {
             Triple("📷", "Rasm bilan topish", "Rasm yoki yozilgan kod") to { photoPick() },
             Triple("💰", "Narx bo'yicha", "Mijoz byudjetiga sovg'a") to { priceMenu() },
             Triple("🔥", "Ko'p sotiladi", if (Hot.codes().isEmpty()) "Oxirgi 30 kun" else "Top ${Hot.codes().size} · 30 kun") to { openSpecial("hot") },
-            Triple("🆕", "Yangi kelgan", if (newN > 0) "$newN ta · 14 kun" else "Oxirgi 14 kun") to { openSpecial("new") },
+            Triple("🆕", "Yangi kelgan", if (newN > 0) "$newN ta · 20 kun" else "Oxirgi 20 kun") to { openSpecial("new") },
             Triple("📍", "Polkalar", "Qaysi tovar qayerda") to { polkaMenu() },
             Triple("⭐", "Sevimlilar", if (favs.isEmpty()) "Tez topiladiganlar" else "${favs.size} ta") to { toggleFavMode() },
             Triple("🏷", "Kod chiqarish", "Yorliq ro'yxati") to { kodList() },
@@ -810,11 +810,11 @@ class MainActivity : Activity() {
             .apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Tashkent") }.format(java.util.Date())
 
     private var newSince = ""
-    /** Oxirgi 14 kunda bazaga qo'shilgan. */
+    /** Oxirgi 20 kunda bazaga qo'shilgan. */
     private fun isNew(p: Product): Boolean {
         if (newSince.isEmpty()) newSince = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
             .apply { timeZone = java.util.TimeZone.getTimeZone("Asia/Tashkent") }
-            .format(java.util.Date(System.currentTimeMillis() - 14L * 86_400_000))
+            .format(java.util.Date(System.currentTimeMillis() - 20L * 86_400_000))
         return p.added.length == 10 && p.added >= newSince && p.added > "2000-01-01"
     }
 
@@ -846,7 +846,7 @@ class MainActivity : Activity() {
                 val byCode = all.groupBy { it.code }
                 "🔥 Ko'p sotiladi (30 kun)" to Hot.codes().flatMap { byCode[it].orEmpty() }.distinctBy { it.key }
             }
-            else -> "🆕 Yangi kelgan (14 kun)" to all.filter { isNew(it) }
+            else -> "🆕 Yangi kelgan (20 kun)" to all.filter { isNew(it) }
                 .sortedWith(compareBy<Product> { Search.stockRank(it) }.thenByDescending { it.added })
         }
     }
@@ -2800,7 +2800,7 @@ class MainActivity : Activity() {
             info.text = when {
                 base.isEmpty() -> when {
                     special == "hot" -> "Ro'yxat hali yuklanmagan — internetni yoqib 🔄 ni bosing"
-                    special == "new" -> "Oxirgi 14 kunda yangi tovar qo'shilmagan"
+                    special == "new" -> "Oxirgi 20 kunda yangi tovar qo'shilmagan"
                     else -> "Mos tovar topilmadi"
                 }
                 q.isBlank() -> if (priceRange != null) "Faqat do'konda borlari. Kategoriya tugmasini bossangiz — shu narxda o'sha kategoriya" else "Ichidan qidirish uchun yozing"
