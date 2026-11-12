@@ -132,11 +132,11 @@ end
 step "11b. Narx bo'yicha va yangi kelganlar"
 check $U tap "Qidiruv"
 $U shot 17-bosh-ekran-yangi
-check $U tap "Narx bo'yicha"
+check $U tap "Puliga mos tovar"
 $U shot 18-narx-menyu
-check $U tap "💰 100–200 ming"
+check $U tap "💰 100 – 200 ming"
 $U shot 19-narx-natija
-check $U has "💰 100–200 ming"
+check $U has "100 – 200 ming so"
 check $U tap "Qidiruv"
 check $U tap "Yangi kelgan"
 $U shot 20-yangi-kelgan

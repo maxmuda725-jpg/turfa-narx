@@ -761,7 +761,7 @@ class MainActivity : Activity() {
         val newN = all.count { isNew(it) }
         val tiles = listOf(
             Triple("📷", "Rasm bilan topish", "Rasm yoki yozilgan kod") to { photoPick() },
-            Triple("💰", "Narx bo'yicha", "Mijoz byudjetiga sovg'a") to { priceMenu() },
+            Triple("💰", "Puliga mos tovar", "Mijoz: «100 mingga nima bor?»") to { priceMenu() },
             Triple("🔥", "Ko'p sotiladi", if (Hot.codes().isEmpty()) "Oxirgi 30 kun" else "Top ${Hot.codes().size} · 30 kun") to { openSpecial("hot") },
             Triple("🆕", "Yangi kelgan", if (newN > 0) "$newN ta · 20 kun" else "Oxirgi 20 kun") to { openSpecial("new") },
             Triple("📍", "Polkalar", "Qaysi tovar qayerda") to { polkaMenu() },
@@ -839,7 +839,7 @@ class MainActivity : Activity() {
             val list = all.filter { Search.stockRank(it) == 0 && price(it) in lo..hi &&
                 (cat == null || Cats.of(it).let { c -> c.first == cat.first && (cat.second == null || c.second == cat.second) }) }
                 .sortedWith(compareBy<Product>({ if (Hot.isHot(it)) 0 else 1 }, { price(it) }))
-            return "💰 ${priceLabel(lo, hi)}" + (cat?.let { " · ${it.second ?: it.first}" } ?: "") to list
+            return "💰 ${priceLabel(lo, hi)}lik tovarlar" + (cat?.let { " · ${it.second ?: it.first}" } ?: "") to list
         }
         return when (special) {
             "hot" -> {
@@ -852,18 +852,18 @@ class MainActivity : Activity() {
     }
 
     private fun priceLabel(lo: Long, hi: Long): String = when {
-        lo <= 0 -> "${group(hi / 1000)} minggacha"
-        hi >= Long.MAX_VALUE / 2 -> "${group(lo / 1000)} mingdan yuqori"
-        else -> "${group(lo / 1000)}–${group(hi / 1000)} ming"
+        lo <= 0 -> "${group(hi / 1000)} ming so'mgacha"
+        hi >= Long.MAX_VALUE / 2 -> "${group(lo / 1000)} ming so'mdan qimmat"
+        else -> "${group(lo / 1000)} – ${group(hi / 1000)} ming so'm"
     }
 
     /** Mijoz byudjeti: narx oralig'i (faqat do'konda borlari; kategoriya tanlangan bo'lsa — o'sha ichida). */
     private fun priceMenu() {
         val opts = listOf(0L to 50_000L, 50_000L to 100_000L, 100_000L to 200_000L, 200_000L to 300_000L,
             300_000L to 500_000L, 500_000L to Long.MAX_VALUE)
-        val labels = opts.map { "💰 " + priceLabel(it.first, it.second) } + "✏️ O'zim yozaman"
+        val labels = opts.map { "💰 " + priceLabel(it.first, it.second) } + "✏️ Boshqa summa yozaman"
         val cat = catSel
-        AlertDialog.Builder(this).setTitle("Mijozning byudjeti" + (cat?.let { "\n(${it.second ?: it.first} ichida)" } ?: ""))
+        AlertDialog.Builder(this).setTitle("Mijoz qancha pul aytdi?" + (cat?.let { "\n(faqat ${it.second ?: it.first})" } ?: ""))
             .setItems(labels.toTypedArray()) { _, i ->
                 if (i < opts.size) openSpecial(null, opts[i]) else priceCustom()
             }.show()
@@ -872,16 +872,16 @@ class MainActivity : Activity() {
     private fun priceCustom() {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(20), dp(8), dp(20), 0); gravity = Gravity.CENTER_VERTICAL }
         fun field(h: String) = EditText(this).apply { hint = h; inputType = InputType.TYPE_CLASS_NUMBER; textSize = 20f; gravity = Gravity.CENTER }
-        val a = field("dan"); val b = field("gacha")
+        val a = field("50"); val b = field("150")
         row.addView(a, LinearLayout.LayoutParams(0, -2, 1f))
         row.addView(TextView(this).apply { text = " – "; textSize = 20f })
         row.addView(b, LinearLayout.LayoutParams(0, -2, 1f))
         row.addView(TextView(this).apply { text = " ming"; textSize = 16f })
-        AlertDialog.Builder(this).setTitle("💰 Narx oralig'i (ming so'mda)").setView(row)
+        AlertDialog.Builder(this).setTitle("💰 Necha puldan necha pulgacha?\n(ming so'mda yozing: 50 – 150)").setView(row)
             .setPositiveButton("Ko'rsat") { _, _ ->
                 val lo = (a.text.toString().toLongOrNull() ?: 0) * 1000
                 val hi = b.text.toString().toLongOrNull()?.times(1000) ?: Long.MAX_VALUE
-                if (hi < lo) toast("Oraliq noto'g'ri") else openSpecial(null, lo to hi)
+                if (hi < lo) toast("Birinchi son kichikroq bo'lishi kerak") else openSpecial(null, lo to hi)
             }.setNegativeButton("Bekor", null).show()
     }
 
@@ -2803,7 +2803,7 @@ class MainActivity : Activity() {
                     special == "new" -> "Oxirgi 20 kunda yangi tovar qo'shilmagan"
                     else -> "Mos tovar topilmadi"
                 }
-                q.isBlank() -> if (priceRange != null) "Faqat do'konda borlari. Kategoriya tugmasini bossangiz — shu narxda o'sha kategoriya" else "Ichidan qidirish uchun yozing"
+                q.isBlank() -> if (priceRange != null) "Faqat do'konda bor tovarlar. Bitta turini ko'rish uchun tepadagi tugmani bosing (masalan 🏺 Vazalar)" else "Ichidan qidirish uchun yozing"
                 res.isEmpty() -> "Topilmadi: \"${q.trim()}\""
                 else -> "Topildi: ${res.size} ta"
             }
