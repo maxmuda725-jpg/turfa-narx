@@ -42,13 +42,17 @@ dismiss
 adb shell am start -n $PKG/.MainActivity; sleep 8
 dismiss
 $U shot 01-bosh-ekran
-check $U has "Tez kirish"
+check $U has "kod ro.yxatda"
+$U shot 01b-profil
+adb shell input swipe 540 1700 540 700 300; sleep 1
+$U shot 01c-profil-past
+adb shell input swipe 540 700 540 1700 300; sleep 1
 check $U has "Qidiruv"
 check $U has "Rasm bilan topish"
 end
 
 step "2. Qidiruv: vaza"
-check $U tap "Kod yoki nom"
+check $U tap "Kod yoki nom"; sleep 1
 adb shell input text "shisha%svaza"; sleep 2
 adb shell input keyevent 111   # klaviaturani yopish
 $U shot 02-qidiruv-natija
@@ -63,13 +67,13 @@ adb shell input keyevent 4; sleep 1
 end
 
 step "4. Kassaga qo'shish"
-check $U tap "＋ Kassaga"
+check $U tap "🧮"
 $U shot 04-kassaga-qoshildi
-check $U has "🧾 Kassa:"
+check $U has "🧮 Hisob:"
 end
 
 step "5. Kassa ekrani"
-check $U tap "🧾 Kassa:"
+check $U tap "🧮 Hisob:"
 $U shot 05-kassa
 check $U has "Billz'ga qoralama"
 check $U tap "Qidiruv"
@@ -126,7 +130,7 @@ $U shot 13-rasmi-yoqlar
 check $U has "🚫 Rasmi yo'q"
 check $U tap "Qidiruv"
 $U shot 14-orqaga-bosh-ekran
-check $U has "Tez kirish"
+check $U has "kod ro.yxatda"
 end
 
 step "11b. Narx bo'yicha va yangi kelganlar"
@@ -141,7 +145,7 @@ check $U tap "Qidiruv"
 check $U tap "Yangi kelgan"
 $U shot 20-yangi-kelgan
 check $U tap "Qidiruv"
-check $U tap "Kod yoki nom"
+check $U tap "Kod yoki nom"; sleep 1
 adb shell input text "tugagan"; sleep 1
 adb shell input keyevent 111
 end
@@ -152,7 +156,7 @@ adb shell am force-stop $PKG
 adb push /tmp/xodim.xml /data/local/tmp/xodim.xml; adb shell chmod 644 /data/local/tmp/xodim.xml
 adb shell run-as $PKG cp /data/local/tmp/xodim.xml shared_prefs/xodim.xml
 adb shell am start -n $PKG/.MainActivity; sleep 6; dismiss
-check $U tap "Kod yoki nom"
+check $U tap "Kod yoki nom"; sleep 1
 adb shell input text "vaza"; sleep 2; adb shell input keyevent 111
 check $U tap "Boshqa amallar"
 $U shot 15-xodim-tovar-amallari

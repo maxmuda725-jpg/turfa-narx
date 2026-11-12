@@ -455,6 +455,11 @@ class MainActivity : Activity() {
     private lateinit var banner: View
     private lateinit var bannerImg: ImageView
     private lateinit var titleRow: View
+    private lateinit var headView: View
+    private lateinit var chipScroll: View
+    private var searchOpen = false
+    private var homeAnimated = false
+    private val emblem: Bitmap? by lazy { try { assets.open("emblema.png").use { BitmapFactory.decodeStream(it) } } catch (_: Exception) { null } }
     private lateinit var listView: ListView
     private var lastModeKey = ""
     private var photoScopeShown: String? = null // ko'rsatilayotgan natija qaysi stellajdan
@@ -505,6 +510,7 @@ class MainActivity : Activity() {
             polkaAdd != null -> polkaAddMenu()
             polkaView != null -> { polkaView = null; refresh() }
             special != null || priceRange != null || altFor != null -> { clearSpecial(); refresh() }
+            searchOpen && search.text.isBlank() -> { searchOpen = false; hideKb(search); refresh() }
             favMode -> { favMode = false; refresh() }
             catSel != null -> { catSel = null; refresh() }
             noPhotoMode -> { noPhotoMode = false; refresh() }
@@ -567,6 +573,7 @@ class MainActivity : Activity() {
         }
         (banner as FrameLayout).addView(bannerImg, FrameLayout.LayoutParams(-1, -1))
         screen.addView(banner, LinearLayout.LayoutParams(-1, dp(170)))
+        banner.visibility = View.GONE
 
         // Yashil sarlavha: nom + baza holati + 🔄, ostida qidiruv va 📷
         val head = LinearLayout(this).apply {
@@ -611,12 +618,14 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(dp(54), dp(52)).apply { leftMargin = dp(8) })
         head.addView(searchRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         screen.addView(head)
+        headView = head
 
         // Kategoriya chiplari (yonga suriladi)
         chipRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(12), dp(10), dp(12), dp(4)) }
-        screen.addView(android.widget.HorizontalScrollView(this).apply {
+        chipScroll = android.widget.HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false; addView(chipRow)
-        })
+        }
+        screen.addView(chipScroll)
 
         info = TextView(this).apply { textSize = 13f; setTextColor(MUTED); setPadding(dp(16), dp(4), dp(16), dp(2)) }
         screen.addView(info)
@@ -643,10 +652,10 @@ class MainActivity : Activity() {
         screen.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
 
         kassaBar = TextView(this).apply {
-            textSize = 16f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+            textSize = 14f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER_VERTICAL
-            background = box(INK, 16)
-            setPadding(dp(18), dp(14), dp(18), dp(14))
+            background = box(CHIP, 14)
+            setPadding(dp(14), dp(9), dp(14), dp(9))
             setOnClickListener { showKassa(true) }
         }
         screen.addView(kassaBar, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(12), dp(4), dp(12), dp(8)) })
@@ -662,7 +671,7 @@ class MainActivity : Activity() {
         return screen
     }
 
-    /** Pastki menyu: 🔍 Qidiruv · 🗂 Kategoriya · 📍 Polka · 🧾 Kassa · ☰ Yana */
+    /** Pastki menyu: 🔍 Qidiruv · 🗂 Kategoriya · 📍 Polka · 🏷 Kod · ☰ Yana (kassa — Yana ichida va kartadagi 🧮) */
     private fun buildNav(): View {
         val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; setBackgroundColor(Color.WHITE)
@@ -681,7 +690,7 @@ class MainActivity : Activity() {
         item("🔍", "Qidiruv") { goHome() }
         item("🗂", "Kategoriya") { showKassa(false); catMenu() }
         item("📍", "Polka") { showKassa(false); polkaMenu() }
-        item("🧾", "Kassa") { showKassa(true) }
+        item("🏷", "Kod") { showKassa(false); kodList() }
         item("☰", "Yana") { moreMenu() }
         val wrap = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         wrap.addView(View(this).apply { setBackgroundColor(LINE) }, LinearLayout.LayoutParams(-1, dp(1)))
@@ -690,19 +699,26 @@ class MainActivity : Activity() {
     }
 
     private fun navMark(kassa: Boolean) {
-        navItems.forEachIndexed { i, t -> t.setTextColor(if ((i == 0 && !kassa) || (i == 3 && kassa)) GREEN else MUTED) }
+        navItems.forEachIndexed { i, t -> t.setTextColor(if (i == 0 && !kassa) GREEN else if (i == 3) RED else MUTED) }
+        navKod()
+    }
+
+    private fun navKod() {
+        val n = try { kodLoad().size } catch (_: Exception) { 0 }
+        if (navItems.size > 3) navItems[3].text = if (n > 0) "🏷\nKod · $n" else "🏷\nKod"
     }
 
     /** Hamma rejimlarni yopib, toza qidiruvga qaytaradi (polkaga joylash rejimi saqlanadi). */
     private fun goHome() {
         photoHits = null; photoVec = null; photoUri = null
-        favMode = false; catSel = null; noPhotoMode = false; polkaView = null; clearSpecial()
+        favMode = false; catSel = null; noPhotoMode = false; polkaView = null; clearSpecial(); searchOpen = false
         showKassa(false)
         if (search.text.isNotEmpty()) search.setText("") else refresh()
     }
 
     private fun moreMenu() {
         val items = arrayListOf<Pair<String, () -> Unit>>(
+            "🧮 Kassa (hisoblash)" to { showKassa(true) },
             "⭐ Sevimlilar" to { showKassa(false); if (!favMode) toggleFavMode() },
             "🏷 Kod chiqarish ro'yxati" to { kodList() },
             "📸 Tovarga rasm yuklash" to { uploadStart() },
@@ -750,59 +766,149 @@ class MainActivity : Activity() {
         }
     }
 
-    /** Bosh ekran: katta plitkalar (qidiruv bo'sh turganda). */
+    /** Bosh ekran — "profil": do'kon rasmi muqova, emblema avatar, raqamlar, katta tugmalar ro'yxati. */
     private fun homeView(): View {
-        val wrap = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(4), dp(8), dp(4), dp(8)) }
-        wrap.addView(TextView(this).apply {
-            text = "Tez kirish"; textSize = 15f; setTextColor(MUTED); typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(4), 0, 0, dp(8))
-        })
-        val (noPhoto, cats) = homeStats()
-        val newN = all.count { isNew(it) }
-        val tiles = listOf(
-            Triple("📷", "Rasm bilan topish", "Rasm yoki yozilgan kod") to { photoPick() },
-            Triple("💰", "Puliga mos tovar", "Mijoz: «100 mingga nima bor?»") to { priceMenu() },
-            Triple("🔥", "Ko'p sotiladi", if (Hot.codes().isEmpty()) "Oxirgi 30 kun" else "Top ${Hot.codes().size} · 30 kun") to { openSpecial("hot") },
-            Triple("🆕", "Yangi kelgan", if (newN > 0) "$newN ta · 20 kun" else "Oxirgi 20 kun") to { openSpecial("new") },
-            Triple("📍", "Polkalar", "Qaysi tovar qayerda") to { polkaMenu() },
-            Triple("⭐", "Sevimlilar", if (favs.isEmpty()) "Tez topiladiganlar" else "${favs.size} ta") to { toggleFavMode() },
-            Triple("🏷", "Kod chiqarish", "Yorliq ro'yxati") to { kodList() },
-            Triple("🚫", "Rasmi yo'qlar", "${group(noPhoto.toLong())} ta — rasmga oling") to { openNoPhoto() },
-        )
-        for (r in tiles.indices step 2) {
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            for (k in r..minOf(r + 1, tiles.lastIndex)) {
-                val (t, act) = tiles[k]
-                val primary = k == 0
-                val tile = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    background = box(if (primary) GREEN else Color.WHITE, 18)
-                    setPadding(dp(14), dp(12), dp(14), dp(12))
-                    isClickable = true; isFocusable = true
-                    setOnClickListener { act() }
-                    contentDescription = t.second
-                }
-                tile.addView(TextView(this).apply { text = t.first; textSize = 28f }, LinearLayout.LayoutParams(-2, 0, 1f))
-                tile.addView(TextView(this).apply {
-                    text = t.second; textSize = 16f; typeface = Typeface.DEFAULT_BOLD
-                    setTextColor(if (primary) Color.WHITE else INK)
-                })
-                if (t.third.isNotEmpty()) tile.addView(TextView(this).apply {
-                    text = t.third; textSize = 12f
-                    setTextColor(if (primary) Color.argb(225, 255, 255, 255) else if (k == tiles.lastIndex) RED else MUTED)
-                })
-                row.addView(tile, LinearLayout.LayoutParams(0, dp(110), 1f).apply {
-                    if (k == r) rightMargin = dp(5) else leftMargin = dp(5)
-                })
+        val wrap = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(12)) }
+        val anim = !homeAnimated; homeAnimated = true
+        var delay = 0L
+        fun pop(v: View): View {
+            if (anim) { v.alpha = 0f; v.translationY = dp(18).toFloat()
+                v.animate().alpha(1f).translationY(0f).setStartDelay(delay).setDuration(380)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator(2f)).start(); delay += 55 }
+            return v
+        }
+        fun press(v: View) = v.setOnTouchListener { x, e ->
+            when (e.action) {
+                android.view.MotionEvent.ACTION_DOWN -> x.animate().scaleX(0.97f).scaleY(0.97f).setDuration(90).start()
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> x.animate().scaleX(1f).scaleY(1f).setDuration(140).start()
             }
-            wrap.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+            false
+        }
+
+        // Muqova + emblema
+        val top = FrameLayout(this)
+        val cover = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP; contentDescription = "TUR-FA do'koni"
+            Fon.bitmap(this@MainActivity)?.let { setImageBitmap(it) } ?: setBackgroundColor(GREEN)
+            background = box(GREEN, 22); clipToOutline = true
+            setOnClickListener { if (isOwner()) ownerMenu() }
+        }
+        top.addView(cover, FrameLayout.LayoutParams(-1, dp(200)).apply { setMargins(0, dp(4), 0, 0) })
+        val av = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP; contentDescription = "TUR-FA emblemasi"
+            emblem?.let { setImageBitmap(it) }
+            background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(GREEN); setStroke(dp(5), BG) }
+            setPadding(dp(5), dp(5), dp(5), dp(5))
+            clipToOutline = true
+            outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(v: View, o: android.graphics.Outline) { o.setOval(0, 0, v.width, v.height) }
+            }
+            elevation = dp(4).toFloat()
+        }
+        top.addView(av, FrameLayout.LayoutParams(dp(108), dp(108), Gravity.CENTER_HORIZONTAL or Gravity.TOP).apply { topMargin = dp(150) })
+        if (anim) { av.scaleX = 0.6f; av.scaleY = 0.6f; av.alpha = 0f
+            av.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(450).setInterpolator(android.view.animation.OvershootInterpolator(1.6f)).start() }
+        wrap.addView(top, LinearLayout.LayoutParams(-1, dp(262)))
+
+        wrap.addView(pop(TextView(this).apply {
+            text = "TUR-FA"; textSize = 26f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER
+        }))
+        wrap.addView(pop(TextView(this).apply {
+            text = "sovg'alar · gullar · o'yinchoqlar"; textSize = 13f; setTextColor(MUTED); gravity = Gravity.CENTER
+        }))
+
+        // Raqamlar
+        val (noPhoto, _) = homeStats()
+        val newN = all.count { isNew(it) }
+        val kodN = try { kodLoad().size } catch (_: Exception) { 0 }
+        val stats = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; background = box(Color.WHITE, 18); setPadding(0, dp(12), 0, dp(12))
+        }
+        fun stat(n: String, label: String, color: Int, act: () -> Unit) {
+            val c = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setOnClickListener { act() } }
+            c.addView(TextView(this).apply { text = n; textSize = 20f; setTextColor(color); typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER })
+            c.addView(TextView(this).apply { text = label; textSize = 12f; setTextColor(MUTED); gravity = Gravity.CENTER })
+            if (stats.childCount > 0) stats.addView(View(this).apply { setBackgroundColor(LINE) }, LinearLayout.LayoutParams(dp(1), -1))
+            stats.addView(c, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        stat(group(all.size.toLong()), "tovar", INK) { catMenu() }
+        stat(group(newN.toLong()), "yangi keldi", RED) { openSpecial("new") }
+        stat(group(kodN.toLong()), "kod ro'yxatda", GREEN) { kodList() }
+        wrap.addView(pop(stats), LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(8), dp(16), dp(8), 0) })
+
+        // Qidiruv qatori (bosilsa — klaviatura bilan qidiruv)
+        val sbar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = box(Color.WHITE, 18); setPadding(dp(16), 0, dp(6), 0)
+            setOnClickListener { openSearch() }; contentDescription = "Kod yoki nom yozing"
+        }
+        sbar.addView(TextView(this).apply { text = "🔍  Kod yoki nom yozing…"; textSize = 16f; setTextColor(MUTED) }, LinearLayout.LayoutParams(0, -2, 1f))
+        sbar.addView(pill("📷", Color.WHITE, GREEN, 20f) { photoPick() }.apply { contentDescription = "Rasm bilan qidirish" }, LinearLayout.LayoutParams(dp(50), dp(44)))
+        wrap.addView(pop(sbar), LinearLayout.LayoutParams(-1, dp(56)).apply { setMargins(dp(8), dp(12), dp(8), 0) })
+
+        // Asosiy ro'yxat (Telegram sozlamalari kabi)
+        data class Row(val icon: String, val color: Int, val title: String, val sub: String, val badge: String, val act: () -> Unit)
+        val groups = listOf(
+            listOf(
+                Row("📷", GREEN, "Rasm bilan topish", "Tovar yoki yozilgan kod", "") { photoPick() },
+                Row("🏷", RED, "Kod chiqarish", "Yorliq ro'yxati", if (kodN > 0) "$kodN" else "") { kodList() },
+                Row("💰", Color.parseColor("#F59E0B"), "Puliga mos tovar", "Mijoz: «100 mingga nima bor?»", "") { priceMenu() },
+            ),
+            listOf(
+                Row("🔥", Color.parseColor("#EA580C"), "Ko'p sotiladi", "Oxirgi 30 kun", "") { openSpecial("hot") },
+                Row("🎁", Color.parseColor("#DB2777"), "Yangi kelgan", "Oxirgi 20 kun", if (newN > 0) "$newN" else "") { openSpecial("new") },
+                Row("📍", Color.parseColor("#7C3AED"), "Polkalar", "Qaysi tovar qayerda", "") { polkaMenu() },
+                Row("⭐", Color.parseColor("#CA8A04"), "Sevimlilar", if (favs.isEmpty()) "Tez topiladiganlar" else "${favs.size} ta", "") { toggleFavMode() },
+                Row("🚫", Color.parseColor("#64748B"), "Rasmi yo'qlar", "${group(noPhoto.toLong())} ta — rasmga oling", "") { openNoPhoto() },
+            ),
+        )
+        for (g in groups) {
+            val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; background = box(Color.WHITE, 18); clipToOutline = true }
+            g.forEachIndexed { i, r ->
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(14), dp(12), dp(14), dp(12)); isClickable = true; isFocusable = true
+                    setOnClickListener { r.act() }; contentDescription = r.title
+                    val tv = android.util.TypedValue()
+                    theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)
+                    foreground = getDrawable(tv.resourceId)
+                }
+                press(row)
+                row.addView(TextView(this).apply {
+                    text = r.icon; textSize = 19f; gravity = Gravity.CENTER; background = box(r.color, 12)
+                }, LinearLayout.LayoutParams(dp(40), dp(40)).apply { rightMargin = dp(14) })
+                val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                col.addView(TextView(this).apply { text = r.title; textSize = 16f; setTextColor(INK); typeface = Typeface.DEFAULT_BOLD })
+                col.addView(TextView(this).apply { text = r.sub; textSize = 12f; setTextColor(if (r.icon == "🚫") RED else MUTED) })
+                row.addView(col, LinearLayout.LayoutParams(0, -2, 1f))
+                if (r.badge.isNotEmpty()) row.addView(TextView(this).apply {
+                    text = r.badge; textSize = 13f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
+                    background = box(r.color, 11); setPadding(dp(9), dp(2), dp(9), dp(2))
+                }, LinearLayout.LayoutParams(-2, -2).apply { rightMargin = dp(8) })
+                row.addView(TextView(this).apply { text = "›"; textSize = 22f; setTextColor(Color.parseColor("#B0B6BE")) })
+                card.addView(pop(row))
+                if (i < g.lastIndex) card.addView(View(this).apply { setBackgroundColor(Color.parseColor("#F1F2F4")) },
+                    LinearLayout.LayoutParams(-1, dp(1)).apply { leftMargin = dp(68) })
+            }
+            wrap.addView(card, LinearLayout.LayoutParams(-1, -2).apply { setMargins(dp(8), dp(12), dp(8), 0) })
         }
         return wrap
     }
 
     // ---------------------------------------------------------------- 💰 🔥 🆕 🔁 maxsus ro'yxatlar
+    /** Bosh ekran (profil) ochiq bo'lsa — yashil sarlavha, chiplar yashiriladi; profil ro'yxat ichida. */
     private fun setBanner(on: Boolean) {
-        banner.visibility = if (on) View.VISIBLE else View.GONE
+        val v = if (on) View.GONE else View.VISIBLE
+        if (headView.visibility != v) headView.visibility = v
+        if (chipScroll.visibility != v) chipScroll.visibility = v
+        if (!on) homeAnimated = false
+    }
+
+    /** Profil ekranidagi qidiruv qatori bosilganda: sarlavha chiqadi, klaviatura ochiladi. */
+    private fun openSearch() {
+        searchOpen = true; refresh()
+        search.requestFocus()
+        (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(search, InputMethodManager.SHOW_IMPLICIT)
     }
 
     private val today: String
@@ -1028,24 +1134,23 @@ class MainActivity : Activity() {
             pill("🔁 O'rniga boshqasini ko'rsat (do'konda bor)", GREEN, tint(GREEN, 26), 15f) { openSpecial(null, null, p) },
             LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(10) })
 
-        // Amallar: ⋯ · 🏷 · ＋ Kassaga
+        // Amallar: ⋯ · 🧮 (kassa — faqat hisoblash) · 🏷 Kodga qo'shish (asosiy)
         val inCart = cart[p.key]?.count ?: 0
         val addRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         addRow.addView(pill("⋯", INK, CHIP, 22f) { productMenu(p) }.apply { contentDescription = "Boshqa amallar" },
-            LinearLayout.LayoutParams(dp(52), dp(46)).apply { rightMargin = dp(8) })
-        addRow.addView(pill("🏷", INK, CHIP, 17f) { kodAddProduct(p) }.apply { contentDescription = "Kod chiqarish ro'yxatiga" },
-            LinearLayout.LayoutParams(dp(52), dp(46)).apply { rightMargin = dp(8) })
+            LinearLayout.LayoutParams(dp(52), dp(48)).apply { rightMargin = dp(8) })
         if (p.donaList.isNotEmpty()) addRow.addView(
-            pill(if (inCart > 0) "＋ Kassaga · ${group(inCart)} ta" else "＋ Kassaga", Color.WHITE, INK, 16f) {
+            pill(if (inCart > 0) "🧮${group(inCart)}" else "🧮", INK, CHIP, 17f) {
                 val ci = cart.getOrPut(p.key) { CartItem(p, 0) }
                 ci.count += 1
                 rememberPhoto(p)
-                if (Search.stockRank(p) == 2 && ci.count == 1L) toast("Bazada tugagan, lekin kassaga qo'shildi")
+                toast("🧮 Hisobga qo'shildi: ${group(ci.count)} ta")
                 updateCart(); adapter.notifyDataSetChanged()
-            }, LinearLayout.LayoutParams(0, dp(46), 1f))
-        else addRow.addView(TextView(this).apply {
-            text = "Narxi yo'q"; textSize = 14f; setTextColor(MUTED); gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(0, dp(46), 1f))
+            }.apply { contentDescription = "Hisobga (kassaga) qo'shish" },
+            LinearLayout.LayoutParams(dp(if (inCart > 0) 72 else 52), dp(48)).apply { rightMargin = dp(8) })
+        addRow.addView(pill("🏷  Kodga qo'shish", Color.WHITE, RED, 16f) { kodAddProduct(p) }.apply {
+            contentDescription = "Kod chiqarish ro'yxatiga qo'shish"
+        }, LinearLayout.LayoutParams(0, dp(48), 1f))
         card.addView(addRow, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
 
         polkaAdd?.let { target ->
@@ -1243,7 +1348,7 @@ class MainActivity : Activity() {
         val pieces = cart.values.sumOf { it.count }
         val total = cart.values.sumOf { it.p.unitPrice(optomMode) * it.count }
         val mode = if (optomMode) "OPTOM" else "DONA"
-        kassaBar.text = "🧾 Kassa: ${group(pieces)} ta tovar  ·  ${fmt(total)}  ›"
+        kassaBar.text = "🧮 Hisob: ${group(pieces)} ta  ·  ${fmt(total)}  ›"
         kassaBar.visibility = if (cart.isEmpty()) View.GONE else View.VISIBLE
         totalSub.text = "JAMI ($mode narxda) · ${cart.size} xil, ${group(pieces)} ta"
         totalText.text = if (total > 0) fmt(total) else "0 so'm"
@@ -1589,6 +1694,7 @@ class MainActivity : Activity() {
         for (k in list) a.put(org.json.JSONObject().put("id", k.id).put("code", k.code).put("name", k.name)
             .put("sku", k.sku).put("qty", k.qty).put("photos", k.photos))
         getSharedPreferences("kod", MODE_PRIVATE).edit().putString("list", a.toString()).apply()
+        try { main.post { navKod() } } catch (_: Exception) {}
     }
 
     private fun newKodId() = "k" + System.currentTimeMillis() + "_" + (0..999).random()
@@ -2852,7 +2958,7 @@ class MainActivity : Activity() {
             adapter.notifyDataSetChanged()
             return
         }
-        if (q.isBlank() && all.isNotEmpty() && catSel == null && !favMode && !noPhotoMode && special == null && priceRange == null && altFor == null) {
+        if (q.isBlank() && !searchOpen && all.isNotEmpty() && catSel == null && !favMode && !noPhotoMode && special == null && priceRange == null && altFor == null) {
             shown = listOf<Any>(HomeTiles)
             info.visibility = View.GONE
             setBanner(true)
