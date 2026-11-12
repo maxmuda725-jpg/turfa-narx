@@ -36,6 +36,34 @@ def num(v):
     try: return int(round(float(v or 0)))
     except (TypeError, ValueError): return 0
 
+def backfill_dates(products, seen, today):
+    """Bir martalik: oxirgi ~30 kunda yaratilgan tovarlarning sanasini tiklash.
+    Billz shtrix-kodni ketma-ket beradi (katta = yangi). Tovar rasmi yuklangan sana >= yaratilgan sana,
+    rasmi yo'q tovarga undan kattaroq shtrix-kodli eng yaqin tovarning sanasi beriladi."""
+    import datetime, email.utils
+    lim = (datetime.date.fromisoformat(today) - datetime.timedelta(days=30)).isoformat()
+    bc = sorted((int(p["barcode"]), p) for p in products if re.fullmatch(r"2000000\d{6}", (p.get("barcode") or "").strip()))
+    cur, n_old = today, 0
+    for b, p in reversed(bc):
+        u = p.get("main_image_url_full") or ""
+        if u.startswith("http"):
+            try:
+                with urllib.request.urlopen(urllib.request.Request(u, method="HEAD"), timeout=20) as r:
+                    lm = r.headers.get("Last-Modified")
+                if lm:
+                    d = email.utils.parsedate_to_datetime(lm) + datetime.timedelta(hours=5)
+                    cur = min(today, d.date().isoformat())   # rasmi yo'qlarga — qo'shni tovar sanasi
+            except Exception: pass
+        sku = (p.get("sku") or "").strip()
+        if cur < lim:
+            n_old += 1
+            if n_old >= 15: break       # 15 ta ketma-ket eski — yetarli
+            continue
+        n_old = 0
+        if sku: seen[sku] = cur
+    import collections
+    print("Tiklangan sanalar:", sorted(collections.Counter(v for v in seen.values() if v >= lim).items()))
+
 def main():
     secret = os.environ["BILLZ_SECRET_TOKEN"].strip()
     token = req("POST", "/v1/auth/login", body={"secret_token": secret})["data"]["access_token"]
@@ -88,6 +116,9 @@ def main():
     for p in products:
         sku = (p.get("sku") or "").strip()
         if sku and sku not in seen_new: seen_new[sku] = today if first_seen is not None else "2000-01-01"
+    if not os.path.exists("baza/qoshilgan_tiklandi"):
+        backfill_dates(products, seen_new, today)
+        open("baza/qoshilgan_tiklandi", "w").write(today)
     json.dump(seen_new, open(seen_path, "w", encoding="utf-8"), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
     upl = uploaded_photos()
