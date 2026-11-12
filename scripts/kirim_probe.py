@@ -1,10 +1,11 @@
 import os,sys,json,urllib.request
 sys.path.insert(0,'scripts'); import billz_sync as b
 tok=b.req("POST","/v1/auth/login",body={"secret_token":os.environ["BILLZ_SECRET_TOKEN"].strip()})["data"]["access_token"]
-d=b.req("GET","/v2/import?limit=100&page=1",tok)
-im=d["imports"]; print("COUNT",d.get("count"),len(im), "KEYS",[k for k in d if k!="imports"])
-for x in im[:40]: print("IMP",x["created_at"],x.get("finished_at"),x["shop_name"],x["name"],x["total_arrived_measurement_value"],x.get("import_status_id")[:6])
-i=im[0]["id"]
-for path in [f"/v2/import/{i}",f"/v2/import/{i}/items",f"/v2/import-items?import_id={i}",f"/v2/import/items?import_id={i}",f"/v2/import/{i}/products",f"/v2/import-item?import_id={i}",f"/v1/import/{i}"]:
-    try: r=b.req("GET",path,tok); s=json.dumps(r,ensure_ascii=False); print("OK",path,s[:1500])
+p=b.req("GET","/v2/products?limit=3&page=1",tok)["products"]
+for x in p:
+    for k in ("product_supplier_stock","shop_measurement_values","suppliers","custom_fields"):
+        print("PF",k,json.dumps(x.get(k),ensure_ascii=False)[:500])
+im=b.req("GET","/v2/import?limit=1&page=1",tok)["imports"][0]; i=im["id"]; print("IMPFULL",json.dumps({k:v for k,v in im.items() if 'price' not in k},ensure_ascii=False)[:1500])
+for path in [f"/v2/import?limit=1&page=1&with_items=true",f"/v2/import?limit=1&page=1&include_items=true",f"/v2/import?limit=1&page=1&import_id={i}",f"/v2/import-items/{i}",f"/v2/import/{i}/item",f"/v2/import/items/{i}",f"/v2/import-product?import_id={i}",f"/v2/import/{i}/import-items",f"/v2/stock-movement?limit=2",f"/v2/product-movements?limit=2",f"/v2/products?limit=1&page=1&sort=created_at",f"/v2/product/{p[0]['id']}",f"/v2/product-history/{p[0]['id']}"]:
+    try: r=b.req("GET",path,tok); s=json.dumps(r,ensure_ascii=False); print("OK",path,s[:1200])
     except urllib.error.HTTPError as e: print(e.code,path,e.read()[:100])
