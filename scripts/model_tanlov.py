@@ -120,5 +120,57 @@ def main():
     print("\n".join(["", "=== XULOSA ==="] + res))
 
 
+
+
+def diag():
+    """Xatolarni ko'rish: har xato uchun [so'rov | to'g'ri tovar | 1-o'rindagi] rasmlar varag'i + matn."""
+    import os, json
+    from PIL import ImageDraw
+    gallery, queries = load()
+    rows = list(csv.reader(open("baza/products.csv", encoding="utf-8-sig"), delimiter=";"))
+    h = rows[0]; iN, iK = h.index("nomi"), h.index("kod")
+    iC = h.index("kategoriya") if "kategoriya" in h else None
+    name = {(r[iK].strip() or r[iN].strip()): (r[iN].strip(), r[iC] if iC is not None else "") for r in rows[1:]}
+    with ThreadPoolExecutor(16) as ex:
+        gimgs = list(ex.map(fetch, [u for _, u in gallery]))
+        qimgs = list(ex.map(fetch, [u for _, u in queries]))
+    g = [(k, im) for (k, _), im in zip(gallery, gimgs) if im is not None]
+    gk = [k for k, _ in g]; gidx = {k: i for i, k in enumerate(gk)}
+    q = [(k, im, u) for (k, u), im in zip(queries, qimgs) if im is not None and k in gidx]
+    emb = mediapipe_embedder("large.tflite")
+    G = np.stack([emb(im) for _, im in g])
+    os.makedirs("diag", exist_ok=True)
+    out, tiles = [], []
+    for k, im, u in q:
+        qs = [emb(im)] + [emb(center(im, f)) for f in (0.75, 0.55)]
+        sims = np.max(np.stack([G @ x for x in qs]), 0)
+        order = list(np.argsort(-sims))
+        rank = order.index(gidx[k]) + 1
+        # so'rov rasmi va asosiy rasm bir-biriga qanchalik o'xshash (to'g'ridan-to'g'ri)
+        if rank == 1: continue
+        top = order[0]
+        rec = {"rank": int(rank), "true": name.get(k, (k, ""))[0], "true_cat": name.get(k, ("", ""))[1],
+               "true_sim": round(float(sims[gidx[k]]), 3), "top": name.get(gk[top], (gk[top], ""))[0],
+               "top_cat": name.get(gk[top], ("", ""))[1], "top_sim": round(float(sims[top]), 3),
+               "top3": [name.get(gk[i], (gk[i], ""))[0] for i in order[:3]], "query_url": u}
+        out.append(rec)
+        T = 220
+        tile = Image.new("RGB", (T * 3, T + 46), "white")
+        for j, img in enumerate([im, g[gidx[k]][1], g[top][1]]):
+            c = img.copy(); c.thumbnail((T, T)); tile.paste(c, (j * T + (T - c.width) // 2, (T - c.height) // 2))
+        d = ImageDraw.Draw(tile)
+        d.text((4, T + 2), f"#{len(out)} rank={rank}  true={rec['true'][:34]} ({rec['true_sim']})", fill="black")
+        d.text((4, T + 22), f"top1={rec['top'][:44]} ({rec['top_sim']})", fill="red")
+        tiles.append(tile)
+    for p in range(0, len(tiles), 8):
+        part = tiles[p:p + 8]
+        sheet = Image.new("RGB", (part[0].width, sum(t.height + 6 for t in part)), "#ddd")
+        y = 0
+        for t in part: sheet.paste(t, (0, y)); y += t.height + 6
+        sheet.save(f"diag/varaq_{p // 8 + 1}.jpg", quality=80)
+    json.dump(out, open("diag/xatolar.json", "w"), ensure_ascii=False, indent=1)
+    print("XATOLAR", len(out))
+
+
 if __name__ == "__main__":
-    main()
+    diag() if "--diag" in sys.argv else main()

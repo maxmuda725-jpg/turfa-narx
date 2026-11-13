@@ -1,5 +1,8 @@
 name: Rasm modellarini solishtirish
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      diag: { default: 'no' }
 permissions:
   contents: read
 jobs:
@@ -18,4 +21,11 @@ jobs:
           curl -fsSL -o small.tflite https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
           curl -fsSL -o large.tflite https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite
       - name: Solishtirish
+        if: inputs.diag != 'yes'
         run: python3 scripts/model_tanlov.py
+      - name: Xatolar tahlili
+        if: inputs.diag == 'yes'
+        run: python3 scripts/model_tanlov.py --diag
+      - uses: actions/upload-artifact@v4
+        if: inputs.diag == 'yes'
+        with: { name: diag, path: diag/ }
