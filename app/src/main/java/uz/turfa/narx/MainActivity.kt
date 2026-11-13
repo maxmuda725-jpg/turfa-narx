@@ -2916,7 +2916,10 @@ class MainActivity : Activity() {
             iv.setOnClickListener { i = (i + 1) % pics.size; show() }
         }
         show()
-        val d = AlertDialog.Builder(this).setTitle(p.name).setView(frame).setPositiveButton("Yopish", null).create()
+        val db = AlertDialog.Builder(this).setTitle(p.name).setView(frame).setPositiveButton("Yopish", null)
+        var dd: AlertDialog? = null
+        if (isOwner()) db.setNeutralButton("🗑 Shu rasmni o'chirish") { _, _ -> deletePhoto(p, pics[i]) { } }
+        val d = db.create(); dd = d
         if (pics.size <= 1) iv.setOnClickListener { d.dismiss() }
         d.show()
     }
@@ -3334,8 +3337,58 @@ class MainActivity : Activity() {
     }
 
     /** Tovarning hamma rasmlari: shu telefonda yuklanganlar + bazadagi asosiy va qo'shimchalari. */
-    private fun allPhotos(p: Product): List<String> =
-        (myPhotos(p) + p.photos + listOf(p.photo)).filter { it.isNotBlank() }.distinct()
+    private fun allPhotos(p: Product): List<String> {
+        val hidden = hiddenPhotos()
+        return (myPhotos(p) + p.photos + listOf(p.photo)).filter { it.isNotBlank() && it !in hidden }.distinct()
+    }
+
+    /** O'chirilgan rasmlar: baza yangilanguncha (30 daqiqa) ham darrov ko'rinmasin. */
+    private fun hiddenPhotos(): Set<String> = getSharedPreferences("myphoto", MODE_PRIVATE).getStringSet("#hidden", emptySet()).orEmpty()
+
+    private fun isBillzPhoto(u: String) = u.contains("billz", ignoreCase = true)
+
+    /** Egasi: noto'g'ri qo'yilgan rasmni o'chirish. */
+    private fun deletePhoto(p: Product, url: String, done: () -> Unit) {
+        val sp = getSharedPreferences("myphoto", MODE_PRIVATE)
+        fun hideLocal() {
+            sp.edit().putStringSet("#hidden", hiddenPhotos() + url).apply()
+            // shu telefonda olingan nusxa bo'lsa — o'shani ham
+            val mine = (sp.getString(p.key + "#all", null)?.split('\n') ?: listOfNotNull(sp.getString(p.key, null))).filter { "file:$it" != url }
+            sp.edit().putString(p.key + "#all", mine.joinToString("\n")).apply {
+                if (mine.isEmpty()) remove(p.key) else putString(p.key, mine[0])
+            }.apply()
+            if (url.startsWith("file:")) File(url.removePrefix("file:")).delete()
+            adapter.notifyDataSetChanged(); done()
+        }
+        when {
+            url.startsWith("file:") -> AlertDialog.Builder(this).setMessage("Bu rasm faqat shu telefonda turibdi. O'chirilsinmi?")
+                .setPositiveButton("🗑 O'chirish") { _, _ -> hideLocal(); toast("🗑 O'chirildi") }.setNegativeButton("Yo'q", null).show()
+            isBillzPhoto(url) -> AlertDialog.Builder(this).setTitle("Bu rasm Billz'da turibdi")
+                .setMessage("Uni Billz'ning o'zidan o'chirish kerak: Billz → Tovarlar → ${p.name} → rasm → o'chirish. Keyin 30 daqiqada ilovadan ham yo'qoladi.\n\nHozircha ilovada yashirib turaymi?")
+                .setPositiveButton("🙈 Yashirish") { _, _ -> hideLocal(); toast("Yashirildi (shu telefonda)") }
+                .setNegativeButton("Yo'q", null).show()
+            else -> AlertDialog.Builder(this).setTitle("🗑 Rasm o'chirilsinmi?")
+                .setMessage("Bu rasm ilova orqali yuklangan. U serverdan o'chiriladi va 30 daqiqada hamma telefonda yo'qoladi (rasm bilan qidirishda ham).")
+                .setPositiveButton("🗑 O'chirish") { _, _ ->
+                    val wait = AlertDialog.Builder(this).setMessage("⏳ O'chirilmoqda…").setCancelable(false).show()
+                    Thread {
+                        // Serverdagi yozuvni url bo'yicha topamiz (Billz'ga qo'shilganlari ham)
+                        val r = try {
+                            val c = URL("$KASSA_API/api/public/rasmlar?t=${System.currentTimeMillis()}").openConnection() as HttpURLConnection
+                            c.connectTimeout = 15000; c.readTimeout = 30000
+                            val arr = org.json.JSONObject(c.inputStream.use { it.bufferedReader().readText() }).getJSONArray("items"); c.disconnect()
+                            (0 until arr.length()).map { arr.getJSONObject(it) }.firstOrNull { it.optString("url") == url }
+                                ?.let { Rasm(it.optString("sku"), it.optString("name"), it.optString("url"), it.optLong("at")) }
+                        } catch (_: Exception) { null }
+                        main.post {
+                            wait.dismiss()
+                            if (r == null) { hideLocal(); toast("Serverda topilmadi — shu telefonda yashirildi"); return@post }
+                            markRasmlar(listOf(r), remove = true) { ok -> if (ok) hideLocal() }
+                        }
+                    }.start()
+                }.setNegativeButton("Yo'q", null).show()
+        }
+    }
 
     // ---------------------------------------------------------------- yuklangan rasmlar (egasi uchun)
     private class Rasm(val sku: String, val name: String, val url: String, val at: Long)
