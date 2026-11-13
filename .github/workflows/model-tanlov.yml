@@ -1,0 +1,21 @@
+name: Rasm modellarini solishtirish
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  tanlov:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: O'rnatish
+        run: |
+          pip install -q "mediapipe==0.10.14" "numpy<2" pillow
+          pip install -q torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -q transformers
+          curl -fsSL -o small.tflite https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_small/float32/latest/mobilenet_v3_small.tflite
+          curl -fsSL -o large.tflite https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite
+      - name: Solishtirish
+        run: python3 scripts/model_tanlov.py
