@@ -45,7 +45,12 @@ object CodeReader {
             // to'liq kod, keyin oxirgi qismlari: 26-3-44-12 -> 3-44-12 -> 44-12
             val tries = if (w.contains('-')) w.split('-').let { parts -> (0..parts.size - 2).map { parts.drop(it).joinToString("-") } } else listOf(w)
             for (t in tries) {
-                val hits = all.filter { Search.codeHit(it, t) > 0 && it.key !in seen }
+                val hits = all.filter { p ->
+                    p.key !in seen && Search.codeHit(p, t) > 0 &&
+                        // Yolg'iz son (500, 240) faqat kodi shu bo'lgan tovarga: nomida chiziqchali kod yo'q va son oxirgi raqamli so'z
+                        (dashed || (p.tokens.none { k -> k.contains('-') && k.any { it.isDigit() } } &&
+                            p.tokens.lastOrNull { k -> k.any { it.isDigit() } } == t))
+                }
                 if (hits.isEmpty() || hits.size > limit) continue
                 hits.forEach { seen += it.key }
                 out += t to hits.sortedWith(compareBy<Product>({ -Search.codeHit(it, t) }, { Search.stockRank(it) }))

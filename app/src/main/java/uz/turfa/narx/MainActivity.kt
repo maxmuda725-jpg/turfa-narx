@@ -1718,8 +1718,11 @@ class MainActivity : Activity() {
                     val codeProds = codes.flatMap { it.second }
                     val codeLook = Visual.search(qs, codeProds, codeProds.size)
                     val best = vh.firstOrNull()?.second
-                    if (best != null && codeProds.isNotEmpty() && codeLook.size == codeProds.size &&
-                        codeLook.maxOf { it.second } < best - 0.08f) doubt = true
+                    // Faqat qisqa kod (42-3 kabi, bir nechta tovarda bor) va rasm juda uzoq bo'lsa.
+                    // To'liq kod (26-3-44-12) yoki bitta tovarga tegishli kod o'qilsa — har doim kodga ishonamiz.
+                    val shortOnly = codes.isNotEmpty() && codes.all { (c, l) -> c.count { it == '-' } <= 1 && l.size >= 2 }
+                    if (shortOnly && best != null && codeLook.size == codeProds.size &&
+                        codeLook.maxOf { it.second } < best - 0.15f) doubt = true
                     qs[0] to vh
                 } else null to emptyList()
                 if (!vis && codes.isEmpty()) throw IllegalStateException("Rasmda kod topilmadi, rasm bazasi esa hali yuklanmagan. Internetni yoqib 🔄 Yangilash ni bosing.")
