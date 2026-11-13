@@ -106,6 +106,11 @@ object Visual {
     fun embedQuery(ctx: Context, bmp: Bitmap): List<FloatArray> {
         val out = arrayListOf(embed(ctx, bmp))
         for (f in floatArrayOf(0.75f, 0.55f)) try { out += embed(ctx, center(bmp, f)) } catch (_: Throwable) {}
+        // Tovarning o'zi (fonsiz qirqim): bazada ham har rasmning "#q" qirqimi bor — sinovda 54% -> 61%
+        Shelf.mainCrop(ctx, bmp)?.let { c ->
+            try { out += embed(ctx, c) } catch (_: Throwable) {}
+            for (f in floatArrayOf(0.75f, 0.55f)) try { out += embed(ctx, center(c, f)) } catch (_: Throwable) {}
+        }
         return out
     }
 

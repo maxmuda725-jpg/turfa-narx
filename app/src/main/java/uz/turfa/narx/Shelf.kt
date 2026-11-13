@@ -20,7 +20,7 @@ object Shelf {
         ObjectDetector.createFromOptions(ctx.applicationContext,
             ObjectDetector.ObjectDetectorOptions.builder()
                 .setBaseOptions(BaseOptions.builder().setModelAssetPath(MODEL).build())
-                .setMaxResults(15).setScoreThreshold(0.15f).build()).also { det = it }
+                .setMaxResults(15).setScoreThreshold(0.1f).build()).also { det = it }
     } catch (_: Throwable) { null }
 
     /** -> buyumlar qirqimlari (chapdan o'ngga, tepadan pastga tartibda). */
@@ -54,6 +54,28 @@ object Shelf {
             Bitmap.createBitmap(bmp, l.toInt(), t.toInt(), (r - l).toInt().coerceAtLeast(1), (bt - t).toInt().coerceAtLeast(1))
         }
     }
+
+    /** Rasmdagi asosiy buyum (markazga yaqin, katta) — fonsiz qirqim; topilmasa null. scripts/embed.py main_crop bilan bir xil. */
+    fun mainCrop(ctx: Context, bmp: Bitmap): Bitmap? = try {
+        val w = bmp.width.toFloat(); val h = bmp.height.toFloat()
+        var best: RectF? = null; var bs = 0f
+        detector(ctx)?.detect(BitmapImageBuilder(bmp).build())?.detections()?.forEach { d ->
+            val b = d.boundingBox()
+            val a = b.width() * b.height() / (w * h)
+            if (a >= 0.04f) {
+                val cx = b.centerX() / w - 0.5f; val cy = b.centerY() / h - 0.5f
+                val sc = (d.categories().firstOrNull()?.score() ?: 0f) *
+                    (1f - minOf(1f, kotlin.math.sqrt(cx * cx + cy * cy) * 1.4f)) * Math.pow(a.toDouble(), 0.3).toFloat()
+                if (sc > bs) { best = b; bs = sc }
+            }
+        }
+        best?.let { b ->
+            val px = b.width() * 0.08f; val py = b.height() * 0.08f
+            val l = maxOf(0f, b.left - px).toInt(); val t = maxOf(0f, b.top - py).toInt()
+            val r = minOf(w, b.right + px).toInt(); val bt = minOf(h, b.bottom + py).toInt()
+            if (r - l < 8 || bt - t < 8) null else Bitmap.createBitmap(bmp, l, t, r - l, bt - t)
+        }
+    } catch (_: Throwable) { null }
 
     private fun iou(a: RectF, b: RectF): Float {
         val i = RectF(); if (!i.setIntersect(a, b)) return 0f

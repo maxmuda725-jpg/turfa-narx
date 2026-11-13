@@ -37,11 +37,13 @@ jobs:
         continue-on-error: true
         run: |
           curl -fsSL -o embedder-l.tflite "$EMBED_URL"
+          curl -fsSL -o detector.tflite https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/latest/efficientdet_lite0.tflite
           python3 scripts/embed.py
         env:
           EMBED_URL: https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite
           EMBED_MODEL: embedder-l.tflite
           EMBED_OUT: baza/vectors-l.bin
+          EMBED_CROP: "1"
       - name: Aqlli kategoriya (kalit so'z + seriya + rasm)
         continue-on-error: true
         run: python3 scripts/kategoriya.py
