@@ -423,6 +423,8 @@ class MainActivity : Activity() {
     private val REQ_PHOTO_GAL = 74
     private val REQ_SHELF_CAM = 75
     private val REQ_SHELF_GAL = 76
+    private val REQ_KOD_CAM = 77
+    private var kodCamId: String? = null; private var kodCamBack = true
     private class ShelfObj(val bmp: Bitmap, val n: Int)
     private var shelfRows: List<Any>? = null   // polka rasmi natijasi (har buyum + mos tovarlar)
     private val REQ_TEACH = 75
@@ -1583,12 +1585,14 @@ class MainActivity : Activity() {
         if (resultCode != RESULT_OK) { if (requestCode == REQ_PHOTO_CAM || requestCode == REQ_PHOTO_GAL) photoScope = null; return }
         val uri = when (requestCode) {
             REQ_GALLERY, REQ_PHOTO_GAL, REQ_SHELF_GAL -> data?.data
+            REQ_KOD_CAM -> camUri ?: FileProvider.getUriForFile(this, "$packageName.files", File(File(cacheDir, "cam"), "tovar.jpg"))
             REQ_CAMERA, REQ_PHOTO_CAM, REQ_TEACH, REQ_SHELF_CAM -> camUri
             else -> null
         } ?: return
         when (requestCode) {
             REQ_PHOTO_CAM, REQ_PHOTO_GAL -> photoSearch(uri)
             REQ_SHELF_CAM, REQ_SHELF_GAL -> shelfSearch(uri)
+            REQ_KOD_CAM -> kodPhotoSave(uri)
             REQ_TEACH -> teachFor?.let { teachSave(it, uri) }
             else -> recognize(uri)
         }
@@ -2245,7 +2249,7 @@ class MainActivity : Activity() {
     private fun kodItemMenu(list: MutableList<KodItem>, i: Int) {
         val k = list[i]
         AlertDialog.Builder(this).setTitle("${k.code} — ${group(k.qty)} ta" + if (k.name.isNotBlank()) "\n${k.name}" else "")
-            .setItems(arrayOf("📷 Rasmga olish (hamma telefonga)", "✏️ Sonini o'zgartirish", "❌ Ro'yxatdan olib tashlash", "🖼 Rasmlarini ko'rish")) { _, w ->
+            .setItems(arrayOf("📷 Rasmga olish (faqat ro'yxat uchun)", "✏️ Sonini o'zgartirish", "❌ Ro'yxatdan olib tashlash", "🖼 Rasmlarini ko'rish")) { _, w ->
                 when (w) {
                     0 -> kodPhoto(i)
                     3 -> { kodPhotos(k, all.firstOrNull { it.code == k.sku }?.photo.orEmpty()); }
@@ -2303,7 +2307,7 @@ class MainActivity : Activity() {
 
     private fun kodAskPhoto(id: String, name: String) {
         AlertDialog.Builder(this).setTitle("📷 Rasmi yo'q")
-            .setMessage("$name\n\nHozir rasmga olasizmi? Rasm hamma telefonga yuklanadi va 🏷 ro'yxatida ko'rinadi.")
+            .setMessage("$name\n\nHozir rasmga olasizmi? Rasm faqat 🏷 ro'yxatda ko'rinadi — kod chiqarib qaytganda qaysi tovarligini bilish uchun. Tovarning asosiy rasmi o'zgarmaydi.")
             .setPositiveButton("📷 Rasmga olish") { _, _ ->
                 val i = kodLoad().indexOfFirst { it.id == id }
                 if (i >= 0) kodPhoto(i, back = false)
@@ -2311,19 +2315,27 @@ class MainActivity : Activity() {
             .setNegativeButton("Keyin", null).show()
     }
 
-    /** Ro'yxatdagi kod uchun rasm: bazadagi tovarga, bo'lmasa kodning o'ziga yuklanadi. */
+    /** Ro'yxatdagi kod uchun rasm — FAQAT shu ro'yxat uchun, telefonda saqlanadi.
+     *  Tovarning asosiy rasmiga aylanmaydi, serverga ham yuklanmaydi (kod chiqarib qaytganda qaysi tovarligini bilish uchun). */
     private fun kodPhoto(i: Int, back: Boolean = true) {
         val k = kodLoad().getOrNull(i) ?: return
-        val p = (if (k.sku.isNotBlank()) all.firstOrNull { it.code == k.sku } else null)
-            ?: Product(name = k.name.ifBlank { "Yangi kod ${k.code}" }, code = k.sku.ifBlank { k.code }, barcode = "", dona = "", optom = "", qty = "")
-        upKodId = k.id
-        upDone = { n ->
-            upKodId = null
+        kodCamId = k.id; kodCamBack = back
+        prefs().edit().putString("kodCam", k.id).apply()   // kamera paytida ilova yopilib qolsa ham
+        openCamera(REQ_KOD_CAM)
+    }
+
+    private fun kodPhotoSave(uri: Uri) {
+        val id = kodCamId ?: prefs().getString("kodCam", null) ?: return
+        kodCamId = null; prefs().edit().remove("kodCam").apply()
+        try {
+            val b = Visual.bitmap(this, uri, 900)
+            val dir = kodDir(id).apply { mkdirs() }
+            File(dir, "${System.currentTimeMillis()}.jpg").outputStream().use { b.compress(Bitmap.CompressFormat.JPEG, 82, it) }
             val list = kodLoad()
-            list.firstOrNull { it.id == k.id }?.let { it.photos += n; kodSave(list) }
-            if (back) kodList() else if (n > 0) toast("✅ Rasm saqlandi: ${k.code}")
-        }
-        uploadFor(p)
+            list.firstOrNull { it.id == id }?.let { it.photos += 1; kodSave(list) }
+            toast("✅ Rasm ro'yxatga saqlandi (faqat shu telefonda)")
+        } catch (e: Exception) { toast("Rasm saqlanmadi: ${e.message}") }
+        if (kodCamBack) kodList()
     }
 
     // ---------------------------------------------------------------- kategoriyani qo'lda almashtirish
