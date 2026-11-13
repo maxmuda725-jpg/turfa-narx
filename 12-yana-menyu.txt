@@ -1,0 +1,12 @@
+☰ Yana
+🧮 Kassa (hisoblash)
+⭐ Sevimlilar
+🏷 Kod chiqarish ro'yxati
+📸 Tovarga rasm yuklash
+🚫 Rasmi yo'q tovarlar
+🖼 Yuklangan rasmlar
+📁 Rasmlar papkasi (ZIP)
+📋 Ro'yxatni rasmdan o'qish
+🔄 Bazani yangilash
+⬆️ Ilovani yangilash
+👤 Egasi menyusi
