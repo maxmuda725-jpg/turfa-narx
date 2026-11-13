@@ -4,7 +4,7 @@ on:
     inputs:
       diag: { default: 'no' }
 permissions:
-  contents: read
+  contents: write
 jobs:
   tanlov:
     runs-on: ubuntu-latest
@@ -26,6 +26,9 @@ jobs:
       - name: Xatolar tahlili
         if: inputs.diag == 'yes'
         run: python3 scripts/model_tanlov.py --diag
-      - uses: actions/upload-artifact@v4
+      - name: Natijani diag tarmog'iga
         if: inputs.diag == 'yes'
-        with: { name: diag, path: diag/ }
+        run: |
+          cd diag && git init -q && git checkout -q -b diag && git add -A
+          git -c user.name=bot -c user.email=bot@x commit -qm diag
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" diag
