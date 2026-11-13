@@ -934,6 +934,19 @@ class MainActivity : Activity() {
 
     private fun price(p: Product): Long = p.donaList.maxOrNull() ?: 0
 
+    /** Qidiruv narxmi? "30000", "30 000", "30.000", "30k", "30 ming", "1,5 mln" -> so'm. Kod (4339, 43-39) narx emas. */
+    private fun priceQuery(q: String): Long? {
+        val t = q.trim().lowercase().replace('\u00A0', ' ')
+        Regex("^(\\d+(?:[.,]\\d+)?)\\s*(k|ming|минг|тыс|mln|million|млн)\\.?$").find(t)?.let { m ->
+            val n = m.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
+            val mul = if (m.groupValues[2] in listOf("mln", "million", "млн")) 1_000_000 else 1000
+            return (n * mul).toLong().takeIf { it >= 1000 }
+        }
+        if (!Regex("^\\d{1,3}([ .,]?\\d{3})+$").matches(t)) return null
+        val v = t.filter { it.isDigit() }.toLongOrNull() ?: return null
+        return v.takeIf { it >= 1000 && it % 500 == 0L }   // 4339 kabi kodlar narx emas
+    }
+
     private fun openSpecial(kind: String?, range: Pair<Long, Long>? = null, alt: Product? = null) {
         special = kind; priceRange = range; altFor = alt
         favMode = false; noPhotoMode = false; polkaView = null; photoHits = null; photoVec = null
@@ -3036,6 +3049,24 @@ class MainActivity : Activity() {
             }
             adapter.notifyDataSetChanged()
             return
+        }
+        priceQuery(q)?.let { v ->
+            if (catSel == null && !favMode && !noPhotoMode) {
+                // 💰 Narx bilan qidirish: "30000", "30 000", "30k", "30 ming" — optom yoki dona narxi aynan shu
+                val opt = all.filter { v in it.optomList }.sortedWith(compareBy<Product>({ Search.stockRank(it) }, { it.nameLower }))
+                val dona = all.filter { v in it.donaList && v !in it.optomList }.sortedWith(compareBy<Product>({ Search.stockRank(it) }, { it.nameLower }))
+                val codes = Search.run(all, q).filter { p -> opt.none { it.key == p.key } && dona.none { it.key == p.key } }
+                val rows = ArrayList<Any>()
+                rows += "💰 Optom narxi ${fmt(v)}: ${opt.size} ta"; rows.addAll(opt)
+                if (dona.isNotEmpty()) { rows += "💰 Dona narxi ${fmt(v)}: ${dona.size} ta"; rows.addAll(dona) }
+                if (codes.isNotEmpty()) { rows += "🔤 Kodi «${q.trim()}» ga o'xshash: ${codes.size} ta"; rows.addAll(codes) }
+                shown = rows
+                info.text = if (opt.isEmpty() && dona.isEmpty()) "Narxi aynan ${fmt(v)} bo'lgan tovar yo'q. Oraliq kerak bo'lsa: 💰 Puliga mos tovar"
+                    else "Narxi aynan ${fmt(v)} bo'lgan tovarlar (avval optom, keyin dona)"
+                info.visibility = View.VISIBLE
+                adapter.notifyDataSetChanged()
+                return
+            }
         }
         if (noPhotoMode) {
             // Omborda borlari tepada: avval shularni rasmga olish foydali

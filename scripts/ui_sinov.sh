@@ -80,6 +80,7 @@ check $U tap "Qidiruv"
 end
 
 step "6. Kategoriya chipi"
+check $U tap "Kod yoki nom"; sleep 1
 check $U tap "🏺 Vazalar"
 $U shot 06-kategoriya-chip
 check $U has "🏺 Vazalar"
@@ -142,8 +143,15 @@ check $U tap "💰 100 – 200 ming"
 $U shot 19-narx-natija
 check $U has "100 – 200 ming so"
 check $U tap "Qidiruv"
+adb shell input swipe 540 1700 540 700 300; sleep 1
 check $U tap "Yangi kelgan"
 $U shot 20-yangi-kelgan
+check $U tap "Qidiruv"
+check $U tap "Kod yoki nom"; sleep 1
+adb shell input text "30000"; sleep 2
+$U shot 21-narx-bilan-qidiruv
+check $U has "Optom narxi 30"
+adb shell input keyevent KEYCODE_MOVE_END; for i in 1 2 3 4 5; do adb shell input keyevent KEYCODE_DEL; done; sleep 1
 check $U tap "Qidiruv"
 check $U tap "Kod yoki nom"; sleep 1
 adb shell input text "tugagan"; sleep 1
