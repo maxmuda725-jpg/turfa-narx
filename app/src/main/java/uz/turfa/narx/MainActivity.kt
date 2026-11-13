@@ -2265,8 +2265,15 @@ class MainActivity : Activity() {
     }
 
     /** Tovar nomidagi do'kon kodi (masalan "gul 43-39" -> "43-39"), bo'lmasa Billz kodi. */
-    private fun shopCode(p: Product): String =
-        Search.tokens(p.name).lastOrNull { t -> t.contains('-') && t.any { it.isDigit() } } ?: p.code
+    private fun shopCode(p: Product): String {
+        // Qavs ichidagilar (eski kod) hisobga olinmaydi; harflar asl holicha (B-041, ST-1916)
+        val clean = p.name.replace(Regex("\\([^)]*\\)"), " ")
+        val cands = clean.split(Regex("[\\s,;/|\\[\\]{}\"'«»]+"))
+            .map { it.trim('.', ':', '!', '?', '*', '#', '-') }
+            .filter { t -> t.contains('-') && t.any { it.isDigit() } }
+        // Avval faqat raqamli kod (26-3-44-12, 40-7), birinchisi; bo'lmasa harfli (B-042, ST-1916), birinchisi
+        return cands.firstOrNull { Regex("\\d+(-\\d+)+").matches(it) } ?: cands.firstOrNull() ?: p.code
+    }
 
     /** Istalgan joydan (qidiruv, rasm qidiruvi, kategoriya, sevimlilar) tovarni 🏷 ro'yxatiga qo'shish. */
     private fun kodAddProduct(p: Product) {
