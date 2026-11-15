@@ -7,7 +7,7 @@ Kerak: RASM_KEY (GitHub secret), GITHUB_TOKEN, GITHUB_REPOSITORY.
 """
 import json, os, re, subprocess, sys, urllib.parse, urllib.request, urllib.error
 
-SERVER = os.environ.get("KASSA_API", "https://do-kon-savdo-yordamchisi.lovable.app")
+SERVER = os.environ.get("KASSA_API", "https://dokon-yordamchisi.maxmuda725.workers.dev")
 REPO = os.environ.get("GITHUB_REPOSITORY", "maxmuda725-jpg/turfa-narx")
 GH = "https://api.github.com"
 CSV = "baza/rasmlar.csv"

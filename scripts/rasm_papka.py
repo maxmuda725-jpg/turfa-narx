@@ -6,7 +6,7 @@ Natija: rasmlar-papka.zip  (ichida: <Kategoriya yo'q>/<nomi> [<kod>] 1.jpg)
 import csv, io, json, os, re, sys, urllib.request, zipfile
 from concurrent.futures import ThreadPoolExecutor
 
-SERVER = os.environ.get("KASSA_API", "https://do-kon-savdo-yordamchisi.lovable.app")
+SERVER = os.environ.get("KASSA_API", "https://dokon-yordamchisi.maxmuda725.workers.dev")
 WITH_BILLZ = os.environ.get("BILLZ", "") in ("1", "true", "yes")
 OUT = os.environ.get("OUT", "rasmlar-papka.zip")
 

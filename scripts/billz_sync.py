@@ -5,7 +5,7 @@ import csv, io, json, os, re, sys, urllib.request
 
 API = "https://api-admin.billz.ai"
 # Ilovadan yuklangan tovar rasmlari (Do'kon Yordamchisi serveri, faqat o'qish)
-RASM_URL = os.environ.get("RASM_URL", "https://do-kon-savdo-yordamchisi.lovable.app/api/public/rasmlar")
+RASM_URL = os.environ.get("RASM_URL", "https://dokon-yordamchisi.maxmuda725.workers.dev/api/public/rasmlar")
 
 def uploaded_photos():
     try:

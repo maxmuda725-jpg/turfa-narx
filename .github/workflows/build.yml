@@ -18,9 +18,9 @@ jobs:
         continue-on-error: true
         run: |
           for u in api/public/polkalar api/public/kategoriyalar; do
-            echo "$u -> $(curl -s -o /tmp/r -w '%{http_code}' https://do-kon-savdo-yordamchisi.lovable.app/$u) $(head -c 120 /tmp/r)"
+            echo "$u -> $(curl -s -o /tmp/r -w '%{http_code}' https://dokon-yordamchisi.maxmuda725.workers.dev/$u) $(head -c 120 /tmp/r)"
           done
-          echo "POST api/kassa/polka (kalitsiz, 401 kutiladi) -> $(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"sku":"x","value":"7-2"}' https://do-kon-savdo-yordamchisi.lovable.app/api/kassa/polka)"
+          echo "POST api/kassa/polka (kalitsiz, 401 kutiladi) -> $(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'content-type: application/json' -d '{"sku":"x","value":"7-2"}' https://dokon-yordamchisi.maxmuda725.workers.dev/api/kassa/polka)"
       - name: Rasm modeli (rasm orqali qidirish)
         run: |
           mkdir -p app/src/main/assets
