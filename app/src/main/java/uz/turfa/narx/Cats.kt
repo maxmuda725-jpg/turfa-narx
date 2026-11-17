@@ -41,13 +41,17 @@ object Cats {
         overrides = try { parseOverrides(File(ctx.filesDir, OVR_FILE).readText()) } catch (e: Exception) { emptyMap() }
     }
 
-    fun downloadOverrides(ctx: Context) {
+    fun downloadOverrides(ctx: Context, key: String = "") {
         val c = URL("$KASSA_API/api/public/kategoriyalar?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection
         c.connectTimeout = 15000; c.readTimeout = 30000
         try {
             if (c.responseCode != 200) return
             val text = c.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
-            val m = parseOverrides(text)
+            val server = parseOverrides(text)
+            val local = try { parseOverrides(File(ctx.filesDir, OVR_FILE).readText()) } catch (e: Exception) { overrides }
+            val missing = local.filterKeys { it !in server }
+            if (missing.isNotEmpty() && server.size < local.size && key.isNotEmpty()) Tiklash.send("kategoriya", missing, key)
+            val m = if (server.size < local.size) server + missing else server
             File(ctx.filesDir, OVR_FILE).writeText(org.json.JSONObject(m as Map<*, *>).toString())
             overrides = m
         } finally { c.disconnect() }

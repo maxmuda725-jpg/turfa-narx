@@ -3154,8 +3154,8 @@ class MainActivity : Activity() {
             val res = try { Result.success(Db.download(this)) } catch (e: Exception) { Result.failure(e) }
             try { Visual.download(applicationContext) } catch (_: Exception) {}
             try { Cats.download(applicationContext) } catch (_: Exception) {}
-            try { Cats.downloadOverrides(applicationContext) } catch (_: Exception) {}
-            try { Polka.download(applicationContext) } catch (_: Exception) {}
+            try { Cats.downloadOverrides(applicationContext, appKey()) } catch (_: Exception) {}
+            try { Polka.download(applicationContext, appKey()) } catch (_: Exception) {}
             try { Hot.download(applicationContext) } catch (_: Exception) {}
             try { if (Fon.download(applicationContext)) main.post { Fon.bitmap(this)?.let { bannerImg.setImageBitmap(it) } } } catch (_: Exception) {}
             main.post {

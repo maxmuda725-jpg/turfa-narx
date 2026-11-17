@@ -72,13 +72,18 @@ object Polka {
         map = try { parse(File(ctx.filesDir, FILE).readText()) } catch (e: Exception) { emptyMap() }
     }
 
-    fun download(ctx: Context) {
+    fun download(ctx: Context, key: String = "") {
         val c = URL("$KASSA_API/api/public/polkalar?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection
         c.connectTimeout = 15000; c.readTimeout = 30000
         try {
             if (c.responseCode != 200) return
             val text = c.inputStream.use { it.readBytes() }.toString(Charsets.UTF_8)
-            val m = parse(text)
+            val server = parse(text)
+            // Server ko'chganda bo'sh qolgan bo'lishi mumkin: telefondagi, serverda yo'q joylarni yo'qotmaymiz va serverga tiklaymiz.
+            val local = try { parse(File(ctx.filesDir, FILE).readText()) } catch (e: Exception) { map }
+            val missing = local.filterKeys { it !in server }
+            if (missing.isNotEmpty() && server.size < local.size && key.isNotEmpty()) Tiklash.send("polka", missing, key)
+            val m = if (server.size < local.size) server + missing else server
             File(ctx.filesDir, FILE).writeText(org.json.JSONObject(m as Map<*, *>).toString())
             map = m
         } finally { c.disconnect() }
