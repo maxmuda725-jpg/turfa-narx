@@ -1,0 +1,27 @@
+name: Gemini hakam sinovi
+on:
+  push:
+    branches: [gemini-sinov]
+    paths: ['scripts/gemini_sinov.py', '.github/workflows/gemini-sinov.yml']
+  workflow_dispatch:
+    inputs:
+      top_k: { default: '15' }
+permissions:
+  contents: read
+jobs:
+  sinov:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: O'rnatish
+        run: |
+          pip install -q "mediapipe==0.10.14" "numpy<2" pillow
+          curl -fsSL -o large.tflite https://storage.googleapis.com/mediapipe-models/image_embedder/mobilenet_v3_large/float32/latest/mobilenet_v3_large.tflite
+      - name: Sinov
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TOP_K: ${{ inputs.top_k || '15' }}
+        run: python3 scripts/gemini_sinov.py
