@@ -21,6 +21,7 @@ TOP_K = int(os.environ.get("TOP_K", "15"))
 LIMIT = int(os.environ.get("LIMIT", "200"))
 MODELS = [m.strip() for m in os.environ.get(
     "GEMINI_MODELS", "gemini-flash-latest,gemini-3.6-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite").split(",") if m.strip()]
+MIN_CONF = int(os.environ.get("MIN_CONF", "60"))
 PAUSE = float(os.environ.get("PAUSE", "4.5"))   # bepul limit: daqiqasiga ~15 so'rov
 
 PROMPT = """Birinchi rasm — do'konda olingan SO'ROV rasmi (bitta tovar).
@@ -28,7 +29,8 @@ Keyingi rasmlar — do'kon katalogidagi NOMZOD tovarlar, har birining oldida raq
 Vazifa: so'rov rasmidagi tovar AYNAN qaysi nomzod ekanini top.
 - Shakl, rang, naqsh, yozuv, material, detallarni solishtir. Bir seriyadagi o'xshash tovarlarni farqla.
 - Fon, yorug'lik, burchak, qadoq farqiga e'tibor berma.
-- Hech biri aynan shu tovar bo'lmasa 0 qaytar.
+- Har doim eng to'g'ri keladigan BITTA nomzodni tanla (0 emas). Ishonchingni halol baholа:
+  aynan shu tovar bo'lsa 90-100, o'xshash lekin aniq emas bo'lsa 40-70, umuman o'xshamasa 0-30.
 Faqat JSON qaytar: {"tanlov": <raqam>, "ishonch": <0-100>, "tavsif": "<tovarning qisqa o'zbekcha tavsifi>"}"""
 
 
@@ -116,9 +118,10 @@ def main():
             errs += 1; print(f"  {n}: xato {e}", flush=True)
             final = ranked[0]; pick = -1; conf = 0
         else:
-            final = ranked[pick - 1] if 1 <= pick <= len(ranked) else None
-            if final is None: gem_none += 1
-            (conf_ok if final == k else conf_bad).append(conf)
+            gpick = ranked[pick - 1] if 1 <= pick <= len(ranked) else None
+            if gpick is None: gem_none += 1
+            (conf_ok if gpick == k else conf_bad).append(conf)
+            final = gpick if (gpick is not None and conf >= MIN_CONF) else ranked[0]
         gem1 += final == k
         print(f"  {n}/{len(q)} {k}: oldin {'✓' if ranked[0]==k else '✗'}, top{TOP_K} {'bor' if k in ranked else 'YO`Q'}, "
               f"gemini {pick} ({conf}%) {'✓' if final==k else '✗'}", flush=True)
@@ -129,7 +132,7 @@ def main():
     lines = [
         f"Hozirgi ilova (1-o'rinda): {p(base1)}",
         f"To'g'ri tovar {TOP_K} talik ichida: {p(inK)}  <- Gemini uchun yuqori chegara",
-        f"Gemini hakam bilan (1-o'rinda): {p(gem1)}",
+        f"Ilova + Gemini birga, ishonch>={MIN_CONF}% bo'lsa (1-o'rinda): {p(gem1)}",
         f"Gemini 'hech biri emas' dedi: {gem_none}, xatolar: {errs}, model: {_model_ok}",
     ]
     if conf_ok: lines.append(f"O'rtacha ishonch: to'g'rilarda {np.mean(conf_ok):.0f}%, noto'g'rilarda {np.mean(conf_bad) if conf_bad else 0:.0f}%")
