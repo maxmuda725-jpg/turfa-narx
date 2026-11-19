@@ -1688,7 +1688,9 @@ class MainActivity : Activity() {
     private fun photoSearch(uri: Uri) {
         val vis = Visual.ready()
         val wait = AlertDialog.Builder(this).setMessage("📷 Rasm va undagi kod tekshirilmoqda…").setCancelable(false).show()
+        val key = aiKey()
         Thread {
+            var gem: Hakam.Pick? = null
             val res = try {
                 // 1) Rasmdagi yozilgan kod (43-25…) — telefonning o'zida o'qiladi; topilsa eng aniq natija shu
                 val codes = try {
@@ -1704,7 +1706,8 @@ class MainActivity : Activity() {
                 var ranked = codes
                 var doubt = false
                 val (v, hits) = if (vis) {
-                    val qs = Visual.embedQuery(applicationContext, Visual.bitmap(this, uri))
+                    val qbmp = Visual.bitmap(this, uri)
+                    val qs = Visual.embedQuery(applicationContext, qbmp)
                     // Kod bir necha tovarga to'g'ri kelsa (44-12 -> 3-4 ta) — ular orasida rasmga eng o'xshashi birinchi
                     ranked = codes.map { (c, list) ->
                         if (list.size < 2) c to list else {
@@ -1712,7 +1715,18 @@ class MainActivity : Activity() {
                             c to (byLook + list.filter { p -> byLook.none { it.key == p.key } })
                         }
                     }
-                    val vh = Visual.search(qs, pool)
+                    var vh = Visual.search(qs, pool)
+                    // 3) 🤖 Gemini hakam: kod o'qilmagan va ilova ikkilangan bo'lsa — eng o'xshash 15 tadan aynan qaysi biri ekanini so'raymiz.
+                    // Ishonchi >= 80% bo'lsa o'sha tovar 1-o'ringa chiqadi; aks holda (yoki limit/internet yo'q) ilova tartibi qoladi.
+                    val sure = vh.size >= 2 && vh[0].second - vh[1].second >= 0.12f
+                    if (key.isNotEmpty() && codes.isEmpty() && vh.size >= 2 && !sure) {
+                        main.post { wait.setMessage("🤖 Gemini solishtirmoqda…") }
+                        gem = try { Hakam.pick(qbmp, vh.map { it.first }, key) } catch (_: Throwable) { null }
+                        gem?.let { g ->
+                            val i = vh.indexOfFirst { it.first.key == g.product.key }
+                            if (i > 0) vh = listOf(vh[i]) + vh.filterIndexed { j, _ -> j != i }
+                        }
+                    }
                     // Kod noto'g'ri o'qilgan yoki boshqa tovarniki bo'lishi mumkin (soatdagi 42-3 -> gul 42-3):
                     // kodli tovarlarning rasmi bor-u, suratga eng o'xshashidan ancha uzoq bo'lsa — kodga ishonmaymiz
                     val codeProds = codes.flatMap { it.second }
@@ -1741,6 +1755,7 @@ class MainActivity : Activity() {
                     refresh()
                     when {
                         codes.isNotEmpty() -> toast("🔤 Kod o'qildi: " + codes.joinToString(", ") { it.first })
+                        gem != null -> toast("🤖 Gemini tanladi (${gem!!.conf}%): ${gem!!.product.name}")
                         hits.isEmpty() -> toast(if (photoScopeShown != null) "${photoScopeShown}-polkada o'xshash tovar topilmadi" else "O'xshash tovar topilmadi")
                     }
                 }.onFailure { e ->
