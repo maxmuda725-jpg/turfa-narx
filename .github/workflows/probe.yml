@@ -1,0 +1,26 @@
+name: Server tekshiruvi (kod-royxat)
+on:
+  push:
+    branches: [probe]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: So'rovlar
+        env:
+          RASM_KEY: ${{ secrets.RASM_KEY }}
+        run: |
+          K=$(python3 -c "import os,hashlib;k=os.environ.get('RASM_KEY','').strip();print(hashlib.sha256(('turfa-app:'+k).encode()).hexdigest() if k else '')")
+          [ -n "$K" ] && echo "kalit bor" || echo "KALIT YO'Q"
+          for H in https://dokon-yordamchisi.maxmuda725.workers.dev https://do-kon-savdo-yordamchisi.lovable.app; do
+            echo "== $H"
+            # noto'g'ri xodim kodi bilan (yozuv qilinmaydi, faqat tekshiradi: kutilgan javob 403)
+            for i in 1 2 3; do
+              curl -sS -m 40 -o /tmp/b -w "kod-royxat POST -> %{http_code} (%{time_total}s) " -X POST "$H/api/kassa/kod-royxat" \
+                -H "content-type: application/json" -H "x-app-key: $K" -H "x-xodim: 12345678" \
+                -d '{"op":"send","from":"SINOV","items":[{"code":"T-1","name":"sinov","sku":"","qty":1}]}'; head -c 300 /tmp/b; echo
+            done
+            curl -sS -m 40 -o /tmp/b -w "xodim POST -> %{http_code} " -X POST "$H/api/kassa/xodim" -H "content-type: application/json" -H "x-app-key: $K" -d '{"op":"me","code":"12345678"}'; head -c 200 /tmp/b; echo
+          done
