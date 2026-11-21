@@ -21,7 +21,7 @@ object Hakam {
     const val TOP_K = 15
     const val MIN_CONF = 80
     // Sinovda Flash-Lite ishladi (bepul limiti eng katta); qolganlari zaxira
-    private val MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-latest")
+    private val MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.1-flash-lite")
 
     private const val PROMPT = """Birinchi rasm — do'konda olingan SO'ROV rasmi (bitta tovar).
 Keyingi rasmlar — do'kon katalogidagi NOMZOD tovarlar, har birining oldida raqami yozilgan (1, 2, 3 ...).
@@ -66,7 +66,7 @@ Faqat JSON qaytar: {"tanlov": <raqam>, "ishonch": <0-100>}"""
         if (cands.size < 2) return null
         val pool = Executors.newFixedThreadPool(6)
         val imgs = try {
-            pool.invokeAll(cands.map { p -> Callable { fetch(p.photo) } }, 12, TimeUnit.SECONDS)
+            pool.invokeAll(cands.map { p -> Callable { fetch(p.photo) } }, 8, TimeUnit.SECONDS)
                 .map { f -> try { if (f.isCancelled) null else f.get() } catch (_: Throwable) { null } }
         } finally { pool.shutdownNow() }
         val use = cands.indices.filter { imgs[it] != null }
@@ -90,7 +90,7 @@ Faqat JSON qaytar: {"tanlov": <raqam>, "ishonch": <0-100>}"""
             val c = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent").openConnection() as HttpURLConnection
             try {
                 c.requestMethod = "POST"; c.doOutput = true
-                c.connectTimeout = 8000; c.readTimeout = 25000
+                c.connectTimeout = 6000; c.readTimeout = 12000
                 c.setRequestProperty("Content-Type", "application/json")
                 c.setRequestProperty("x-goog-api-key", key)
                 c.outputStream.use { it.write(body) }

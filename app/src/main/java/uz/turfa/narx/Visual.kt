@@ -117,6 +117,21 @@ object Visual {
     // ------------------------------------------------------------ qidirish
     fun search(q: FloatArray, all: List<Product>, n: Int = 40): List<Pair<Product, Float>> = search(listOf(q), all, n)
 
+    /** Shu telefonda o'rgatilgan rasmlar ichida eng o'xshashi: (tovar kaliti, o'xshashlik) yoki null. */
+    fun learnedBest(qs: List<FloatArray>): Pair<String, Float>? {
+        var bestKey: String? = null; var best = -9f
+        for (e in learned) {
+            for (q in qs) {
+                if (q.size != e.v.size) continue
+                var s = 0f
+                for (i in q.indices) s += q[i] * e.v[i]
+                val v = s / 127f
+                if (v > best) { best = v; bestKey = e.key }
+            }
+        }
+        return bestKey?.let { it to best }
+    }
+
     /**
      * Eng o'xshash tovarlar (har tovar bir marta), o'xshashlik bo'yicha.
      * Har rasm uchun eng yaxshi bo'lak olinadi; tugagan tovar biroz pastga tushadi;
