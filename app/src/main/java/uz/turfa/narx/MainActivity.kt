@@ -1718,13 +1718,22 @@ class MainActivity : Activity() {
                     var vh = Visual.search(qs, pool)
                     // 3) 🤖 Gemini hakam: kod o'qilmagan va ilova ikkilangan bo'lsa — eng o'xshash 15 tadan aynan qaysi biri ekanini so'raymiz.
                     // Ishonchi >= 80% bo'lsa o'sha tovar 1-o'ringa chiqadi; aks holda (yoki limit/internet yo'q) ilova tartibi qoladi.
-                    val sure = vh.size >= 2 && vh[0].second - vh[1].second >= 0.12f
-                    if (key.isNotEmpty() && codes.isEmpty() && vh.size >= 2 && !sure) {
+                    // Seriya egizaklari 1-o'rin bilan bir xil ball oladi — ularni hisobga olmay, keyingi haqiqiy raqib bilan solishtiramiz
+                    val topS = vh.firstOrNull()?.second ?: 0f
+                    val rival = vh.drop(1).firstOrNull { it.second < topS - 0.0001f }?.second
+                    val sure = vh.isNotEmpty() && (rival == null || topS - rival >= 0.10f)
+                    // 1-o'rindagi tovar shu telefonda o'rgatilgan rasmdan topilgan bo'lsa — unga ishonamiz, Gemini aralashmaydi
+                    val lb = Visual.learnedBest(qs)
+                    val fromLearned = lb != null && vh.isNotEmpty() &&
+                        (lb.first == vh[0].first.key || lb.first.substringBefore('|') == vh[0].first.code) && lb.second + 0.03f >= topS - 0.02f
+                    if (key.isNotEmpty() && codes.isEmpty() && vh.size >= 2 && !sure && !fromLearned) {
                         main.post { wait.setMessage("🤖 Gemini solishtirmoqda…") }
                         gem = try { Hakam.pick(qbmp, vh.map { it.first }, key) } catch (_: Throwable) { null }
                         gem?.let { g ->
                             val i = vh.indexOfFirst { it.first.key == g.product.key }
-                            if (i > 0) vh = listOf(vh[i]) + vh.filterIndexed { j, _ -> j != i }
+                            // Gemini tanlovi ilova bahosidan juda uzoq bo'lsa (adashgan bo'lishi mumkin) — qabul qilmaymiz
+                            if (i > 0 && vh[i].second >= topS - 0.15f) vh = listOf(vh[i]) + vh.filterIndexed { j, _ -> j != i }
+                            else gem = null
                         }
                     }
                     // Kod noto'g'ri o'qilgan yoki boshqa tovarniki bo'lishi mumkin (soatdagi 42-3 -> gul 42-3):
