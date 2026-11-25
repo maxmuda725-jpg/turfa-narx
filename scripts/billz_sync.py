@@ -7,21 +7,58 @@ API = "https://api-admin.billz.ai"
 # Ilovadan yuklangan tovar rasmlari (Do'kon Yordamchisi serveri, faqat o'qish)
 RASM_URL = os.environ.get("RASM_URL", "https://dokon-yordamchisi.maxmuda725.workers.dev/api/public/rasmlar")
 
+ARCHIVE_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "baza", "rasmlar.csv")
+
+def _sku_at(name):
+    """Fayl nomi: <sku base64url>__<ms>_<rand>.jpg -> (sku, ms)"""
+    import base64
+    enc, _, rest = name.partition("__")
+    try:
+        sku = base64.urlsafe_b64decode(enc + "=" * (-len(enc) % 4)).decode("utf-8").strip()
+        return sku, int(rest.split("_")[0])
+    except Exception:
+        return "", 0
+
+def archived_photos():
+    """GitHub'ga ko'chirilgan rasmlar (baza/rasmlar.csv) — serverga bog'liq emas, hech qachon yo'qolmaydi."""
+    out = []
+    try:
+        for line in open(ARCHIVE_CSV, encoding="utf-8"):
+            p = line.strip().split(";")
+            if len(p) >= 2 and p[0] != "nom" and p[1].startswith("http"):
+                sku, at = _sku_at(p[0])
+                if sku:
+                    out.append((at, p[0], sku, p[1]))
+    except FileNotFoundError:
+        pass
+    return out
+
 def uploaded_photos():
+    # (vaqt, fayl nomi, sku, havola): serverdagilar + GitHub arxividagilar (nomi bo'yicha takrorlanmaydi)
+    rows = {}
     try:
         r = urllib.request.Request(RASM_URL, headers={"Accept": "application/json", "User-Agent": "turfa-narx"})
         with urllib.request.urlopen(r, timeout=30) as resp:
             items = json.load(resp).get("items") or []
-        out = {}
         for it in items:
             u = str(it.get("url") or "")
             if u.startswith("http") and it.get("sku"):
-                out.setdefault(str(it["sku"]).strip(), []).append(u)
-        print(f"Ilovadan yuklangan rasmlar: {sum(map(len, out.values()))} ta, {len(out)} ta tovar")
-        return out
+                name = str(it.get("name") or u)
+                rows[name] = (int(it.get("at") or 0), name, str(it["sku"]).strip(), u)
+        print(f"Serverdan: {len(rows)} ta rasm")
     except Exception as e:
-        print("Ilova rasmlari olinmadi:", type(e).__name__)
-        return {}
+        print("Server rasmlari olinmadi:", type(e).__name__)
+    arch = archived_photos()
+    added = 0
+    for at, name, sku, u in arch:
+        if name not in rows:
+            rows[name] = (at, name, sku, u); added += 1
+    print(f"GitHub arxividan: {len(arch)} ta, shundan serverda yo'q edi: {added} ta")
+    out = {}
+    for at, name, sku, u in sorted(rows.values()):
+        out.setdefault(sku, []).append(u)
+    print(f"Ilovadan yuklangan rasmlar: {sum(map(len, out.values()))} ta, {len(out)} ta tovar")
+    return out
 SHOP = os.environ.get("BILLZ_SHOP", "turfa").lower()
 
 def req(method, path, token=None, body=None):
