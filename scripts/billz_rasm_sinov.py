@@ -94,6 +94,10 @@ show("1) POST /v1/upload", s, up)
 data = up.get("data", up) if isinstance(up, dict) else {}
 if isinstance(data, list): data = data[0] if data else {}
 fname = (data or {}).get("filename") or (data or {}).get("file_name") or (data or {}).get("name")
+if not fname and os.environ.get("URL_SINOV") == "1":
+    # Yuklash yopiq bo'lsa: rasmni to'g'ridan-to'g'ri havola bilan berib ko'ramiz (o'sha tovarning o'z rasmi)
+    fname = photo_url
+    print("\nYuklash yopiq — havola bilan urinib ko'ramiz:", fname)
 if not fname:
     raise SystemExit("Yuklangan rasm nomi olinmadi — to'xtadik (tovarga hech narsa yozilmadi)")
 
