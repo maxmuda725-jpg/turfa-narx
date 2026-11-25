@@ -2657,8 +2657,7 @@ class MainActivity : Activity() {
         if (!photoShared.add(p.key)) return
         Thread {
             val res = try {
-                val bmp = Visual.bitmap(this, uri, 1024)
-                val bytes = java.io.ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
+                val bytes = uploadJpeg(uri)
                 val c = URL("$KASSA_API/api/kassa/rasm").openConnection() as HttpURLConnection
                 c.requestMethod = "POST"; c.doOutput = true
                 c.connectTimeout = 15000; c.readTimeout = 60000
@@ -3274,6 +3273,20 @@ class MainActivity : Activity() {
         uploadDialog()
     }
 
+    /**
+     * Serverga (va keyin Billz'ga) ketadigan tiniq rasm: uzun tomoni 2048 px gacha, JPEG 90.
+     * Server chegarasi 3 MB — oshsa sifatni bosqichma-bosqich pasaytiradi (kamida 60).
+     */
+    private fun uploadJpeg(uri: Uri): ByteArray {
+        val bmp = Visual.bitmap(this, uri, 2048)
+        var q = 90
+        while (true) {
+            val bytes = java.io.ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, q, it) }.toByteArray()
+            if (bytes.size <= 2_800_000 || q <= 60) return bytes
+            q -= 10
+        }
+    }
+
     private fun doUpload() {
         val p = upProduct ?: return
         if (upFiles.isEmpty()) { toast("Avval rasm oling yoki tanlang"); uploadDialog(); return }
@@ -3287,8 +3300,7 @@ class MainActivity : Activity() {
             val sent = ArrayList<File>()
             for (f in files) {
                 try {
-                    val bmp = Visual.bitmap(this, Uri.fromFile(f), 1024)
-                    val bytes = java.io.ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) }.toByteArray()
+                    val bytes = uploadJpeg(Uri.fromFile(f))
                     val c = URL("$KASSA_API/api/kassa/rasm").openConnection() as HttpURLConnection
                     c.requestMethod = "POST"; c.doOutput = true
                     c.connectTimeout = 15000; c.readTimeout = 60000
@@ -3305,7 +3317,7 @@ class MainActivity : Activity() {
                         rc == 401 -> { unauthorized = true; break }
                         j?.optBoolean("ok") == true -> {
                             ok++; sent += f
-                            try { Visual.learn(applicationContext, p, Visual.embed(applicationContext, bmp)) } catch (_: Throwable) {}
+                            try { Visual.learn(applicationContext, p, Visual.embed(applicationContext, Visual.bitmap(this, Uri.fromFile(f)))) } catch (_: Throwable) {}
                         }
                         else -> lastErr = j?.optString("error")?.ifBlank { null } ?: "Server xatosi ($rc)"
                     }
