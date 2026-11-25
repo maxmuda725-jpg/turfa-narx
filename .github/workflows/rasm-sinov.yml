@@ -1,0 +1,14 @@
+name: Billz rasm sinovi
+on:
+  workflow_dispatch:
+    inputs:
+      sku: { description: "Tovar kodi (bo'sh = o'zi tanlaydi; faqat rasmi yo'q tovar)", default: "" }
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - env:
+          BILLZ_SECRET_TOKEN: ${{ secrets.BILLZ_SECRET_TOKEN }}
+          SKU: ${{ inputs.sku }}
+        run: python3 scripts/billz_rasm_sinov.py
