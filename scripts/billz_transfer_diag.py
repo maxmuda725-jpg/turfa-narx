@@ -37,6 +37,20 @@ def first_list(d):
 def main():
     s, d = req("POST", "/v1/auth/login", body={"secret_token": os.environ["BILLZ_SECRET_TOKEN"].strip()})
     token = d["data"]["access_token"]
+    s, d = req("GET", "/v2/transfer?limit=1&page=1", token)
+    tid = d["transfer"][0]["id"]
+    subs = ["/v2/transfer-item?transfer_id={id}", "/v2/transfer-items?transfer_id={id}", "/v2/transfer/{id}/transfer-items",
+            "/v2/transfer/{id}/transfer-item", "/v2/transfer-item/{id}", "/v2/transfer/products?transfer_ids={id}",
+            "/v2/transfer/products?id={id}", "/v2/transfer/{id}/product", "/v2/transfer/items?transfer_id={id}",
+            "/v2/transfer/item?transfer_id={id}", "/v2/transfer-products?transfer_id={id}", "/v2/transfer-product/{id}",
+            "/v1/transfer-item?transfer_id={id}", "/v2/transfer/{id}?with_items=true", "/v2/transfer/{id}?include_items=true",
+            "/v2/products?transfer_id={id}", "/v2/transfer/{id}/details", "/v2/transfer-detail/{id}"]
+    for sub in subs:
+        path = sub.replace("{id}", tid)
+        s, d = req("GET", path + ("&" if "?" in path else "?") + "limit=3&page=1", token)
+        print(f"\n=== {sub} -> {s}")
+        print(json.dumps(shape(d), ensure_ascii=False)[:3000] if s == 200 else str(d)[:150])
+    return
     cands = ["/v1/transfer", "/v2/transfer", "/v1/transfers", "/v2/transfers", "/v1/stock-transfer",
              "/v2/stock-transfer", "/v1/transfer-list", "/v2/transfer-list", "/v1/product-transfer",
              "/v2/product-transfer", "/v1/transfer/list", "/v2/transfer/list", "/v1/movement", "/v2/movement",
