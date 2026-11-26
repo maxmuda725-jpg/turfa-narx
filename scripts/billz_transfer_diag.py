@@ -39,14 +39,17 @@ def main():
     token = d["data"]["access_token"]
     s, d = req("GET", "/v2/transfer?limit=1&page=1", token)
     tid = d["transfer"][0]["id"]
-    subs = ["/v2/transfer-item?transfer_id={id}", "/v2/transfer-items?transfer_id={id}", "/v2/transfer/{id}/transfer-items",
-            "/v2/transfer/{id}/transfer-item", "/v2/transfer-item/{id}", "/v2/transfer/products?transfer_ids={id}",
-            "/v2/transfer/products?id={id}", "/v2/transfer/{id}/product", "/v2/transfer/items?transfer_id={id}",
-            "/v2/transfer/item?transfer_id={id}", "/v2/transfer-products?transfer_id={id}", "/v2/transfer-product/{id}",
-            "/v1/transfer-item?transfer_id={id}", "/v2/transfer/{id}?with_items=true", "/v2/transfer/{id}?include_items=true",
-            "/v2/products?transfer_id={id}", "/v2/transfer/{id}/details", "/v2/transfer-detail/{id}"]
+    s, d2 = req("GET", "/v2/import?limit=1&page=1", token)
+    iid = d2["imports"][0]["id"]
+    subs = ["/v2/transfer-items/{id}", "/v2/transfer_items?transfer_id={id}", "/v2/transfer-item/list?transfer_id={id}",
+            "/v3/transfer/{id}", "/v3/transfer-item?transfer_id={id}", "/v2/transfer/{id}/transfer_items",
+            "/v2/transfer/item/{id}", "/v2/transfer-products/{id}", "/v1/transfer/{id}", "/v2/transfer/{id}/products-list",
+            "/v2/transfer-product-list?transfer_id={id}", "/v2/transfer-item-search?transfer_id={id}",
+            "/v2/transfer/{id}/item", "/v2/transfer/{id}/goods", "/v2/transfer/products/{id}", "/v2/transfer/items/{id}",
+            "IMP/v2/import-item?import_id={iid}", "IMP/v2/import-items?import_id={iid}", "IMP/v2/import/{iid}/items",
+            "IMP/v2/import/{iid}/products", "IMP/v2/import/products/{iid}", "IMP/v2/import/items/{iid}", "IMP/v2/import-products?import_id={iid}"]
     for sub in subs:
-        path = sub.replace("{id}", tid)
+        path = sub.replace("IMP", "").replace("{id}", tid).replace("{iid}", iid)
         s, d = req("GET", path + ("&" if "?" in path else "?") + "limit=3&page=1", token)
         print(f"\n=== {sub} -> {s}")
         print(json.dumps(shape(d), ensure_ascii=False)[:3000] if s == 200 else str(d)[:150])
