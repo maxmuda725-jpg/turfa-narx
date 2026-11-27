@@ -51,6 +51,7 @@ const val SELLER_PIN = "1234"
 const val BASE_URL = "https://raw.githubusercontent.com/maxmuda725-jpg/turfa-narx/main/baza/products.csv"
 // Billz'ga qoralama yuboradigan server (Do'kon Yordamchisi, Lovable). Kalit telefonga bir marta kiritiladi.
 const val KASSA_API = "https://dokon-yordamchisi.maxmuda725.workers.dev"
+const val GH_RASM = "https://github.com/maxmuda725-jpg/turfa-narx/releases/download/"
 // ==========================================================
 
 /** "17600" -> [17600];  "11200-17600" -> [11200, 17600] */
@@ -259,8 +260,12 @@ object Db {
     }
 
     /** Internetdan yangi bazani yuklaydi. To'g'ri bo'lsa saqlaydi va sonini qaytaradi. */
-    fun download(ctx: Context): Int {
-        val c = URL(BASE_URL + "?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection
+    fun download(ctx: Context): Int =
+        // GitHub ochilmasa — o'sha baza Cloudflare'dagi nusxadan
+        try { downloadFrom(ctx, BASE_URL) } catch (e: Exception) { downloadFrom(ctx, "$KASSA_API/api/public/baza") }
+
+    private fun downloadFrom(ctx: Context, base: String): Int {
+        val c = URL(base + "?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection
         c.connectTimeout = 15000; c.readTimeout = 30000
         c.setRequestProperty("Cache-Control", "no-cache")
         try {
@@ -373,7 +378,9 @@ object Img {
                 val f = file(ctx, url, big)
                 if (!f.exists()) {
                     val bytes = if (url.startsWith("file:")) File(url.removePrefix("file:")).readBytes() else {
-                        val c = URL(url).openConnection() as HttpURLConnection
+                        // GitHub'dagi arxiv rasmlar telefonda ochilmay qoladi — Cloudflare'dagi nusxa orqali olinadi
+                        val src = if (url.startsWith(GH_RASM)) "$KASSA_API/api/public/rasm?u=" + java.net.URLEncoder.encode(url, "UTF-8") else url
+                        val c = URL(src).openConnection() as HttpURLConnection
                         c.connectTimeout = 10000; c.readTimeout = 20000
                         c.instanceFollowRedirects = true
                         c.inputStream.use { it.readBytes() }.also { c.disconnect() }
@@ -3630,7 +3637,9 @@ class MainActivity : Activity() {
         Thread {
             val f = File(File(cacheDir, "update").apply { mkdirs() }, "TURFA-Narxlar.apk")
             val ok = try {
-                var u = URL(url)
+                // GitHub fayl serveri telefonda to'xtab qoladi — APK Cloudflare'dagi sayt orqali olinadi (eng oxirgi reliz)
+                val via = if (url.startsWith(GH_RASM)) "$KASSA_API/api/public/ilova" + (if (url.endsWith("-32bit.apk")) "?v=32" else "") else url
+                var u = URL(via)
                 var c: HttpURLConnection
                 var hops = 0
                 while (true) {   // GitHub boshqa domenga yo'naltiradi
