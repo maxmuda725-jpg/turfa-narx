@@ -21,9 +21,9 @@ def req(url, method="GET", token=None, body=None, raw=None, ctype="application/j
     data = raw if raw is not None else (json.dumps(body).encode() if body is not None else None)
     try:
         with urllib.request.urlopen(urllib.request.Request(url, method=method, headers=h, data=data), timeout=60) as r:
-            return r.status, r.read().decode()[:300]
+            return r.status, r.read().decode()
     except urllib.error.HTTPError as e:
-        return e.code, e.read().decode()[:300]
+        return e.code, e.read().decode()[:400]
     except Exception as e:  # noqa
         return 0, str(e)[:200]
 
