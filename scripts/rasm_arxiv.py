@@ -108,8 +108,12 @@ def main():
         if commit():
             forgot = sum(1 for n in forget if server("forget", n, key))
 
-    todo = q.get("archive") or []
-    rel = target_release() if any(it["name"] not in rows for it in todo) else None
+    # Yangi rasmlar 2 kun Storage'da qoladi: Billz'ga qo'yuvchi avtomat (kompyuterdagi brauzer) ularni
+    # o'sha yerdan oladi — GitHub reliz fayllarini brauzer o'qiy olmaydi (CORS).
+    import time
+    kech = int(time.time() * 1000) - int(os.environ.get("ARXIV_KECHIKISH_SOAT", "48")) * 3600 * 1000
+    todo = [it for it in (q.get("archive") or []) if int(it.get("at") or 0) < kech]
+    rel =target_release() if any(it["name"] not in rows for it in todo) else None
     for it in todo:
         name = it["name"]
         if name in rows:
