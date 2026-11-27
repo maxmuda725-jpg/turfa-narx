@@ -261,8 +261,8 @@ object Db {
 
     /** Internetdan yangi bazani yuklaydi. To'g'ri bo'lsa saqlaydi va sonini qaytaradi. */
     fun download(ctx: Context): Int =
-        // GitHub ochilmasa — o'sha baza Cloudflare'dagi nusxadan
-        try { downloadFrom(ctx, BASE_URL) } catch (e: Exception) { downloadFrom(ctx, "$KASSA_API/api/public/baza") }
+        // Avval Cloudflare'dagi nusxa (tez), ochilmasa — GitHub
+        try { downloadFrom(ctx, "$KASSA_API/api/public/baza") } catch (e: Exception) { downloadFrom(ctx, BASE_URL) }
 
     private fun downloadFrom(ctx: Context, base: String): Int {
         val c = URL(base + "?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection
@@ -355,6 +355,8 @@ object Db {
 /** Rasmni yuklaydi va telefonda saqlaydi: keyingi safar internetsiz chiqadi. */
 object Img {
     private val pool = Executors.newFixedThreadPool(4)
+    // Telefondagi (endi olingan) rasmlar internet navbatini kutmasin
+    private val localPool = Executors.newFixedThreadPool(2)
     private val mem = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
         override fun sizeOf(k: String, b: Bitmap) = b.byteCount
     }
@@ -373,7 +375,7 @@ object Img {
         view.tag = key
         mem.get(key)?.let { view.setImageBitmap(it); return }
         view.setImageDrawable(null)
-        pool.execute {
+        (if (url.startsWith("file:")) localPool else pool).execute {
             val bmp = try {
                 val f = file(ctx, url, big)
                 if (!f.exists()) {
@@ -381,7 +383,7 @@ object Img {
                         // GitHub'dagi arxiv rasmlar telefonda ochilmay qoladi — Cloudflare'dagi nusxa orqali olinadi
                         val src = if (url.startsWith(GH_RASM)) "$KASSA_API/api/public/rasm?u=" + java.net.URLEncoder.encode(url, "UTF-8") else url
                         val c = URL(src).openConnection() as HttpURLConnection
-                        c.connectTimeout = 10000; c.readTimeout = 20000
+                        c.connectTimeout = 6000; c.readTimeout = 12000
                         c.instanceFollowRedirects = true
                         c.inputStream.use { it.readBytes() }.also { c.disconnect() }
                     }
