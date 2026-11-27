@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       sku: { description: "Tovar kodi (bo'sh = o'zi tanlaydi; faqat rasmi yo'q tovar)", default: "" }
+      rejim: { description: "sinov yoki ruxsat (ruxsat = faqat kalit huquqini tekshirish)", default: "sinov" }
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,4 +13,5 @@ jobs:
           BILLZ_SECRET_TOKEN: ${{ secrets.BILLZ_SECRET_TOKEN }}
           SKU: ${{ inputs.sku }}
           URL_SINOV: "1"
-        run: python3 scripts/billz_rasm_sinov.py
+        run: |
+          if [ "${{ inputs.rejim }}" = "ruxsat" ]; then python3 scripts/billz_ruxsat.py; else python3 scripts/billz_rasm_sinov.py; fi
