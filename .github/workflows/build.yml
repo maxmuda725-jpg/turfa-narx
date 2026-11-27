@@ -42,14 +42,17 @@ jobs:
           # rasm_arxiv.py bilan bir xil: secret .strip() qilinadi (ko'rinmas bo'sh joylar ham)
           export RASM_APP_KEY=$(python3 -c "import os,hashlib;k=os.environ.get('RASM_KEY','').strip();print(hashlib.sha256(('turfa-app:'+k).encode()).hexdigest() if k else '')")
           gradle assembleRelease
-      - run: cp app/build/outputs/apk/release/*.apk TURFA-Narxlar.apk
+      - run: |
+          cp app/build/outputs/apk/release/*arm64-v8a*.apk TURFA-Narxlar.apk
+          cp app/build/outputs/apk/release/*armeabi-v7a*.apk TURFA-Narxlar-32bit.apk
+          ls -la TURFA-Narxlar*.apk
       - uses: actions/upload-artifact@v4
         if: github.ref != 'refs/heads/main'
-        with: { name: TURFA-Narxlar-sinov, path: TURFA-Narxlar.apk }
+        with: { name: TURFA-Narxlar-sinov, path: 'TURFA-Narxlar*.apk' }
       - name: Release
         if: github.ref == 'refs/heads/main'
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
-          gh release create "v1.${{ github.run_number }}" TURFA-Narxlar.apk \
+          gh release create "v1.${{ github.run_number }}" TURFA-Narxlar-32bit.apk TURFA-Narxlar.apk \
             --title "TUR-FA Narxlar v1.${{ github.run_number }}" \
-            --notes "Yangi versiya. Yuklab olib o'rnating." --latest
+            --notes "Yangi versiya. Oddiy telefonlar: TURFA-Narxlar.apk. Juda eski (32-bit) telefonlar: TURFA-Narxlar-32bit.apk." --latest

@@ -13,13 +13,19 @@ android {
         val run = System.getenv("APP_VERSION")?.toIntOrNull() ?: 1
         versionCode = run
         versionName = "1.$run"
-        // Faqat telefon protsessorlari: APK kichikroq bo'ladi
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-            if (System.getenv("UI_TEST") == "1") abiFilters += "x86_64"   // faqat virtual telefonda sinash uchun
-        }
+        // Virtual telefon sinovi: bitta umumiy APK (x86_64 bilan). Oddiy yig'ishda protsessor bo'yicha alohida APK'lar (pastdagi splits).
+        if (System.getenv("UI_TEST") == "1") ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         // Rasm yuklash kaliti: GitHub Actions'da RASM_KEY secret'dan hosil qilinadi, kodda saqlanmaydi
         buildConfigField("String", "RASM_APP_KEY", "\"${System.getenv("RASM_APP_KEY") ?: ""}\"")
+    }
+    // Har protsessorga alohida APK: zamonaviy telefon (arm64) faqat o'ziga keraklisini yuklaydi — APK ~2 barobar kichik.
+    splits {
+        abi {
+            isEnable = System.getenv("UI_TEST") != "1"
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
+        }
     }
     // Doimiy imzo: app/turfa.jks (yig'ishda shifrdan ochiladi). Bo'lmasa — debug (faqat sinov uchun).
     val ksFile = file("turfa.jks")

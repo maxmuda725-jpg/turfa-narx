@@ -3592,11 +3592,16 @@ class MainActivity : Activity() {
                 val tag = j.optString("tag_name")                         // "v1.45"
                 val num = tag.substringAfterLast('.').toIntOrNull() ?: 0
                 val assets = j.optJSONArray("assets")
-                var url = ""
+                // Telefon protsessoriga mos APK: arm64 — TURFA-Narxlar.apk, eski 32-bit — TURFA-Narxlar-32bit.apk
+                val want = if (android.os.Build.SUPPORTED_ABIS.contains("arm64-v8a")) "TURFA-Narxlar.apk" else "TURFA-Narxlar-32bit.apk"
+                var url = ""; var any = ""
                 for (i in 0 until (assets?.length() ?: 0)) {
                     val a = assets!!.getJSONObject(i)
-                    if (a.optString("name").endsWith(".apk")) url = a.optString("browser_download_url")
+                    val n = a.optString("name")
+                    if (n == want) url = a.optString("browser_download_url")
+                    else if (n.endsWith(".apk") && any.isEmpty()) any = a.optString("browser_download_url")
                 }
+                if (url.isEmpty()) url = any
                 Result.success(Triple(num, tag, url))
             } catch (e: Exception) { Result.failure(e) }
             main.post {
